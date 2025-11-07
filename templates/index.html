@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoover Web GUI - WiFi Security Tools</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🔍 Hoover Web GUI</h1>
+            <p class="subtitle">WiFi Security Testing Toolkit</p>
+            <div class="warning-banner">
+                ⚠️ AUTHORIZED TESTING ONLY - Use only on networks you own or have permission to test
+            </div>
+        </header>
+
+        <!-- System Status -->
+        <section class="system-status">
+            <div class="status-card">
+                <h3>System Resources</h3>
+                <div class="stat">
+                    <span>CPU:</span>
+                    <span id="cpu-usage">--%</span>
+                </div>
+                <div class="stat">
+                    <span>Memory:</span>
+                    <span id="memory-usage">--%</span>
+                </div>
+            </div>
+            <div class="status-card">
+                <h3>Network Interfaces</h3>
+                <div id="interfaces-list">Loading...</div>
+            </div>
+            <div class="status-card">
+                <h3>SSID Files</h3>
+                <div id="ssid-files-list">Loading...</div>
+            </div>
+        </section>
+
+        <!-- Tools Section -->
+        <section class="tools">
+            <!-- Probe Request Monitor -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>📡 Probe Request Monitor</h2>
+                    <span class="status-badge" id="monitor-status">Stopped</span>
+                </div>
+                <p class="tool-description">Capture and display WiFi probe requests from nearby devices</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="monitor-interface">Interface:</label>
+                        <select id="monitor-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="monitor-verbose">
+                            Verbose output
+                        </label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="monitor-start">Start Monitor</button>
+                        <button class="btn btn-stop" id="monitor-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SSID Generator -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>📢 SSID Generator</h2>
+                    <span class="status-badge" id="generator-status">Stopped</span>
+                </div>
+                <p class="tool-description">Broadcast custom SSIDs from a text file</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="generator-interface">Interface:</label>
+                        <select id="generator-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="generator-file">SSID File:</label>
+                        <select id="generator-file">
+                            <option value="">Select file...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="generator-interval">Interval (s):</label>
+                            <input type="number" id="generator-interval" value="0.1" step="0.1" min="0.01">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="generator-channel">Channel:</label>
+                            <input type="number" id="generator-channel" value="6" min="1" max="13">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="generator-continuous">
+                            Continuous broadcast
+                        </label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="generator-start">Start Generator</button>
+                        <button class="btn btn-stop" id="generator-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SSID Capturer -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>🎯 SSID Capturer (Rogue AP)</h2>
+                    <span class="status-badge" id="capturer-status">Stopped</span>
+                </div>
+                <p class="tool-description">Create rogue access point and capture traffic from connecting clients</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="capturer-interface">Interface:</label>
+                        <select id="capturer-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="capturer-file">SSID File:</label>
+                        <select id="capturer-file">
+                            <option value="">Select file...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="capturer-rotate">
+                                Rotate SSIDs
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="capturer-ssid-group">
+                        <label for="capturer-ssid">SSID:</label>
+                        <input type="text" id="capturer-ssid" placeholder="Enter SSID name">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="capturer-duration">Duration (s):</label>
+                            <input type="number" id="capturer-duration" value="300" min="10">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="capturer-channel">Channel:</label>
+                            <input type="number" id="capturer-channel" value="6" min="1" max="13">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="capturer-encryption">Encryption:</label>
+                        <select id="capturer-encryption">
+                            <option value="">Open (None)</option>
+                            <option value="wpa2">WPA2</option>
+                            <option value="wep">WEP</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="capturer-password-group" style="display: none;">
+                        <label for="capturer-password">Password:</label>
+                        <input type="password" id="capturer-password" placeholder="Network password">
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="capturer-internet">
+                            Enable internet sharing
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="capturer-upstream-group" style="display: none;">
+                        <label for="capturer-upstream">Upstream Interface:</label>
+                        <input type="text" id="capturer-upstream" placeholder="e.g., eth0">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="capturer-start">Start Capturer</button>
+                        <button class="btn btn-stop" id="capturer-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Logs Section -->
+        <section class="logs-section">
+            <div class="logs-header">
+                <h2>📋 Activity Log</h2>
+                <button class="btn btn-clear" id="clear-logs">Clear</button>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <div class="log-entry system">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-tool">[SYSTEM]</span>
+                    <span class="log-message">Hoover Web GUI started - Waiting for activity...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Captures Section -->
+        <section class="captures-section">
+            <div class="captures-header">
+                <h2>💾 Captured Files</h2>
+                <button class="btn btn-refresh" id="refresh-captures">Refresh</button>
+            </div>
+            <div class="captures-list" id="captures-list">
+                <p class="empty-message">No captures yet. Start the SSID Capturer to record traffic.</p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p>Hoover WiFi Security Toolkit &copy; 2024</p>
+            <p class="footer-warning">For authorized security testing and research only</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

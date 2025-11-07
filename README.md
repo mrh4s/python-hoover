@@ -6,6 +6,7 @@ Hoover is a powerful WiFi probe request monitoring tool for Kali Linux and other
 - **Probe Request Monitoring** (`hoover.py`): Captures and displays WiFi probe requests from nearby devices
 - **SSID Generator** (`ssid_generator.py`): Broadcasts custom SSIDs from a text file for testing and research
 - **SSID Capturer** (`ssid_capturer.py`): Creates rogue access points and captures traffic from connecting clients
+- **Web GUI** (`hoover_web.py`): Modern dark-themed web interface to control all tools from your browser
 
 ## Requirements
 
@@ -32,10 +33,48 @@ sudo apt-get install hostapd dnsmasq tcpdump iptables
 ```bash
 git clone https://github.com/yourusername/python-hoover.git
 cd python-hoover
-pip install scapy
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Or install manually
+pip install scapy flask flask-socketio psutil
 ```
 
 ## Usage
+
+### Web GUI (Recommended)
+
+The easiest way to use Hoover is through the web interface:
+
+```bash
+# Start the web server (requires root for full functionality)
+sudo python3 hoover_web.py
+```
+
+Then open your browser to: **http://127.0.0.1:5000**
+
+#### Web GUI Features
+
+- 🎨 **Modern Dark Theme**: Easy on the eyes during long testing sessions
+- 📊 **Real-time Dashboard**: Monitor system resources and tool status
+- 🎛️ **Unified Control Panel**: Start/stop all tools from one interface
+- 📝 **Live Logging**: Real-time output from all running tools
+- 💾 **Capture Management**: View and download captured .pcap files
+- 📱 **Responsive Design**: Works on desktop and tablet devices
+
+#### Web GUI Screenshot
+
+The interface provides:
+- **Probe Request Monitor**: Start/stop monitoring with interface selection
+- **SSID Generator**: Configure and broadcast SSIDs with custom settings
+- **SSID Capturer**: Set up rogue APs with encryption and internet sharing
+- **Activity Log**: Real-time logs with color-coded tool identifiers
+- **Capture Files**: Download and manage captured traffic
+
+### Command-Line Tools
+
+If you prefer command-line usage or need to script operations:
 
 ### Hoover - Probe Request Monitor
 
