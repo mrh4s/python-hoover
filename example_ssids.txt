@@ -1,0 +1,33 @@
+# Example SSID List for SSID Generator
+# Lines starting with # are comments
+# One SSID per line
+
+# Common public WiFi networks
+Starbucks WiFi
+McDonalds Free WiFi
+Airport-Guest
+Hotel-Guest-WiFi
+CoffeeShop-Public
+
+# Corporate/Enterprise networks
+CompanyName-Corporate
+OFFICE-SECURE
+Enterprise-WiFi
+Building-Guest
+
+# Home network examples
+HOME-NETWORK
+MyHomeWiFi
+FamilyNetwork
+Apartment-3B
+
+# Generic/Test SSIDs
+TestNetwork
+Guest-Network
+Public-Access
+Free-WiFi
+
+# International examples
+CafeLibre-WiFi
+Hotel-Internet
+Restaurant-Guest
