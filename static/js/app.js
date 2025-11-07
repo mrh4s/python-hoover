@@ -28,6 +28,10 @@ function initializeEventListeners() {
     document.getElementById('capturer-start').addEventListener('click', startCapturer);
     document.getElementById('capturer-stop').addEventListener('click', stopCapturer);
 
+    // Deauth controls
+    document.getElementById('deauth-start').addEventListener('click', startDeauth);
+    document.getElementById('deauth-stop').addEventListener('click', stopDeauth);
+
     // Capturer rotation checkbox
     document.getElementById('capturer-rotate').addEventListener('change', (e) => {
         document.getElementById('capturer-ssid-group').style.display =
@@ -123,6 +127,7 @@ function updateUI(data) {
     updateToolStatus('monitor', data.status.monitor);
     updateToolStatus('generator', data.status.generator);
     updateToolStatus('capturer', data.status.capturer);
+    updateToolStatus('deauth', data.status.deauth);
 
     // Update captures
     updateCapturesList(data.captures);
@@ -149,7 +154,7 @@ function updateInterfacesList(interfaces) {
 
 // Populate interface select dropdowns
 function populateInterfaceSelects(interfaces) {
-    const selects = ['monitor-interface', 'generator-interface', 'capturer-interface'];
+    const selects = ['monitor-interface', 'generator-interface', 'capturer-interface', 'deauth-interface'];
 
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -372,6 +377,63 @@ async function stopCapturer() {
 
     if (!result.success) {
         alert(`Failed to stop capturer: ${result.error}`);
+    }
+}
+
+async function startDeauth() {
+    const interface_name = document.getElementById('deauth-interface').value;
+    const target_bssid = document.getElementById('deauth-bssid').value;
+    const target_client = document.getElementById('deauth-client').value;
+    const channel = document.getElementById('deauth-channel').value;
+    const count = parseInt(document.getElementById('deauth-count').value);
+
+    if (!interface_name) {
+        alert('Please select an interface');
+        return;
+    }
+
+    if (!target_bssid) {
+        alert('Please enter target BSSID (AP MAC address)');
+        return;
+    }
+
+    // Validate MAC address format
+    const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+    if (!macRegex.test(target_bssid)) {
+        alert('Invalid BSSID format. Use format: 00:11:22:33:44:55');
+        return;
+    }
+
+    if (target_client && !macRegex.test(target_client)) {
+        alert('Invalid client MAC format. Use format: AA:BB:CC:DD:EE:FF');
+        return;
+    }
+
+    // Confirmation dialog
+    if (!confirm('⚠️ AUTHORIZATION REQUIRED\n\nThis tool sends deauthentication frames to disconnect WiFi clients.\n\nOnly proceed if you have written authorization to test this network.\n\nUnauthorized use may be illegal.\n\nDo you confirm you have authorization?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/deauth/start', 'POST', {
+        interface: interface_name,
+        target_bssid: target_bssid,
+        target_client: target_client || null,
+        channel: channel ? parseInt(channel) : null,
+        count: count || 0
+    });
+
+    if (result.success) {
+        addLog('deauth', `Attack started on ${interface_name} targeting ${target_bssid}`);
+    } else {
+        alert(`Failed to start deauth attack: ${result.error}`);
+    }
+}
+
+async function stopDeauth() {
+    const result = await apiCall('/api/deauth/stop', 'POST');
+
+    if (!result.success) {
+        alert(`Failed to stop deauth attack: ${result.error}`);
     }
 }
 

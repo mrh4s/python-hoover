@@ -25,7 +25,8 @@ active_processes = {}
 tool_status = {
     'monitor': {'running': False, 'pid': None, 'interface': None},
     'generator': {'running': False, 'pid': None, 'interface': None},
-    'capturer': {'running': False, 'pid': None, 'interface': None}
+    'capturer': {'running': False, 'pid': None, 'interface': None},
+    'deauth': {'running': False, 'pid': None, 'interface': None, 'target_bssid': None}
 }
 
 class ProcessMonitor:
@@ -260,7 +261,11 @@ def api_monitor_stop():
         process = active_processes.get('monitor')
         if process:
             process.terminate()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
 
         tool_status['monitor']['running'] = False
         tool_status['monitor']['pid'] = None
@@ -325,7 +330,11 @@ def api_generator_stop():
         process = active_processes.get('generator')
         if process:
             process.terminate()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
 
         tool_status['generator']['running'] = False
         tool_status['generator']['pid'] = None
@@ -415,7 +424,11 @@ def api_capturer_stop():
         process = active_processes.get('capturer')
         if process:
             process.terminate()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
 
         # Cleanup
         subprocess.run(['killall', 'hostapd'], capture_output=True)
@@ -432,11 +445,100 @@ def api_capturer_stop():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/deauth/start', methods=['POST'])
+def api_deauth_start():
+    """Start deauth attack"""
+    if tool_status['deauth']['running']:
+        return jsonify({'success': False, 'error': 'Deauth attack already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    target_bssid = data.get('target_bssid')
+    target_client = data.get('target_client')
+    channel = data.get('channel')
+    count = data.get('count', 0)
+
+    if not interface or not target_bssid:
+        return jsonify({'success': False, 'error': 'Interface and target BSSID required'})
+
+    try:
+        cmd = ['python3', 'deauth.py', '-i', interface, '-b', target_bssid]
+
+        if target_client:
+            cmd.extend(['-c', target_client])
+
+        if channel:
+            cmd.extend(['-ch', str(channel)])
+
+        if count > 0:
+            cmd.extend(['-n', str(count)])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  stdin=subprocess.PIPE)
+
+        # Auto-confirm authorization (user already confirmed in web GUI)
+        process.stdin.write(b'yes\n')
+        process.stdin.flush()
+
+        tool_status['deauth']['running'] = True
+        tool_status['deauth']['pid'] = process.pid
+        tool_status['deauth']['interface'] = interface
+        tool_status['deauth']['target_bssid'] = target_bssid
+
+        active_processes['deauth'] = process
+
+        # Start monitoring output
+        monitor = ProcessMonitor('deauth', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('deauth', f'Deauth attack started on {interface} targeting {target_bssid}')
+
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/deauth/stop', methods=['POST'])
+def api_deauth_stop():
+    """Stop deauth attack"""
+    if not tool_status['deauth']['running']:
+        return jsonify({'success': False, 'error': 'Deauth attack not running'})
+
+    try:
+        process = active_processes.get('deauth')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+        tool_status['deauth']['running'] = False
+        tool_status['deauth']['pid'] = None
+        tool_status['deauth']['interface'] = None
+        tool_status['deauth']['target_bssid'] = None
+
+        emit_log('deauth', 'Deauth attack stopped')
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/ssid-file/<filename>')
 def api_ssid_file(filename):
     """Get SSID file contents"""
     try:
-        with open(filename, 'r') as f:
+        # Prevent path traversal attacks
+        if '/' in filename or '\\' in filename or filename.startswith('.'):
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+        filepath = Path('.') / filename
+        if not filepath.exists() or not filepath.is_file():
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        with open(filepath, 'r') as f:
             content = f.read()
         return jsonify({'success': True, 'content': content})
     except Exception as e:
@@ -446,10 +548,15 @@ def api_ssid_file(filename):
 def api_ssid_file_save(filename):
     """Save SSID file"""
     try:
+        # Prevent path traversal attacks
+        if '/' in filename or '\\' in filename or filename.startswith('.'):
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
         data = request.json
         content = data.get('content', '')
 
-        with open(filename, 'w') as f:
+        filepath = Path('.') / filename
+        with open(filepath, 'w') as f:
             f.write(content)
 
         emit_log('system', f'SSID file {filename} saved')
@@ -461,7 +568,15 @@ def api_ssid_file_save(filename):
 def api_capture_download(filename):
     """Download capture file"""
     try:
+        # Prevent path traversal attacks
+        if '/' in filename or '\\' in filename or filename.startswith('.'):
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
         filepath = Path('./captures') / filename
+        # Ensure the resolved path is within captures directory
+        if not filepath.resolve().parent == Path('./captures').resolve():
+            return jsonify({'success': False, 'error': 'Invalid file path'}), 400
+
         if filepath.exists():
             return send_file(filepath, as_attachment=True)
         else:

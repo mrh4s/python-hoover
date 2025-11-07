@@ -203,6 +203,51 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Deauth Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>⚡ Deauth Attack</h2>
+                    <span class="status-badge" id="deauth-status">Stopped</span>
+                </div>
+                <p class="tool-description">Send deauthentication frames to disconnect clients from access points</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="deauth-interface">Interface:</label>
+                        <select id="deauth-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deauth-bssid">Target BSSID (AP MAC):</label>
+                        <input type="text" id="deauth-bssid" placeholder="00:11:22:33:44:55">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deauth-client">Target Client MAC (optional):</label>
+                        <input type="text" id="deauth-client" placeholder="AA:BB:CC:DD:EE:FF (leave empty for all clients)">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="deauth-channel">Channel (optional):</label>
+                            <input type="number" id="deauth-channel" placeholder="Auto" min="1" max="13">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="deauth-count">Burst Count:</label>
+                            <input type="number" id="deauth-count" value="0" min="0" placeholder="0 = continuous">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="deauth-start">Start Attack</button>
+                        <button class="btn btn-stop" id="deauth-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Logs Section -->
