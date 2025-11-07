@@ -219,7 +219,7 @@ bind-interfaces
                           '-o', self.interface, '-m', 'state', '--state',
                           'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
                           capture_output=True)
-        except:
+        except (subprocess.CalledProcessError, FileNotFoundError, Exception):
             pass
 
     def start_packet_capture(self, ssid):
@@ -359,7 +359,7 @@ bind-interfaces
                 proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 proc.kill()
-            except:
+            except (ProcessLookupError, Exception):
                 pass
 
         # Cleanup internet sharing
