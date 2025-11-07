@@ -79,8 +79,8 @@ def get_network_interfaces():
     interfaces = []
     try:
         # Try using iwconfig first
-        result = subprocess.run(['iwconfig'], capture_output=True, text=True,
-                              stderr=subprocess.STDOUT, timeout=5)
+        result = subprocess.run(['iwconfig'], stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, timeout=5)
         lines = result.stdout.split('\n')
 
         for line in lines:
