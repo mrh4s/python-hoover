@@ -78,20 +78,85 @@ def get_network_interfaces():
     """Get list of wireless interfaces"""
     interfaces = []
     try:
-        result = subprocess.run(['iwconfig'], capture_output=True, text=True, stderr=subprocess.STDOUT)
+        # Try using iwconfig first
+        result = subprocess.run(['iwconfig'], capture_output=True, text=True,
+                              stderr=subprocess.STDOUT, timeout=5)
         lines = result.stdout.split('\n')
 
         for line in lines:
-            if line and not line.startswith(' '):
-                iface = line.split()[0]
-                if iface != 'lo':
-                    # Check mode
-                    mode = 'Managed'
-                    if 'Mode:Monitor' in line:
+            # Skip empty lines, indented lines, and lines with "no wireless extensions"
+            if not line or line.startswith(' ') or line.startswith('\t'):
+                continue
+
+            if 'no wireless extensions' in line.lower():
+                continue
+
+            parts = line.split()
+            if not parts:
+                continue
+
+            iface = parts[0]
+
+            # Skip loopback
+            if iface == 'lo':
+                continue
+
+            # Determine mode (might be on this line or subsequent lines)
+            mode = 'Managed'
+            if 'Mode:Monitor' in line or 'monitor' in line.lower():
+                mode = 'Monitor'
+
+            interfaces.append({'name': iface, 'mode': mode})
+
+    except FileNotFoundError:
+        # iwconfig not found, try fallback method
+        return get_network_interfaces_fallback()
+    except Exception as e:
+        print(f"[!] Error getting interfaces with iwconfig: {e}")
+        return get_network_interfaces_fallback()
+
+    # If no interfaces found with iwconfig, try fallback
+    if not interfaces:
+        return get_network_interfaces_fallback()
+
+    return interfaces
+
+def get_network_interfaces_fallback():
+    """Fallback method to get network interfaces using /sys/class/net"""
+    interfaces = []
+    try:
+        net_dir = Path('/sys/class/net')
+        if not net_dir.exists():
+            print("[!] /sys/class/net not found")
+            return []
+
+        for iface_dir in net_dir.iterdir():
+            iface_name = iface_dir.name
+
+            # Skip loopback
+            if iface_name == 'lo':
+                continue
+
+            # Check if it's a wireless interface
+            wireless_dir = iface_dir / 'wireless'
+            phy80211_dir = iface_dir / 'phy80211'
+
+            if wireless_dir.exists() or phy80211_dir.exists():
+                # Determine mode by checking with iw command
+                mode = 'Managed'
+                try:
+                    result = subprocess.run(['iw', 'dev', iface_name, 'info'],
+                                          capture_output=True, text=True, timeout=2)
+                    if 'type monitor' in result.stdout.lower():
                         mode = 'Monitor'
-                    interfaces.append({'name': iface, 'mode': mode})
-    except:
-        pass
+                except:
+                    # If iw fails, default to Managed mode
+                    pass
+
+                interfaces.append({'name': iface_name, 'mode': mode})
+
+    except Exception as e:
+        print(f"[!] Error in fallback interface discovery: {e}")
 
     return interfaces
 
