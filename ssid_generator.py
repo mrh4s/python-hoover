@@ -9,6 +9,8 @@ import sys
 import os
 import argparse
 import time
+import subprocess
+import shlex
 from scapy.all import *
 
 class SSIDGenerator:
@@ -75,8 +77,30 @@ class SSIDGenerator:
     def set_channel(self):
         """Set the wireless interface to the specified channel"""
         try:
-            os.system(f"iwconfig {self.interface} channel {self.channel} 2>/dev/null")
-            print(f"[+] Set {self.interface} to channel {self.channel}")
+            # Validate interface name to prevent command injection
+            if not self.interface.replace('-', '').replace('_', '').isalnum():
+                raise ValueError(f"Invalid interface name: {self.interface}")
+
+            # Validate channel number
+            if not isinstance(self.channel, int) or self.channel < 1 or self.channel > 14:
+                raise ValueError(f"Invalid channel: {self.channel}")
+
+            # Use subprocess.run instead of os.system to prevent command injection
+            result = subprocess.run(
+                ['iwconfig', self.interface, 'channel', str(self.channel)],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+                print(f"[+] Set {self.interface} to channel {self.channel}")
+            else:
+                print(f"[!] Warning: Could not set channel: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            print(f"[!] Warning: Timeout setting channel")
+        except ValueError as e:
+            print(f"[!] Error: {e}")
         except Exception as e:
             print(f"[!] Warning: Could not set channel: {e}")
 
@@ -136,11 +160,21 @@ class SSIDGenerator:
 def check_monitor_mode(interface):
     """Check if interface is in monitor mode"""
     try:
-        result = os.popen(f'iwconfig {interface} 2>/dev/null').read()
-        if 'Mode:Monitor' in result:
+        # Validate interface name to prevent command injection
+        if not interface.replace('-', '').replace('_', '').isalnum():
+            return False
+
+        result = subprocess.run(
+            ['iwconfig', interface],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if 'Mode:Monitor' in result.stdout:
             return True
         return False
-    except:
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
         return False
 
 def main():

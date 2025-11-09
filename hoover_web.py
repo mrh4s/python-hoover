@@ -15,17 +15,21 @@ import time
 from datetime import datetime
 from pathlib import Path
 import psutil
+import secrets
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'hoover-secret-key-change-in-production'
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Generate a secure random secret key
+app.config['SECRET_KEY'] = secrets.token_hex(32)
+# Restrict CORS to localhost only for security
+socketio = SocketIO(app, cors_allowed_origins=["http://127.0.0.1:5000", "http://localhost:5000"])
 
 # Global state
 active_processes = {}
 tool_status = {
     'monitor': {'running': False, 'pid': None, 'interface': None},
     'generator': {'running': False, 'pid': None, 'interface': None},
-    'capturer': {'running': False, 'pid': None, 'interface': None}
+    'capturer': {'running': False, 'pid': None, 'interface': None},
+    'deauth': {'running': False, 'pid': None, 'interface': None}
 }
 
 class ProcessMonitor:
@@ -149,7 +153,7 @@ def get_network_interfaces_fallback():
                                           capture_output=True, text=True, timeout=2)
                     if 'type monitor' in result.stdout.lower():
                         mode = 'Monitor'
-                except:
+                except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError, Exception):
                     # If iw fails, default to Managed mode
                     pass
 
@@ -432,36 +436,183 @@ def api_capturer_stop():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/deauth/start', methods=['POST'])
+def api_deauth_start():
+    """Start deauthentication attack"""
+    if tool_status['deauth']['running']:
+        return jsonify({'success': False, 'error': 'Deauth attack already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    bssid = data.get('bssid')
+    client = data.get('client', 'ff:ff:ff:ff:ff:ff')
+    count = data.get('count', 10)
+    delay = data.get('delay', 0.1)
+    channel = data.get('channel')
+    continuous = data.get('continuous', False)
+
+    # Validate required parameters
+    if not interface or not bssid:
+        return jsonify({'success': False, 'error': 'Interface and BSSID required'})
+
+    # Validate MAC addresses
+    def is_valid_mac(mac):
+        if not mac:
+            return False
+        parts = mac.split(':')
+        if len(parts) != 6:
+            return False
+        try:
+            for part in parts:
+                if len(part) != 2:
+                    return False
+                int(part, 16)
+            return True
+        except ValueError:
+            return False
+
+    if not is_valid_mac(bssid):
+        return jsonify({'success': False, 'error': 'Invalid BSSID format'})
+
+    if not is_valid_mac(client):
+        return jsonify({'success': False, 'error': 'Invalid client MAC format'})
+
+    try:
+        cmd = ['python3', 'deauth.py', '-i', interface, '-b', bssid]
+
+        if client and client.lower() != 'ff:ff:ff:ff:ff:ff':
+            cmd.extend(['-c', client])
+
+        if continuous:
+            cmd.append('--continuous')
+        else:
+            cmd.extend(['-n', str(count)])
+
+        cmd.extend(['-d', str(delay)])
+
+        if channel:
+            cmd.extend(['-ch', str(channel)])
+
+        # Start process with auto-confirmation
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  stdin=subprocess.PIPE)
+
+        # Auto-confirm authorization (user already confirmed in web GUI)
+        process.stdin.write(b'yes\n')
+        process.stdin.flush()
+
+        tool_status['deauth']['running'] = True
+        tool_status['deauth']['pid'] = process.pid
+        tool_status['deauth']['interface'] = interface
+
+        active_processes['deauth'] = process
+
+        # Start monitoring output
+        monitor = ProcessMonitor('deauth', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('deauth', f'Deauth attack started on {interface} targeting {bssid}')
+
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/deauth/stop', methods=['POST'])
+def api_deauth_stop():
+    """Stop deauthentication attack"""
+    if not tool_status['deauth']['running']:
+        return jsonify({'success': False, 'error': 'Deauth attack not running'})
+
+    try:
+        process = active_processes.get('deauth')
+        if process:
+            process.terminate()
+            process.wait(timeout=5)
+
+        tool_status['deauth']['running'] = False
+        tool_status['deauth']['pid'] = None
+        tool_status['deauth']['interface'] = None
+
+        emit_log('deauth', 'Deauth attack stopped')
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/ssid-file/<filename>')
 def api_ssid_file(filename):
     """Get SSID file contents"""
     try:
-        with open(filename, 'r') as f:
+        # Validate filename to prevent path traversal
+        if not filename or '/' in filename or '\\' in filename or '..' in filename:
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+        # Only allow .txt files
+        if not filename.endswith('.txt'):
+            return jsonify({'success': False, 'error': 'Only .txt files are allowed'}), 400
+
+        # Use Path to safely resolve the file
+        filepath = Path('.') / filename
+        # Ensure the resolved path is in the current directory
+        if not filepath.resolve().parent == Path('.').resolve():
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+
+        with open(filepath, 'r') as f:
             content = f.read()
         return jsonify({'success': True, 'content': content})
+    except FileNotFoundError:
+        return jsonify({'success': False, 'error': 'File not found'}), 404
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/ssid-file/<filename>', methods=['POST'])
 def api_ssid_file_save(filename):
     """Save SSID file"""
     try:
+        # Validate filename to prevent path traversal
+        if not filename or '/' in filename or '\\' in filename or '..' in filename:
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+        # Only allow .txt files
+        if not filename.endswith('.txt'):
+            return jsonify({'success': False, 'error': 'Only .txt files are allowed'}), 400
+
+        # Use Path to safely resolve the file
+        filepath = Path('.') / filename
+        # Ensure the resolved path is in the current directory
+        if not filepath.resolve().parent == Path('.').resolve():
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+
         data = request.json
         content = data.get('content', '')
 
-        with open(filename, 'w') as f:
+        with open(filepath, 'w') as f:
             f.write(content)
 
         emit_log('system', f'SSID file {filename} saved')
         return jsonify({'success': True})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/capture/<filename>')
 def api_capture_download(filename):
     """Download capture file"""
     try:
+        # Validate filename to prevent path traversal
+        if not filename or '/' in filename or '\\' in filename or '..' in filename:
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+        # Only allow .pcap files
+        if not filename.endswith('.pcap'):
+            return jsonify({'success': False, 'error': 'Only .pcap files are allowed'}), 400
+
         filepath = Path('./captures') / filename
+        # Ensure the resolved path is in the captures directory
+        if not filepath.resolve().parent == Path('./captures').resolve():
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+
         if filepath.exists():
             return send_file(filepath, as_attachment=True)
         else:
@@ -516,7 +667,7 @@ def main():
             try:
                 process.terminate()
                 process.wait(timeout=3)
-            except:
+            except (subprocess.TimeoutExpired, ProcessLookupError, Exception):
                 pass
 
         print("[+] Goodbye!")
