@@ -1083,14 +1083,14 @@ def api_portal_start():
     if template not in ('default', 'hotel', 'coffee'):
         return jsonify({'success': False, 'error': 'Invalid template'}), 400
 
+    if not ssid or len(ssid) > 32 or any(ord(c) < 32 for c in ssid):
+        return jsonify({'success': False, 'error': 'Invalid SSID (max 32 chars, no control characters)'}), 400
+
     try:
         cmd = ['python3', 'captive_portal.py', '-i', interface, '-s', ssid,
                '-ch', str(channel), '-t', template]
 
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                  stdin=subprocess.PIPE)
-        process.stdin.write(b'yes\n')
-        process.stdin.flush()
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         with _state_lock:
             tool_status['portal']['running'] = True
@@ -1169,10 +1169,7 @@ def api_karma_start():
     try:
         cmd = ['python3', 'karma_attack.py', '-i', interface, '-ch', str(channel)]
 
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                  stdin=subprocess.PIPE)
-        process.stdin.write(b'yes\n')
-        process.stdin.flush()
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         with _state_lock:
             tool_status['karma']['running'] = True
