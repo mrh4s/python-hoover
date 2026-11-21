@@ -220,10 +220,12 @@ Note: Interface must be in monitor mode.
     args = parser.parse_args()
     require_root()
 
-    if args.filter_mac and not validate_mac(args.filter_mac):
-        logger = setup_logging("packet_replay")
-        logger.error("Invalid MAC format: %s", args.filter_mac)
-        sys.exit(1)
+    if args.filter_mac:
+        ok, err = validate_mac(args.filter_mac)
+        if not ok:
+            logger = setup_logging("packet_replay")
+            logger.error("Invalid MAC format: %s", args.filter_mac)
+            sys.exit(1)
 
     if not check_monitor_mode(args.interface):
         logger = setup_logging("packet_replay")

@@ -1322,6 +1322,20 @@ def api_packet_replay_start():
     if not ok:
         return jsonify({'success': False, 'error': err}), 400
 
+    if filter_type and filter_type not in ('beacon', 'probe', 'deauth', 'eapol', 'all'):
+        return jsonify({'success': False, 'error': 'Invalid filter type'}), 400
+
+    if pcap_file and (not isinstance(pcap_file, str) or '..' in pcap_file
+                      or pcap_file.startswith('/')):
+        return jsonify({'success': False, 'error': 'Invalid pcap file path'}), 400
+
+    try:
+        replay_count = max(1, min(int(replay_count), 100))
+        delay = max(0.0, min(float(delay), 10.0))
+        timeout = max(1, min(int(timeout), 600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid numeric parameter'}), 400
+
     try:
         cmd = ['python3', 'packet_replay.py', '-i', interface, '-c', str(replay_count),
                '-d', str(delay), '-t', str(timeout)]
@@ -1403,6 +1417,14 @@ def api_wps_attack_start():
     if not ok:
         return jsonify({'success': False, 'error': err}), 400
 
+    if method not in ('reaver', 'bully', 'pixie-dust'):
+        return jsonify({'success': False, 'error': 'Invalid method'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
     try:
         cmd = ['python3', 'wps_attack.py', '-i', interface, '-b', bssid,
                '-m', method, '-t', str(timeout)]
@@ -1475,6 +1497,10 @@ def api_network_mapper_start():
     if not ok:
         return jsonify({'success': False, 'error': err}), 400
 
+    if not isinstance(target_range, str) or not re.match(
+            r'^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$', target_range):
+        return jsonify({'success': False, 'error': 'Invalid target range (use CIDR notation)'}), 400
+
     try:
         cmd = ['python3', 'network_mapper.py', '-i', interface, '-r', target_range]
         if not port_scan:
@@ -1543,6 +1569,14 @@ def api_ble_scanner_start():
     scan_time = data.get('scan_time', 10)
     service_scan = data.get('service_scan', False)
     filter_name = data.get('filter_name')
+
+    try:
+        scan_time = max(1, min(int(scan_time), 120))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid scan time'}), 400
+
+    if filter_name and (not isinstance(filter_name, str) or len(filter_name) > 100):
+        return jsonify({'success': False, 'error': 'Invalid filter name'}), 400
 
     try:
         cmd = ['python3', 'ble_scanner.py', '-t', str(scan_time)]

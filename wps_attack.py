@@ -294,7 +294,8 @@ Note: Requires reaver and/or bully installed.
     args = parser.parse_args()
     require_root()
 
-    if not validate_mac(args.bssid):
+    ok, err = validate_mac(args.bssid)
+    if not ok:
         logger = setup_logging("wps_attack")
         logger.error("Invalid BSSID format: %s", args.bssid)
         sys.exit(1)

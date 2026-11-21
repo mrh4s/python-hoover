@@ -480,6 +480,212 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Packet Replay -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Packet Replay</h2>
+                    <span class="status-badge" id="packet-replay-status">Stopped</span>
+                </div>
+                <p class="tool-description">Capture and replay WiFi frames for authorized security testing</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="packet-replay-interface">Interface:</label>
+                        <select id="packet-replay-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="packet-replay-filter">Filter Type:</label>
+                        <select id="packet-replay-filter">
+                            <option value="">All packets</option>
+                            <option value="beacon">Beacon</option>
+                            <option value="probe">Probe Request</option>
+                            <option value="deauth">Deauth</option>
+                            <option value="eapol">EAPOL</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="packet-replay-timeout">Capture Timeout (s):</label>
+                        <input type="number" id="packet-replay-timeout" value="30" min="1" max="600">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="packet-replay-count">Replay Count:</label>
+                        <input type="number" id="packet-replay-count" value="1" min="1" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="packet-replay-delay">Delay (s):</label>
+                        <input type="number" id="packet-replay-delay" value="0.1" min="0" max="10" step="0.1">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="packet-replay-start">Start Replay</button>
+                        <button class="btn btn-stop" id="packet-replay-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WPS Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>WPS Attack</h2>
+                    <span class="status-badge" id="wps-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">WPS PIN brute force via reaver/bully/pixie-dust</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="wps-attack-interface">Interface:</label>
+                        <select id="wps-attack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wps-attack-bssid">Target BSSID:</label>
+                        <input type="text" id="wps-attack-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wps-attack-method">Method:</label>
+                        <select id="wps-attack-method">
+                            <option value="reaver">Reaver</option>
+                            <option value="bully">Bully</option>
+                            <option value="pixie-dust">Pixie Dust</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wps-attack-timeout">Timeout (s):</label>
+                        <input type="number" id="wps-attack-timeout" value="300" min="1" max="3600">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="wps-attack-start">Start WPS Attack</button>
+                        <button class="btn btn-stop" id="wps-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Mapper -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Network Mapper</h2>
+                    <span class="status-badge" id="network-mapper-status">Stopped</span>
+                </div>
+                <p class="tool-description">ARP scan and port discovery for network mapping</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="network-mapper-interface">Interface:</label>
+                        <select id="network-mapper-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="network-mapper-range">Target Range (CIDR):</label>
+                        <input type="text" id="network-mapper-range" value="192.168.1.0/24" placeholder="192.168.1.0/24">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="network-mapper-port-scan">
+                            <input type="checkbox" id="network-mapper-port-scan" checked>
+                            Enable Port Scan
+                        </label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="network-mapper-start">Start Scan</button>
+                        <button class="btn btn-stop" id="network-mapper-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BLE Scanner -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>BLE Scanner</h2>
+                    <span class="status-badge" id="ble-scanner-status">Stopped</span>
+                </div>
+                <p class="tool-description">Bluetooth Low Energy device discovery and GATT service enumeration</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="ble-scanner-time">Scan Time (s):</label>
+                        <input type="number" id="ble-scanner-time" value="10" min="1" max="120">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ble-scanner-services">
+                            <input type="checkbox" id="ble-scanner-services">
+                            Enumerate GATT Services
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ble-scanner-filter-name">Filter Name:</label>
+                        <input type="text" id="ble-scanner-filter-name" placeholder="e.g. SmartLight">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="ble-scanner-start">Start BLE Scan</button>
+                        <button class="btn btn-stop" id="ble-scanner-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pentest Workflow -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Automated Pentest</h2>
+                    <span class="status-badge" id="pentest-workflow-status">Stopped</span>
+                </div>
+                <p class="tool-description">Automated scan, deauth, handshake capture, and WPS check workflow</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="pentest-workflow-interface">Interface:</label>
+                        <select id="pentest-workflow-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pentest-workflow-bssid">Target BSSID (optional):</label>
+                        <input type="text" id="pentest-workflow-bssid" placeholder="Auto-select strongest WPA AP">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pentest-workflow-timeout">Timeout (s):</label>
+                        <input type="number" id="pentest-workflow-timeout" value="300" min="1" max="3600">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pentest-workflow-no-deauth">
+                            <input type="checkbox" id="pentest-workflow-no-deauth">
+                            Passive mode (no deauth)
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pentest-workflow-skip-wps">
+                            <input type="checkbox" id="pentest-workflow-skip-wps">
+                            Skip WPS check
+                        </label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="pentest-workflow-start">Start Pentest</button>
+                        <button class="btn btn-stop" id="pentest-workflow-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Logs Section -->
