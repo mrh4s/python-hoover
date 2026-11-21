@@ -15,80 +15,88 @@ from datetime import datetime
 from pathlib import Path
 import threading
 import shutil
+from typing import Optional
+
+from utils import require_root, setup_logging, validate_interface, load_ssids
+
+
+# Module-level flag for graceful shutdown (replaces sys.exit in signal handler)
+_shutdown_requested: bool = False
+
 
 class SSIDCapturer:
-    def __init__(self, interface, ssid_file, output_dir, channel=6,
-                 encryption=None, password=None, internet_share=False,
-                 upstream_interface=None):
-        self.interface = interface
-        self.ssid_file = ssid_file
-        self.output_dir = Path(output_dir)
-        self.channel = channel
-        self.encryption = encryption
-        self.password = password
-        self.internet_share = internet_share
-        self.upstream_interface = upstream_interface
-        self.ssids = []
-        self.current_ssid = None
-        self.processes = []
-        self.capture_process = None
+    def __init__(self, interface: str, ssid_file: str, output_dir: str,
+                 channel: int = 6, encryption: Optional[str] = None,
+                 password: Optional[str] = None, internet_share: bool = False,
+                 upstream_interface: Optional[str] = None) -> None:
+        self.interface: str = interface
+        self.ssid_file: str = ssid_file
+        self.output_dir: Path = Path(output_dir)
+        self.channel: int = channel
+        self.encryption: Optional[str] = encryption
+        self.password: Optional[str] = password
+        self.internet_share: bool = internet_share
+        self.upstream_interface: Optional[str] = upstream_interface
+        self.ssids: list[str] = []
+        self.current_ssid: Optional[str] = None
+        self.processes: list[subprocess.Popen] = []
+        self.capture_process: Optional[subprocess.Popen] = None
+        self.logger = setup_logging("ssid_capturer")
 
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file = self.output_dir / "capture_log.txt"
-        self.clients_file = self.output_dir / "connected_clients.txt"
+        self.log_file: Path = self.output_dir / "capture_log.txt"
+        self.clients_file: Path = self.output_dir / "connected_clients.txt"
 
-    def log(self, message):
-        """Log message to file and console"""
+    def log(self, message: str) -> None:
+        """Log message to file and console."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_msg = f"[{timestamp}] {message}"
-        print(log_msg)
+        self.logger.info(message)
 
         with open(self.log_file, 'a') as f:
             f.write(log_msg + "\n")
 
-    def check_dependencies(self):
-        """Check if required tools are installed"""
-        required = ['hostapd', 'dnsmasq', 'tcpdump', 'iptables']
-        missing = []
+    def check_dependencies(self) -> bool:
+        """Check if required tools are installed."""
+        required: list[str] = ['hostapd', 'dnsmasq', 'tcpdump', 'iptables']
+        missing: list[str] = []
 
         for tool in required:
             if not shutil.which(tool):
                 missing.append(tool)
 
         if missing:
-            print("[!] Missing required tools:")
+            self.logger.error("Missing required tools:")
             for tool in missing:
-                print(f"    - {tool}")
-            print("\n[!] Install with: sudo apt-get install " + " ".join(missing))
+                self.logger.error("    - %s", tool)
+            self.logger.error("Install with: sudo apt-get install %s", " ".join(missing))
             return False
 
         return True
 
-    def load_ssids(self):
-        """Load SSIDs from text file"""
+    def load_ssids_from_file(self) -> bool:
+        """Load SSIDs from text file."""
         try:
-            with open(self.ssid_file, 'r', encoding='utf-8') as f:
-                self.ssids = [line.strip() for line in f
-                             if line.strip() and not line.startswith('#')]
+            self.ssids = load_ssids(self.ssid_file)
 
             if not self.ssids:
-                print("[!] No SSIDs found in file")
+                self.logger.error("No SSIDs found in file")
                 return False
 
             self.log(f"Loaded {len(self.ssids)} SSIDs from {self.ssid_file}")
             return True
 
         except FileNotFoundError:
-            print(f"[!] Error: File '{self.ssid_file}' not found")
+            self.logger.error("File '%s' not found", self.ssid_file)
             return False
         except Exception as e:
-            print(f"[!] Error loading SSIDs: {e}")
+            self.logger.error("Error loading SSIDs: %s", e)
             return False
 
-    def create_hostapd_config(self, ssid):
-        """Create hostapd configuration file"""
-        config_file = self.output_dir / "hostapd.conf"
+    def create_hostapd_config(self, ssid: str) -> Path:
+        """Create hostapd configuration file."""
+        config_file: Path = self.output_dir / "hostapd.conf"
 
         config = f"""# Hostapd configuration
 interface={self.interface}
@@ -124,9 +132,9 @@ wep_key0="{self.password}"
 
         return config_file
 
-    def create_dnsmasq_config(self):
-        """Create dnsmasq configuration for DHCP"""
-        config_file = self.output_dir / "dnsmasq.conf"
+    def create_dnsmasq_config(self) -> Path:
+        """Create dnsmasq configuration for DHCP."""
+        config_file: Path = self.output_dir / "dnsmasq.conf"
 
         config = f"""# DNSMASQ configuration
 interface={self.interface}
@@ -144,24 +152,24 @@ bind-interfaces
 
         return config_file
 
-    def setup_interface(self):
-        """Configure network interface"""
+    def setup_interface(self) -> bool:
+        """Configure network interface."""
         self.log(f"Configuring interface {self.interface}")
 
         try:
             # Bring interface down
             subprocess.run(['ip', 'link', 'set', self.interface, 'down'],
-                          check=True, capture_output=True)
+                           check=True, capture_output=True)
 
             # Set IP address
             subprocess.run(['ip', 'addr', 'flush', 'dev', self.interface],
-                          check=True, capture_output=True)
+                           check=True, capture_output=True)
             subprocess.run(['ip', 'addr', 'add', '10.0.0.1/24', 'dev', self.interface],
-                          check=True, capture_output=True)
+                           check=True, capture_output=True)
 
             # Bring interface up
             subprocess.run(['ip', 'link', 'set', self.interface, 'up'],
-                          check=True, capture_output=True)
+                           check=True, capture_output=True)
 
             self.log("Interface configured successfully")
             return True
@@ -170,8 +178,8 @@ bind-interfaces
             self.log(f"Error configuring interface: {e}")
             return False
 
-    def setup_internet_sharing(self):
-        """Setup internet forwarding (NAT)"""
+    def setup_internet_sharing(self) -> bool:
+        """Setup internet forwarding (NAT)."""
         if not self.internet_share or not self.upstream_interface:
             return True
 
@@ -180,21 +188,21 @@ bind-interfaces
         try:
             # Enable IP forwarding
             subprocess.run(['sysctl', '-w', 'net.ipv4.ip_forward=1'],
-                          check=True, capture_output=True)
+                           check=True, capture_output=True)
 
             # Setup NAT
             subprocess.run(['iptables', '-t', 'nat', '-A', 'POSTROUTING',
-                          '-o', self.upstream_interface, '-j', 'MASQUERADE'],
-                          check=True, capture_output=True)
+                           '-o', self.upstream_interface, '-j', 'MASQUERADE'],
+                           check=True, capture_output=True)
 
             subprocess.run(['iptables', '-A', 'FORWARD', '-i', self.interface,
-                          '-o', self.upstream_interface, '-j', 'ACCEPT'],
-                          check=True, capture_output=True)
+                           '-o', self.upstream_interface, '-j', 'ACCEPT'],
+                           check=True, capture_output=True)
 
             subprocess.run(['iptables', '-A', 'FORWARD', '-i', self.upstream_interface,
-                          '-o', self.interface, '-m', 'state', '--state',
-                          'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
-                          check=True, capture_output=True)
+                           '-o', self.interface, '-m', 'state', '--state',
+                           'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
+                           check=True, capture_output=True)
 
             self.log("Internet sharing enabled")
             return True
@@ -203,43 +211,43 @@ bind-interfaces
             self.log(f"Error setting up internet sharing: {e}")
             return False
 
-    def cleanup_internet_sharing(self):
-        """Remove internet forwarding rules"""
+    def cleanup_internet_sharing(self) -> None:
+        """Remove internet forwarding rules."""
         if not self.internet_share or not self.upstream_interface:
             return
 
         try:
             subprocess.run(['iptables', '-t', 'nat', '-D', 'POSTROUTING',
-                          '-o', self.upstream_interface, '-j', 'MASQUERADE'],
-                          capture_output=True)
+                           '-o', self.upstream_interface, '-j', 'MASQUERADE'],
+                           capture_output=True)
             subprocess.run(['iptables', '-D', 'FORWARD', '-i', self.interface,
-                          '-o', self.upstream_interface, '-j', 'ACCEPT'],
-                          capture_output=True)
+                           '-o', self.upstream_interface, '-j', 'ACCEPT'],
+                           capture_output=True)
             subprocess.run(['iptables', '-D', 'FORWARD', '-i', self.upstream_interface,
-                          '-o', self.interface, '-m', 'state', '--state',
-                          'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
-                          capture_output=True)
-        except (subprocess.CalledProcessError, FileNotFoundError, Exception):
+                           '-o', self.interface, '-m', 'state', '--state',
+                           'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
+                           capture_output=True)
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
             pass
 
-    def start_packet_capture(self, ssid):
-        """Start tcpdump to capture traffic"""
-        pcap_file = self.output_dir / f"capture_{ssid.replace(' ', '_')}_{int(time.time())}.pcap"
+    def start_packet_capture(self, ssid: str) -> bool:
+        """Start tcpdump to capture traffic."""
+        pcap_file: Path = self.output_dir / f"capture_{ssid.replace(' ', '_')}_{int(time.time())}.pcap"
 
-        cmd = ['tcpdump', '-i', self.interface, '-w', str(pcap_file), '-U']
+        cmd: list[str] = ['tcpdump', '-i', self.interface, '-w', str(pcap_file), '-U']
 
         try:
             self.capture_process = subprocess.Popen(cmd,
-                                                    stdout=subprocess.PIPE,
-                                                    stderr=subprocess.PIPE)
+                                                     stdout=subprocess.PIPE,
+                                                     stderr=subprocess.PIPE)
             self.log(f"Packet capture started: {pcap_file}")
             return True
         except Exception as e:
             self.log(f"Error starting packet capture: {e}")
             return False
 
-    def stop_packet_capture(self):
-        """Stop packet capture"""
+    def stop_packet_capture(self) -> None:
+        """Stop packet capture."""
         if self.capture_process:
             self.capture_process.terminate()
             try:
@@ -248,23 +256,24 @@ bind-interfaces
                 self.capture_process.kill()
             self.log("Packet capture stopped")
 
-    def monitor_clients(self):
-        """Monitor and log connected clients"""
-        while True:
+    def monitor_clients(self) -> None:
+        """Monitor and log connected clients."""
+        global _shutdown_requested
+        while not _shutdown_requested:
             try:
                 # Get ARP table
                 result = subprocess.run(['ip', 'neigh', 'show', 'dev', self.interface],
-                                      capture_output=True, text=True)
+                                        capture_output=True, text=True)
 
                 if result.stdout:
                     lines = result.stdout.strip().split('\n')
-                    active_clients = []
+                    active_clients: list[str] = []
 
                     for line in lines:
                         parts = line.split()
                         if len(parts) >= 5:
-                            ip = parts[0]
-                            mac = parts[4] if parts[3] == 'lladdr' else 'unknown'
+                            ip: str = parts[0]
+                            mac: str = parts[4] if parts[3] == 'lladdr' else 'unknown'
                             active_clients.append(f"{ip} - {mac}")
 
                     if active_clients:
@@ -280,16 +289,16 @@ bind-interfaces
                 self.log(f"Error monitoring clients: {e}")
                 time.sleep(10)
 
-    def start_access_point(self, ssid):
-        """Start rogue access point for given SSID"""
+    def start_access_point(self, ssid: str) -> bool:
+        """Start rogue access point for given SSID."""
         self.current_ssid = ssid
-        self.log(f"\n{'='*60}")
+        self.log(f"\n{'=' * 60}")
         self.log(f"Starting access point for SSID: {ssid}")
-        self.log(f"{'='*60}")
+        self.log(f"{'=' * 60}")
 
         # Create configurations
-        hostapd_conf = self.create_hostapd_config(ssid)
-        dnsmasq_conf = self.create_dnsmasq_config()
+        hostapd_conf: Path = self.create_hostapd_config(ssid)
+        dnsmasq_conf: Path = self.create_dnsmasq_config()
 
         # Setup interface
         if not self.setup_interface():
@@ -301,11 +310,11 @@ bind-interfaces
 
         # Start hostapd
         self.log("Starting hostapd...")
-        hostapd_cmd = ['hostapd', str(hostapd_conf)]
+        hostapd_cmd: list[str] = ['hostapd', str(hostapd_conf)]
         try:
             hostapd_proc = subprocess.Popen(hostapd_cmd,
-                                           stdout=subprocess.PIPE,
-                                           stderr=subprocess.STDOUT)
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.STDOUT)
             self.processes.append(hostapd_proc)
             time.sleep(2)  # Let hostapd start
 
@@ -319,11 +328,11 @@ bind-interfaces
 
         # Start dnsmasq
         self.log("Starting DHCP server...")
-        dnsmasq_cmd = ['dnsmasq', '-C', str(dnsmasq_conf), '-d']
+        dnsmasq_cmd: list[str] = ['dnsmasq', '-C', str(dnsmasq_conf), '-d']
         try:
             dnsmasq_proc = subprocess.Popen(dnsmasq_cmd,
-                                           stdout=subprocess.PIPE,
-                                           stderr=subprocess.STDOUT)
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.STDOUT)
             self.processes.append(dnsmasq_proc)
             time.sleep(1)
 
@@ -345,9 +354,9 @@ bind-interfaces
 
         return True
 
-    def cleanup(self):
-        """Clean up all processes and configurations"""
-        self.log("\nCleaning up...")
+    def cleanup(self) -> None:
+        """Clean up all processes and configurations."""
+        self.log("Cleaning up...")
 
         # Stop packet capture
         self.stop_packet_capture()
@@ -359,7 +368,7 @@ bind-interfaces
                 proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 proc.kill()
-            except (ProcessLookupError, Exception):
+            except (ProcessLookupError, OSError):
                 pass
 
         # Cleanup internet sharing
@@ -371,21 +380,31 @@ bind-interfaces
 
         self.log("Cleanup complete")
 
-    def run_single_ssid(self, ssid, duration):
-        """Run single SSID for specified duration"""
+    def run_single_ssid(self, ssid: str, duration: int) -> None:
+        """Run single SSID for specified duration."""
+        global _shutdown_requested
         if self.start_access_point(ssid):
             try:
                 self.log(f"Running for {duration} seconds... (Press Ctrl+C to stop)")
-                time.sleep(duration)
+                # Check shutdown flag periodically instead of sleeping the full duration
+                elapsed: int = 0
+                while elapsed < duration and not _shutdown_requested:
+                    time.sleep(1)
+                    elapsed += 1
+                if _shutdown_requested:
+                    self.log("Shutdown requested")
             except KeyboardInterrupt:
                 self.log("Interrupted by user")
 
-    def run_rotation(self, duration_per_ssid):
-        """Rotate through all SSIDs"""
+    def run_rotation(self, duration_per_ssid: int) -> None:
+        """Rotate through all SSIDs."""
+        global _shutdown_requested
         self.log(f"Starting SSID rotation ({duration_per_ssid}s per SSID)")
 
         try:
             for ssid in self.ssids:
+                if _shutdown_requested:
+                    break
                 self.run_single_ssid(ssid, duration_per_ssid)
                 self.cleanup()
                 time.sleep(2)  # Brief pause between SSIDs
@@ -393,12 +412,21 @@ bind-interfaces
         except KeyboardInterrupt:
             self.log("Rotation interrupted by user")
 
-def signal_handler(sig, frame):
-    """Handle Ctrl+C gracefully"""
-    print("\n[!] Interrupted - cleaning up...")
-    sys.exit(0)
 
-def main():
+def signal_handler(sig: int, frame: object) -> None:
+    """Handle Ctrl+C gracefully by setting shutdown flag.
+
+    Instead of calling sys.exit(0) (which would skip the finally block
+    and leave hostapd/dnsmasq running), we set a flag that the main loop
+    checks, allowing proper cleanup.
+    """
+    global _shutdown_requested
+    _shutdown_requested = True
+    logger = setup_logging("ssid_capturer")
+    logger.warning("Interrupted - shutting down gracefully...")
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="SSID Capturer - Rogue AP with Traffic Capture",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -431,49 +459,49 @@ IMPORTANT LEGAL NOTICE:
     )
 
     parser.add_argument('-i', '--interface', required=True,
-                       help='Wireless interface to use (will be configured)')
+                        help='Wireless interface to use (will be configured)')
     parser.add_argument('-f', '--file', required=True,
-                       help='Text file containing SSIDs')
+                        help='Text file containing SSIDs')
     parser.add_argument('-s', '--ssid',
-                       help='Specific SSID to use (if not rotating)')
+                        help='Specific SSID to use (if not rotating)')
     parser.add_argument('-r', '--rotate', action='store_true',
-                       help='Rotate through all SSIDs in file')
+                        help='Rotate through all SSIDs in file')
     parser.add_argument('-d', '--duration', type=int, default=300,
-                       help='Duration in seconds (per SSID if rotating, default: 300)')
+                        help='Duration in seconds (per SSID if rotating, default: 300)')
     parser.add_argument('-o', '--output', default='./captures',
-                       help='Output directory for captures (default: ./captures)')
+                        help='Output directory for captures (default: ./captures)')
     parser.add_argument('-ch', '--channel', type=int, default=6,
-                       help='WiFi channel (default: 6)')
+                        help='WiFi channel (default: 6)')
     parser.add_argument('-e', '--encryption', choices=['wpa2', 'wep'],
-                       help='Encryption type (default: open/none)')
+                        help='Encryption type (default: open/none)')
     parser.add_argument('-p', '--password',
-                       help='Password for encrypted network')
+                        help='Password for encrypted network')
     parser.add_argument('--internet', action='store_true',
-                       help='Share internet connection (requires -u)')
+                        help='Share internet connection (requires -u)')
     parser.add_argument('-u', '--upstream',
-                       help='Upstream interface for internet sharing (e.g., eth0)')
+                        help='Upstream interface for internet sharing (e.g., eth0)')
 
     args = parser.parse_args()
 
+    logger = setup_logging("ssid_capturer")
+
     # Check if running as root
-    if os.geteuid() != 0:
-        print("[!] This script must be run as root (use sudo)")
-        sys.exit(1)
+    require_root()
 
     # Validate arguments
     if args.encryption and not args.password:
-        print("[!] Password required when using encryption")
+        logger.error("Password required when using encryption")
         sys.exit(1)
 
     if args.internet and not args.upstream:
-        print("[!] Upstream interface required for internet sharing (use -u)")
+        logger.error("Upstream interface required for internet sharing (use -u)")
         sys.exit(1)
 
     if not args.ssid and not args.rotate:
-        print("[!] Must specify either --ssid or --rotate")
+        logger.error("Must specify either --ssid or --rotate")
         sys.exit(1)
 
-    # Setup signal handler
+    # Setup signal handler (sets flag instead of calling sys.exit)
     signal.signal(signal.SIGINT, signal_handler)
 
     # Create capturer
@@ -493,19 +521,19 @@ IMPORTANT LEGAL NOTICE:
         sys.exit(1)
 
     # Load SSIDs
-    if not capturer.load_ssids():
+    if not capturer.load_ssids_from_file():
         sys.exit(1)
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("WARNING: AUTHORIZED USE ONLY")
-    print("="*70)
+    print("=" * 70)
     print("This tool creates rogue access points and captures network traffic.")
     print("Only use on networks you own or have written authorization to test.")
-    print("="*70)
+    print("=" * 70)
     response = input("\nDo you have authorization to proceed? (yes/no): ")
 
     if response.lower() != 'yes':
-        print("[!] Authorization not confirmed. Exiting.")
+        logger.info("Authorization not confirmed. Exiting.")
         sys.exit(0)
 
     try:
@@ -513,15 +541,16 @@ IMPORTANT LEGAL NOTICE:
             capturer.run_rotation(args.duration)
         else:
             if args.ssid not in capturer.ssids:
-                print(f"[!] Warning: SSID '{args.ssid}' not in file, using anyway")
+                logger.warning("SSID '%s' not in file, using anyway", args.ssid)
                 capturer.ssids = [args.ssid]
 
             capturer.run_single_ssid(args.ssid, args.duration)
 
     finally:
         capturer.cleanup()
-        print("\n[+] Capture complete. Check output directory:")
+        print(f"\n[+] Capture complete. Check output directory:")
         print(f"    {os.path.abspath(args.output)}")
+
 
 if __name__ == "__main__":
     main()
