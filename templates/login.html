@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Hoover Web GUI</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1>Hoover Web GUI</h1>
+            <p class="login-subtitle">WiFi Security Testing Toolkit</p>
+            <form id="login-form" autocomplete="off">
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter the password shown in the terminal" autofocus required>
+                </div>
+                <div id="login-error" class="login-error" style="display: none;"></div>
+                <button type="submit" class="btn btn-login">Log In</button>
+            </form>
+            <p class="login-hint">The password is displayed in the terminal where the server is running.</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('login-error');
+            errorEl.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    errorEl.textContent = data.error || 'Invalid password';
+                    errorEl.style.display = 'block';
+                }
+            } catch (err) {
+                errorEl.textContent = 'Connection error. Is the server running?';
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

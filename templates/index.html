@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Hoover Web GUI - WiFi Security Tools</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -11,10 +12,13 @@
     <div class="container">
         <!-- Header -->
         <header>
-            <h1>🔍 Hoover Web GUI</h1>
+            <div class="header-top">
+                <h1>Hoover Web GUI</h1>
+                <button class="btn btn-logout" id="logout-btn">Log Out</button>
+            </div>
             <p class="subtitle">WiFi Security Testing Toolkit</p>
             <div class="warning-banner">
-                ⚠️ AUTHORIZED TESTING ONLY - Use only on networks you own or have permission to test
+                AUTHORIZED TESTING ONLY - Use only on networks you own or have permission to test
             </div>
         </header>
 
@@ -36,7 +40,7 @@
                 <div id="interfaces-list">Loading...</div>
             </div>
             <div class="status-card">
-                <h3>SSID Files</h3>
+                <h3>SSID Files <small>(ssid_files/)</small></h3>
                 <div id="ssid-files-list">Loading...</div>
             </div>
         </section>
@@ -46,7 +50,7 @@
             <!-- Probe Request Monitor -->
             <div class="tool-card">
                 <div class="tool-header">
-                    <h2>📡 Probe Request Monitor</h2>
+                    <h2>Probe Request Monitor</h2>
                     <span class="status-badge" id="monitor-status">Stopped</span>
                 </div>
                 <p class="tool-description">Capture and display WiFi probe requests from nearby devices</p>
@@ -73,10 +77,36 @@
                 </div>
             </div>
 
+            <!-- Probe Request Table -->
+            <div class="tool-card" id="probe-section">
+                <div class="tool-header">
+                    <h2>Live Probe Requests <span class="probe-count-badge" id="probe-count">0</span></h2>
+                </div>
+                <div class="probe-controls">
+                    <input type="text" id="probe-filter" class="probe-filter-input" placeholder="Filter by MAC, SSID, or vendor...">
+                </div>
+                <div class="probe-table-wrapper">
+                    <table class="probe-table" id="probe-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="timestamp">Time</th>
+                                <th class="sortable" data-sort="mac">MAC</th>
+                                <th class="sortable" data-sort="vendor">Vendor</th>
+                                <th class="sortable" data-sort="ssid">SSID</th>
+                                <th class="sortable" data-sort="signal">Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="probe-table-body">
+                            <tr><td colspan="5" class="empty-message">No probe requests captured yet. Start the monitor above.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- SSID Generator -->
             <div class="tool-card">
                 <div class="tool-header">
-                    <h2>📢 SSID Generator</h2>
+                    <h2>SSID Generator</h2>
                     <span class="status-badge" id="generator-status">Stopped</span>
                 </div>
                 <p class="tool-description">Broadcast custom SSIDs from a text file</p>
@@ -104,7 +134,7 @@
 
                         <div class="form-group">
                             <label for="generator-channel">Channel:</label>
-                            <input type="number" id="generator-channel" value="6" min="1" max="13">
+                            <input type="number" id="generator-channel" value="6" min="1" max="14">
                         </div>
                     </div>
 
@@ -125,7 +155,7 @@
             <!-- SSID Capturer -->
             <div class="tool-card">
                 <div class="tool-header">
-                    <h2>🎯 SSID Capturer (Rogue AP)</h2>
+                    <h2>SSID Capturer (Rogue AP)</h2>
                     <span class="status-badge" id="capturer-status">Stopped</span>
                 </div>
                 <p class="tool-description">Create rogue access point and capture traffic from connecting clients</p>
@@ -167,7 +197,7 @@
 
                         <div class="form-group">
                             <label for="capturer-channel">Channel:</label>
-                            <input type="number" id="capturer-channel" value="6" min="1" max="13">
+                            <input type="number" id="capturer-channel" value="6" min="1" max="14">
                         </div>
                     </div>
 
@@ -207,7 +237,7 @@
             <!-- Deauth Tool -->
             <div class="tool-card">
                 <div class="tool-header">
-                    <h2>⚡ Deauthentication Attack</h2>
+                    <h2>Deauthentication Attack</h2>
                     <span class="status-badge" id="deauth-status">Stopped</span>
                 </div>
                 <p class="tool-description">Send deauthentication frames to disconnect clients from WiFi networks</p>
@@ -240,7 +270,7 @@
 
                         <div class="form-group">
                             <label for="deauth-channel">Channel:</label>
-                            <input type="number" id="deauth-channel" value="6" min="1" max="13">
+                            <input type="number" id="deauth-channel" value="6" min="1" max="14">
                         </div>
                     </div>
 
@@ -267,7 +297,7 @@
         <!-- Logs Section -->
         <section class="logs-section">
             <div class="logs-header">
-                <h2>📋 Activity Log</h2>
+                <h2>Activity Log</h2>
                 <button class="btn btn-clear" id="clear-logs">Clear</button>
             </div>
             <div class="logs-container" id="logs-container">
@@ -282,7 +312,7 @@
         <!-- Captures Section -->
         <section class="captures-section">
             <div class="captures-header">
-                <h2>💾 Captured Files</h2>
+                <h2>Captured Files</h2>
                 <button class="btn btn-refresh" id="refresh-captures">Refresh</button>
             </div>
             <div class="captures-list" id="captures-list">
@@ -292,7 +322,7 @@
 
         <!-- Footer -->
         <footer>
-            <p>Hoover WiFi Security Toolkit &copy; 2024</p>
+            <p>Hoover WiFi Security Toolkit</p>
             <p class="footer-warning">For authorized security testing and research only</p>
         </footer>
     </div>
