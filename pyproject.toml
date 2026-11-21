@@ -48,6 +48,11 @@ ssid-generator = "ssid_generator:main"
 ssid-capturer = "ssid_capturer:main"
 deauth = "deauth:main"
 hoover-web = "hoover_web:main"
+ap-scanner = "ap_scanner:main"
+handshake-capture = "handshake_capture:main"
+captive-portal = "captive_portal:main"
+karma-attack = "karma_attack:main"
+wids = "wids:main"
 
 [tool.setuptools]
 py-modules = [
@@ -58,6 +63,11 @@ py-modules = [
     "hoover_web",
     "utils",
     "oui_lookup",
+    "ap_scanner",
+    "handshake_capture",
+    "captive_portal",
+    "karma_attack",
+    "wids",
 ]
 
 [tool.ruff]

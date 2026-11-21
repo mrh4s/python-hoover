@@ -292,6 +292,194 @@
                     </div>
                 </div>
             </div>
+
+            <!-- AP Scanner -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>AP Scanner</h2>
+                    <span class="status-badge" id="ap-scanner-status">Stopped</span>
+                </div>
+                <p class="tool-description">Passively scan for nearby WiFi access points</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="ap-scanner-interface">Interface:</label>
+                        <select id="ap-scanner-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ap-scanner-timeout">Timeout (s):</label>
+                            <input type="number" id="ap-scanner-timeout" value="30" min="5">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ap-scanner-channel">Channel (optional):</label>
+                            <input type="number" id="ap-scanner-channel" placeholder="All" min="1" max="14">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="ap-scanner-start">Start Scan</button>
+                        <button class="btn btn-stop" id="ap-scanner-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Handshake Capture -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>WPA Handshake Capture</h2>
+                    <span class="status-badge" id="handshake-status">Stopped</span>
+                </div>
+                <p class="tool-description">Capture WPA/WPA2 4-way EAPOL handshake frames</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="handshake-interface">Interface:</label>
+                        <select id="handshake-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="handshake-bssid">Target BSSID (AP MAC):</label>
+                        <input type="text" id="handshake-bssid" placeholder="00:11:22:33:44:55" pattern="[0-9A-Fa-f:]{17}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="handshake-client">Target Client MAC (optional):</label>
+                        <input type="text" id="handshake-client" placeholder="Leave empty for any client" pattern="[0-9A-Fa-f:]{17}">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="handshake-timeout">Timeout (s):</label>
+                            <input type="number" id="handshake-timeout" value="120" min="10">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="handshake-channel">Channel:</label>
+                            <input type="number" id="handshake-channel" placeholder="Auto" min="1" max="14">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="handshake-no-deauth">
+                            Passive only (no deauth)
+                        </label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="handshake-start">Start Capture</button>
+                        <button class="btn btn-stop" id="handshake-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Captive Portal -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Captive Portal</h2>
+                    <span class="status-badge" id="portal-status">Stopped</span>
+                </div>
+                <p class="tool-description">Set up a rogue AP with a fake login page to capture credentials</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="portal-interface">Interface:</label>
+                        <select id="portal-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="portal-ssid">SSID:</label>
+                        <input type="text" id="portal-ssid" value="Free-WiFi" placeholder="Network name">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="portal-channel">Channel:</label>
+                            <input type="number" id="portal-channel" value="6" min="1" max="14">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="portal-template">Template:</label>
+                            <select id="portal-template">
+                                <option value="default">Default (Email/Password)</option>
+                                <option value="hotel">Hotel Guest WiFi</option>
+                                <option value="coffee">Coffee Shop</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="portal-start">Start Portal</button>
+                        <button class="btn btn-stop" id="portal-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Karma Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Karma Attack</h2>
+                    <span class="status-badge" id="karma-status">Stopped</span>
+                </div>
+                <p class="tool-description">Respond to all probe requests with matching beacons</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="karma-interface">Interface:</label>
+                        <select id="karma-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="karma-channel">Channel:</label>
+                        <input type="number" id="karma-channel" value="6" min="1" max="14">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="karma-start">Start Karma</button>
+                        <button class="btn btn-stop" id="karma-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WIDS -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Wireless IDS (WIDS)</h2>
+                    <span class="status-badge" id="wids-status">Stopped</span>
+                </div>
+                <p class="tool-description">Monitor for deauth floods, evil twins, rogue APs, and karma attacks</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="wids-interface">Interface:</label>
+                        <select id="wids-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wids-deauth-threshold">Deauth Threshold:</label>
+                        <input type="number" id="wids-deauth-threshold" value="10" min="1">
+                        <small>Alert after this many deauth frames in the detection window</small>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="wids-start">Start WIDS</button>
+                        <button class="btn btn-stop" id="wids-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Logs Section -->

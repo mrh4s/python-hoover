@@ -145,7 +145,12 @@ tool_status = {
     'monitor': {'running': False, 'pid': None, 'interface': None},
     'generator': {'running': False, 'pid': None, 'interface': None},
     'capturer': {'running': False, 'pid': None, 'interface': None},
-    'deauth': {'running': False, 'pid': None, 'interface': None}
+    'deauth': {'running': False, 'pid': None, 'interface': None},
+    'ap_scanner': {'running': False, 'pid': None, 'interface': None},
+    'handshake': {'running': False, 'pid': None, 'interface': None},
+    'portal': {'running': False, 'pid': None, 'interface': None},
+    'karma': {'running': False, 'pid': None, 'interface': None},
+    'wids': {'running': False, 'pid': None, 'interface': None},
 }
 
 # --- Probe Request Buffer ---
@@ -864,6 +869,432 @@ def api_deauth_stop():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+# --- AP Scanner ---
+
+@app.route('/api/ap-scanner/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ap_scanner_start():
+    """Start AP scanner"""
+    with _state_lock:
+        if tool_status['ap_scanner']['running']:
+            return jsonify({'success': False, 'error': 'AP Scanner already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    timeout = data.get('timeout', 30)
+    channel = data.get('channel')
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_positive_number(timeout, 'Timeout')
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    if channel:
+        ok, err = validate_channel(channel)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'ap_scanner.py', '-i', interface, '-t', str(timeout)]
+        if channel:
+            cmd.extend(['-ch', str(channel), '--no-hop'])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['ap_scanner']['running'] = True
+            tool_status['ap_scanner']['pid'] = process.pid
+            tool_status['ap_scanner']['interface'] = interface
+            active_processes['ap_scanner'] = process
+
+        monitor = ProcessMonitor('ap_scanner', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('ap_scanner', f'AP Scanner started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ap-scanner/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ap_scanner_stop():
+    """Stop AP scanner"""
+    with _state_lock:
+        if not tool_status['ap_scanner']['running']:
+            return jsonify({'success': False, 'error': 'AP Scanner not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('ap_scanner')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['ap_scanner']['running'] = False
+            tool_status['ap_scanner']['pid'] = None
+            tool_status['ap_scanner']['interface'] = None
+
+        emit_log('ap_scanner', 'AP Scanner stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- Handshake Capture ---
+
+@app.route('/api/handshake/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_handshake_start():
+    """Start WPA handshake capture"""
+    with _state_lock:
+        if tool_status['handshake']['running']:
+            return jsonify({'success': False, 'error': 'Handshake capture already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    bssid = data.get('bssid')
+    client = data.get('client')
+    channel = data.get('channel')
+    timeout = data.get('timeout', 120)
+    no_deauth = data.get('no_deauth', False)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_mac(bssid)
+    if not ok:
+        return jsonify({'success': False, 'error': f'BSSID: {err}'}), 400
+
+    if client:
+        ok, err = validate_mac(client)
+        if not ok:
+            return jsonify({'success': False, 'error': f'Client MAC: {err}'}), 400
+
+    ok, err = validate_positive_number(timeout, 'Timeout')
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    if channel:
+        ok, err = validate_channel(channel)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'handshake_capture.py', '-i', interface, '-b', bssid,
+               '-t', str(timeout)]
+        if client:
+            cmd.extend(['-c', client])
+        if channel:
+            cmd.extend(['-ch', str(channel)])
+        if no_deauth:
+            cmd.append('--no-deauth')
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['handshake']['running'] = True
+            tool_status['handshake']['pid'] = process.pid
+            tool_status['handshake']['interface'] = interface
+            active_processes['handshake'] = process
+
+        monitor = ProcessMonitor('handshake', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('handshake', f'Handshake capture started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/handshake/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_handshake_stop():
+    """Stop handshake capture"""
+    with _state_lock:
+        if not tool_status['handshake']['running']:
+            return jsonify({'success': False, 'error': 'Handshake capture not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('handshake')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['handshake']['running'] = False
+            tool_status['handshake']['pid'] = None
+            tool_status['handshake']['interface'] = None
+
+        emit_log('handshake', 'Handshake capture stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- Captive Portal ---
+
+@app.route('/api/portal/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_portal_start():
+    """Start captive portal"""
+    with _state_lock:
+        if tool_status['portal']['running']:
+            return jsonify({'success': False, 'error': 'Captive portal already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    ssid = data.get('ssid', 'Free-WiFi')
+    channel = data.get('channel', 6)
+    template = data.get('template', 'default')
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_channel(channel)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    if template not in ('default', 'hotel', 'coffee'):
+        return jsonify({'success': False, 'error': 'Invalid template'}), 400
+
+    if not ssid or len(ssid) > 32 or any(ord(c) < 32 for c in ssid):
+        return jsonify({'success': False, 'error': 'Invalid SSID (max 32 chars, no control characters)'}), 400
+
+    try:
+        cmd = ['python3', 'captive_portal.py', '-i', interface, '-s', ssid,
+               '-ch', str(channel), '-t', template]
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['portal']['running'] = True
+            tool_status['portal']['pid'] = process.pid
+            tool_status['portal']['interface'] = interface
+            active_processes['portal'] = process
+
+        monitor = ProcessMonitor('portal', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('portal', f'Captive portal started on {interface} (SSID: {ssid})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/portal/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_portal_stop():
+    """Stop captive portal"""
+    with _state_lock:
+        if not tool_status['portal']['running']:
+            return jsonify({'success': False, 'error': 'Captive portal not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('portal')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        subprocess.run(['killall', 'hostapd'], capture_output=True)
+        subprocess.run(['killall', 'dnsmasq'], capture_output=True)
+
+        with _state_lock:
+            tool_status['portal']['running'] = False
+            tool_status['portal']['pid'] = None
+            tool_status['portal']['interface'] = None
+
+        emit_log('portal', 'Captive portal stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- Karma Attack ---
+
+@app.route('/api/karma/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_karma_start():
+    """Start karma attack"""
+    with _state_lock:
+        if tool_status['karma']['running']:
+            return jsonify({'success': False, 'error': 'Karma attack already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    channel = data.get('channel', 6)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_channel(channel)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'karma_attack.py', '-i', interface, '-ch', str(channel)]
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['karma']['running'] = True
+            tool_status['karma']['pid'] = process.pid
+            tool_status['karma']['interface'] = interface
+            active_processes['karma'] = process
+
+        monitor = ProcessMonitor('karma', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('karma', f'Karma attack started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/karma/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_karma_stop():
+    """Stop karma attack"""
+    with _state_lock:
+        if not tool_status['karma']['running']:
+            return jsonify({'success': False, 'error': 'Karma attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('karma')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['karma']['running'] = False
+            tool_status['karma']['pid'] = None
+            tool_status['karma']['interface'] = None
+
+        emit_log('karma', 'Karma attack stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- WIDS ---
+
+@app.route('/api/wids/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wids_start():
+    """Start wireless intrusion detection"""
+    with _state_lock:
+        if tool_status['wids']['running']:
+            return jsonify({'success': False, 'error': 'WIDS already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    deauth_threshold = data.get('deauth_threshold', 10)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_positive_number(deauth_threshold, 'Deauth threshold')
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'wids.py', '-i', interface,
+               '--deauth-threshold', str(deauth_threshold)]
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['wids']['running'] = True
+            tool_status['wids']['pid'] = process.pid
+            tool_status['wids']['interface'] = interface
+            active_processes['wids'] = process
+
+        monitor = ProcessMonitor('wids', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('wids', f'WIDS started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wids/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wids_stop():
+    """Stop wireless intrusion detection"""
+    with _state_lock:
+        if not tool_status['wids']['running']:
+            return jsonify({'success': False, 'error': 'WIDS not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('wids')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['wids']['running'] = False
+            tool_status['wids']['pid'] = None
+            tool_status['wids']['interface'] = None
+
+        emit_log('wids', 'WIDS stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/api/ssid-file/<filename>')
 @login_required

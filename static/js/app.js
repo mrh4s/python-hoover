@@ -43,6 +43,26 @@ function initializeEventListeners() {
     document.getElementById('deauth-start').addEventListener('click', startDeauth);
     document.getElementById('deauth-stop').addEventListener('click', stopDeauth);
 
+    // AP Scanner controls
+    document.getElementById('ap-scanner-start').addEventListener('click', startAPScanner);
+    document.getElementById('ap-scanner-stop').addEventListener('click', stopAPScanner);
+
+    // Handshake Capture controls
+    document.getElementById('handshake-start').addEventListener('click', startHandshake);
+    document.getElementById('handshake-stop').addEventListener('click', stopHandshake);
+
+    // Captive Portal controls
+    document.getElementById('portal-start').addEventListener('click', startPortal);
+    document.getElementById('portal-stop').addEventListener('click', stopPortal);
+
+    // Karma Attack controls
+    document.getElementById('karma-start').addEventListener('click', startKarma);
+    document.getElementById('karma-stop').addEventListener('click', stopKarma);
+
+    // WIDS controls
+    document.getElementById('wids-start').addEventListener('click', startWIDS);
+    document.getElementById('wids-stop').addEventListener('click', stopWIDS);
+
     // Capturer rotation checkbox
     document.getElementById('capturer-rotate').addEventListener('change', (e) => {
         document.getElementById('capturer-ssid-group').style.display =
@@ -199,6 +219,11 @@ function updateUI(data) {
     updateToolStatus('generator', data.status.generator);
     updateToolStatus('capturer', data.status.capturer);
     updateToolStatus('deauth', data.status.deauth);
+    updateToolStatus('ap-scanner', data.status.ap_scanner);
+    updateToolStatus('handshake', data.status.handshake);
+    updateToolStatus('portal', data.status.portal);
+    updateToolStatus('karma', data.status.karma);
+    updateToolStatus('wids', data.status.wids);
 
     // Update captures
     updateCapturesList(data.captures);
@@ -225,7 +250,8 @@ function updateInterfacesList(interfaces) {
 
 // Populate interface select dropdowns
 function populateInterfaceSelects(interfaces) {
-    const selects = ['monitor-interface', 'generator-interface', 'capturer-interface', 'deauth-interface'];
+    const selects = ['monitor-interface', 'generator-interface', 'capturer-interface', 'deauth-interface',
+                     'ap-scanner-interface', 'handshake-interface', 'portal-interface', 'karma-interface', 'wids-interface'];
 
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -561,6 +587,134 @@ async function stopDeauth() {
     if (!result.success) {
         alert(`Failed to stop deauth attack: ${result.error}`);
     }
+}
+
+// --- AP Scanner ---
+
+async function startAPScanner() {
+    const interface_name = document.getElementById('ap-scanner-interface').value;
+    const timeout = parseInt(document.getElementById('ap-scanner-timeout').value);
+    const channelEl = document.getElementById('ap-scanner-channel');
+    const channel = channelEl.value ? parseInt(channelEl.value) : null;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+
+    const result = await apiCall('/api/ap-scanner/start', 'POST', {
+        interface: interface_name, timeout: timeout, channel: channel
+    });
+
+    if (result.success) { addLog('ap_scanner', `Scan started on ${interface_name}`); }
+    else { alert(`Failed to start AP Scanner: ${result.error}`); }
+}
+
+async function stopAPScanner() {
+    const result = await apiCall('/api/ap-scanner/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop AP Scanner: ${result.error}`); }
+}
+
+// --- Handshake Capture ---
+
+async function startHandshake() {
+    const interface_name = document.getElementById('handshake-interface').value;
+    const bssid = document.getElementById('handshake-bssid').value.trim();
+    const client = document.getElementById('handshake-client').value.trim() || null;
+    const timeout = parseInt(document.getElementById('handshake-timeout').value);
+    const channelEl = document.getElementById('handshake-channel');
+    const channel = channelEl.value ? parseInt(channelEl.value) : null;
+    const no_deauth = document.getElementById('handshake-no-deauth').checked;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+    if (!bssid) { alert('Please enter target BSSID'); return; }
+
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
+    if (client && !macRegex.test(client)) { alert('Invalid client MAC format'); return; }
+
+    const result = await apiCall('/api/handshake/start', 'POST', {
+        interface: interface_name, bssid: bssid, client: client,
+        timeout: timeout, channel: channel, no_deauth: no_deauth
+    });
+
+    if (result.success) { addLog('handshake', `Capture started targeting ${bssid}`); }
+    else { alert(`Failed to start handshake capture: ${result.error}`); }
+}
+
+async function stopHandshake() {
+    const result = await apiCall('/api/handshake/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop handshake capture: ${result.error}`); }
+}
+
+// --- Captive Portal ---
+
+async function startPortal() {
+    const interface_name = document.getElementById('portal-interface').value;
+    const ssid = document.getElementById('portal-ssid').value.trim() || 'Free-WiFi';
+    const channel = parseInt(document.getElementById('portal-channel').value);
+    const template = document.getElementById('portal-template').value;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool creates a captive portal to capture credentials.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/portal/start', 'POST', {
+        interface: interface_name, ssid: ssid, channel: channel, template: template
+    });
+
+    if (result.success) { addLog('portal', `Captive portal started (SSID: ${ssid})`); }
+    else { alert(`Failed to start captive portal: ${result.error}`); }
+}
+
+async function stopPortal() {
+    const result = await apiCall('/api/portal/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop captive portal: ${result.error}`); }
+}
+
+// --- Karma Attack ---
+
+async function startKarma() {
+    const interface_name = document.getElementById('karma-interface').value;
+    const channel = parseInt(document.getElementById('karma-channel').value);
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool responds to all probe requests with matching beacons.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/karma/start', 'POST', {
+        interface: interface_name, channel: channel
+    });
+
+    if (result.success) { addLog('karma', `Karma attack started on ${interface_name}`); }
+    else { alert(`Failed to start karma attack: ${result.error}`); }
+}
+
+async function stopKarma() {
+    const result = await apiCall('/api/karma/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop karma attack: ${result.error}`); }
+}
+
+// --- WIDS ---
+
+async function startWIDS() {
+    const interface_name = document.getElementById('wids-interface').value;
+    const deauth_threshold = parseInt(document.getElementById('wids-deauth-threshold').value);
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+
+    const result = await apiCall('/api/wids/start', 'POST', {
+        interface: interface_name, deauth_threshold: deauth_threshold
+    });
+
+    if (result.success) { addLog('wids', `WIDS started on ${interface_name}`); }
+    else { alert(`Failed to start WIDS: ${result.error}`); }
+}
+
+async function stopWIDS() {
+    const result = await apiCall('/api/wids/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop WIDS: ${result.error}`); }
 }
 
 // Logging functions
