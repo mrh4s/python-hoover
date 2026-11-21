@@ -11,3 +11,6 @@ eventlet>=0.33.0
 
 # System monitoring
 psutil>=5.9.0
+
+# BLE scanning
+bleak>=0.21.0

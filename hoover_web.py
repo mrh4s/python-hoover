@@ -151,6 +151,11 @@ tool_status = {
     'portal': {'running': False, 'pid': None, 'interface': None},
     'karma': {'running': False, 'pid': None, 'interface': None},
     'wids': {'running': False, 'pid': None, 'interface': None},
+    'packet_replay': {'running': False, 'pid': None, 'interface': None},
+    'wps_attack': {'running': False, 'pid': None, 'interface': None},
+    'network_mapper': {'running': False, 'pid': None, 'interface': None},
+    'ble_scanner': {'running': False, 'pid': None, 'interface': None},
+    'pentest_workflow': {'running': False, 'pid': None, 'interface': None},
 }
 
 # --- Probe Request Buffer ---
@@ -1290,6 +1295,388 @@ def api_wids_stop():
             tool_status['wids']['interface'] = None
 
         emit_log('wids', 'WIDS stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/packet-replay/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_packet_replay_start():
+    """Start packet replay tool"""
+    with _state_lock:
+        if tool_status['packet_replay']['running']:
+            return jsonify({'success': False, 'error': 'Packet replay already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    pcap_file = data.get('pcap_file')
+    replay_count = data.get('replay_count', 1)
+    delay = data.get('delay', 0.1)
+    filter_type = data.get('filter_type')
+    timeout = data.get('timeout', 30)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'packet_replay.py', '-i', interface, '-c', str(replay_count),
+               '-d', str(delay), '-t', str(timeout)]
+        if pcap_file:
+            cmd.extend(['-r', pcap_file])
+        if filter_type:
+            cmd.extend(['--filter', filter_type])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['packet_replay']['running'] = True
+            tool_status['packet_replay']['pid'] = process.pid
+            tool_status['packet_replay']['interface'] = interface
+            active_processes['packet_replay'] = process
+
+        monitor = ProcessMonitor('packet_replay', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('packet_replay', f'Packet replay started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/packet-replay/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_packet_replay_stop():
+    """Stop packet replay tool"""
+    with _state_lock:
+        if not tool_status['packet_replay']['running']:
+            return jsonify({'success': False, 'error': 'Packet replay not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('packet_replay')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['packet_replay']['running'] = False
+            tool_status['packet_replay']['pid'] = None
+            tool_status['packet_replay']['interface'] = None
+
+        emit_log('packet_replay', 'Packet replay stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wps-attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wps_attack_start():
+    """Start WPS attack"""
+    with _state_lock:
+        if tool_status['wps_attack']['running']:
+            return jsonify({'success': False, 'error': 'WPS attack already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    bssid = data.get('bssid')
+    method = data.get('method', 'reaver')
+    timeout = data.get('timeout', 300)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_mac(bssid)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'wps_attack.py', '-i', interface, '-b', bssid,
+               '-m', method, '-t', str(timeout)]
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['wps_attack']['running'] = True
+            tool_status['wps_attack']['pid'] = process.pid
+            tool_status['wps_attack']['interface'] = interface
+            active_processes['wps_attack'] = process
+
+        monitor = ProcessMonitor('wps_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('wps_attack', f'WPS attack started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wps-attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wps_attack_stop():
+    """Stop WPS attack"""
+    with _state_lock:
+        if not tool_status['wps_attack']['running']:
+            return jsonify({'success': False, 'error': 'WPS attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('wps_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['wps_attack']['running'] = False
+            tool_status['wps_attack']['pid'] = None
+            tool_status['wps_attack']['interface'] = None
+
+        emit_log('wps_attack', 'WPS attack stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/network-mapper/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_network_mapper_start():
+    """Start network mapper"""
+    with _state_lock:
+        if tool_status['network_mapper']['running']:
+            return jsonify({'success': False, 'error': 'Network mapper already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    target_range = data.get('target_range', '192.168.1.0/24')
+    port_scan = data.get('port_scan', True)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'network_mapper.py', '-i', interface, '-r', target_range]
+        if not port_scan:
+            cmd.append('--no-port-scan')
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['network_mapper']['running'] = True
+            tool_status['network_mapper']['pid'] = process.pid
+            tool_status['network_mapper']['interface'] = interface
+            active_processes['network_mapper'] = process
+
+        monitor = ProcessMonitor('network_mapper', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('network_mapper', f'Network mapper started on {interface} ({target_range})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/network-mapper/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_network_mapper_stop():
+    """Stop network mapper"""
+    with _state_lock:
+        if not tool_status['network_mapper']['running']:
+            return jsonify({'success': False, 'error': 'Network mapper not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('network_mapper')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['network_mapper']['running'] = False
+            tool_status['network_mapper']['pid'] = None
+            tool_status['network_mapper']['interface'] = None
+
+        emit_log('network_mapper', 'Network mapper stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ble-scanner/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ble_scanner_start():
+    """Start BLE scanner"""
+    with _state_lock:
+        if tool_status['ble_scanner']['running']:
+            return jsonify({'success': False, 'error': 'BLE scanner already running'})
+
+    data = request.json
+    scan_time = data.get('scan_time', 10)
+    service_scan = data.get('service_scan', False)
+    filter_name = data.get('filter_name')
+
+    try:
+        cmd = ['python3', 'ble_scanner.py', '-t', str(scan_time)]
+        if service_scan:
+            cmd.append('--services')
+        if filter_name:
+            cmd.extend(['--filter-name', filter_name])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['ble_scanner']['running'] = True
+            tool_status['ble_scanner']['pid'] = process.pid
+            tool_status['ble_scanner']['interface'] = 'bluetooth'
+            active_processes['ble_scanner'] = process
+
+        monitor = ProcessMonitor('ble_scanner', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('ble_scanner', 'BLE scanner started')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ble-scanner/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ble_scanner_stop():
+    """Stop BLE scanner"""
+    with _state_lock:
+        if not tool_status['ble_scanner']['running']:
+            return jsonify({'success': False, 'error': 'BLE scanner not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('ble_scanner')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['ble_scanner']['running'] = False
+            tool_status['ble_scanner']['pid'] = None
+            tool_status['ble_scanner']['interface'] = None
+
+        emit_log('ble_scanner', 'BLE scanner stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/pentest-workflow/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_pentest_workflow_start():
+    """Start automated pentest workflow"""
+    with _state_lock:
+        if tool_status['pentest_workflow']['running']:
+            return jsonify({'success': False, 'error': 'Pentest workflow already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    bssid = data.get('bssid')
+    no_deauth = data.get('no_deauth', False)
+    skip_wps = data.get('skip_wps', False)
+    timeout = data.get('timeout', 300)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'pentest_workflow.py', '-i', interface, '-t', str(timeout)]
+        if bssid:
+            ok, err = validate_mac(bssid)
+            if not ok:
+                return jsonify({'success': False, 'error': err}), 400
+            cmd.extend(['-b', bssid])
+        if no_deauth:
+            cmd.append('--no-deauth')
+        if skip_wps:
+            cmd.append('--skip-wps')
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['pentest_workflow']['running'] = True
+            tool_status['pentest_workflow']['pid'] = process.pid
+            tool_status['pentest_workflow']['interface'] = interface
+            active_processes['pentest_workflow'] = process
+
+        monitor = ProcessMonitor('pentest_workflow', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('pentest_workflow', f'Pentest workflow started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/pentest-workflow/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_pentest_workflow_stop():
+    """Stop pentest workflow"""
+    with _state_lock:
+        if not tool_status['pentest_workflow']['running']:
+            return jsonify({'success': False, 'error': 'Pentest workflow not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('pentest_workflow')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['pentest_workflow']['running'] = False
+            tool_status['pentest_workflow']['pid'] = None
+            tool_status['pentest_workflow']['interface'] = None
+
+        emit_log('pentest_workflow', 'Pentest workflow stopped')
         return jsonify({'success': True})
 
     except Exception as e:
