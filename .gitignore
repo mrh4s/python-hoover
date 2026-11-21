@@ -172,3 +172,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+# Capture output files
+captures/*.txt
+captures/*.pcapng
+captures/*.hccapx
+captures/*.json
+captures/*.csv
