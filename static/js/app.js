@@ -63,6 +63,26 @@ function initializeEventListeners() {
     document.getElementById('wids-start').addEventListener('click', startWIDS);
     document.getElementById('wids-stop').addEventListener('click', stopWIDS);
 
+    // Packet Replay controls
+    document.getElementById('packet-replay-start').addEventListener('click', startPacketReplay);
+    document.getElementById('packet-replay-stop').addEventListener('click', stopPacketReplay);
+
+    // WPS Attack controls
+    document.getElementById('wps-attack-start').addEventListener('click', startWPSAttack);
+    document.getElementById('wps-attack-stop').addEventListener('click', stopWPSAttack);
+
+    // Network Mapper controls
+    document.getElementById('network-mapper-start').addEventListener('click', startNetworkMapper);
+    document.getElementById('network-mapper-stop').addEventListener('click', stopNetworkMapper);
+
+    // BLE Scanner controls
+    document.getElementById('ble-scanner-start').addEventListener('click', startBLEScanner);
+    document.getElementById('ble-scanner-stop').addEventListener('click', stopBLEScanner);
+
+    // Pentest Workflow controls
+    document.getElementById('pentest-workflow-start').addEventListener('click', startPentestWorkflow);
+    document.getElementById('pentest-workflow-stop').addEventListener('click', stopPentestWorkflow);
+
     // Capturer rotation checkbox
     document.getElementById('capturer-rotate').addEventListener('change', (e) => {
         document.getElementById('capturer-ssid-group').style.display =
@@ -224,6 +244,11 @@ function updateUI(data) {
     updateToolStatus('portal', data.status.portal);
     updateToolStatus('karma', data.status.karma);
     updateToolStatus('wids', data.status.wids);
+    updateToolStatus('packet-replay', data.status.packet_replay);
+    updateToolStatus('wps-attack', data.status.wps_attack);
+    updateToolStatus('network-mapper', data.status.network_mapper);
+    updateToolStatus('ble-scanner', data.status.ble_scanner);
+    updateToolStatus('pentest-workflow', data.status.pentest_workflow);
 
     // Update captures
     updateCapturesList(data.captures);
@@ -251,7 +276,8 @@ function updateInterfacesList(interfaces) {
 // Populate interface select dropdowns
 function populateInterfaceSelects(interfaces) {
     const selects = ['monitor-interface', 'generator-interface', 'capturer-interface', 'deauth-interface',
-                     'ap-scanner-interface', 'handshake-interface', 'portal-interface', 'karma-interface', 'wids-interface'];
+                     'ap-scanner-interface', 'handshake-interface', 'portal-interface', 'karma-interface', 'wids-interface',
+                     'packet-replay-interface', 'wps-attack-interface', 'network-mapper-interface', 'pentest-workflow-interface'];
 
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -715,6 +741,139 @@ async function startWIDS() {
 async function stopWIDS() {
     const result = await apiCall('/api/wids/stop', 'POST');
     if (!result.success) { alert(`Failed to stop WIDS: ${result.error}`); }
+}
+
+// --- Packet Replay ---
+
+async function startPacketReplay() {
+    const interface_name = document.getElementById('packet-replay-interface').value;
+    const filter_type = document.getElementById('packet-replay-filter').value || null;
+    const timeout = parseInt(document.getElementById('packet-replay-timeout').value);
+    const replay_count = parseInt(document.getElementById('packet-replay-count').value);
+    const delay = parseFloat(document.getElementById('packet-replay-delay').value);
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+
+    const result = await apiCall('/api/packet-replay/start', 'POST', {
+        interface: interface_name, filter_type: filter_type,
+        timeout: timeout, replay_count: replay_count, delay: delay
+    });
+
+    if (result.success) { addLog('packet_replay', `Packet replay started on ${interface_name}`); }
+    else { alert(`Failed to start packet replay: ${result.error}`); }
+}
+
+async function stopPacketReplay() {
+    const result = await apiCall('/api/packet-replay/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop packet replay: ${result.error}`); }
+}
+
+// --- WPS Attack ---
+
+async function startWPSAttack() {
+    const interface_name = document.getElementById('wps-attack-interface').value;
+    const bssid = document.getElementById('wps-attack-bssid').value.trim();
+    const method = document.getElementById('wps-attack-method').value;
+    const timeout = parseInt(document.getElementById('wps-attack-timeout').value);
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+    if (!bssid) { alert('Please enter target BSSID'); return; }
+
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs WPS PIN brute force attacks.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/wps-attack/start', 'POST', {
+        interface: interface_name, bssid: bssid, method: method, timeout: timeout
+    });
+
+    if (result.success) { addLog('wps_attack', `WPS attack started targeting ${bssid} (${method})`); }
+    else { alert(`Failed to start WPS attack: ${result.error}`); }
+}
+
+async function stopWPSAttack() {
+    const result = await apiCall('/api/wps-attack/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop WPS attack: ${result.error}`); }
+}
+
+// --- Network Mapper ---
+
+async function startNetworkMapper() {
+    const interface_name = document.getElementById('network-mapper-interface').value;
+    const target_range = document.getElementById('network-mapper-range').value.trim();
+    const port_scan = document.getElementById('network-mapper-port-scan').checked;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+    if (!target_range) { alert('Please enter target range'); return; }
+
+    const result = await apiCall('/api/network-mapper/start', 'POST', {
+        interface: interface_name, target_range: target_range, port_scan: port_scan
+    });
+
+    if (result.success) { addLog('network_mapper', `Network scan started on ${interface_name} (${target_range})`); }
+    else { alert(`Failed to start network mapper: ${result.error}`); }
+}
+
+async function stopNetworkMapper() {
+    const result = await apiCall('/api/network-mapper/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop network mapper: ${result.error}`); }
+}
+
+// --- BLE Scanner ---
+
+async function startBLEScanner() {
+    const scan_time = parseInt(document.getElementById('ble-scanner-time').value);
+    const service_scan = document.getElementById('ble-scanner-services').checked;
+    const filter_name = document.getElementById('ble-scanner-filter-name').value.trim() || null;
+
+    const result = await apiCall('/api/ble-scanner/start', 'POST', {
+        scan_time: scan_time, service_scan: service_scan, filter_name: filter_name
+    });
+
+    if (result.success) { addLog('ble_scanner', 'BLE scan started'); }
+    else { alert(`Failed to start BLE scanner: ${result.error}`); }
+}
+
+async function stopBLEScanner() {
+    const result = await apiCall('/api/ble-scanner/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop BLE scanner: ${result.error}`); }
+}
+
+// --- Pentest Workflow ---
+
+async function startPentestWorkflow() {
+    const interface_name = document.getElementById('pentest-workflow-interface').value;
+    const bssid = document.getElementById('pentest-workflow-bssid').value.trim() || null;
+    const timeout = parseInt(document.getElementById('pentest-workflow-timeout').value);
+    const no_deauth = document.getElementById('pentest-workflow-no-deauth').checked;
+    const skip_wps = document.getElementById('pentest-workflow-skip-wps').checked;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+
+    if (bssid) {
+        const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+        if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
+    }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis runs an automated pentest workflow including scanning, deauthentication, and handshake capture.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/pentest-workflow/start', 'POST', {
+        interface: interface_name, bssid: bssid, timeout: timeout,
+        no_deauth: no_deauth, skip_wps: skip_wps
+    });
+
+    if (result.success) { addLog('pentest_workflow', `Pentest workflow started on ${interface_name}`); }
+    else { alert(`Failed to start pentest workflow: ${result.error}`); }
+}
+
+async function stopPentestWorkflow() {
+    const result = await apiCall('/api/pentest-workflow/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop pentest workflow: ${result.error}`); }
 }
 
 // Logging functions
