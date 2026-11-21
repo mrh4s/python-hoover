@@ -5,11 +5,22 @@ const socket = io();
 
 // State
 let currentStatus = null;
+let probeData = [];
+let probeSortKey = 'timestamp';
+let probeSortAsc = false; // newest first by default
+let probeFilterText = '';
+
+// CSRF token from meta tag
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
     loadStatus();
+    loadProbeBuffer();
     startStatusPolling();
     setupSocketListeners();
 });
@@ -55,6 +66,34 @@ function initializeEventListeners() {
 
     // Captures controls
     document.getElementById('refresh-captures').addEventListener('click', loadStatus);
+
+    // Logout button
+    document.getElementById('logout-btn').addEventListener('click', doLogout);
+
+    // Probe filter input
+    document.getElementById('probe-filter').addEventListener('input', (e) => {
+        probeFilterText = e.target.value.toLowerCase();
+        renderProbeTable();
+    });
+
+    // Probe table sortable headers
+    document.querySelectorAll('.probe-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const key = th.getAttribute('data-sort');
+            if (probeSortKey === key) {
+                probeSortAsc = !probeSortAsc;
+            } else {
+                probeSortKey = key;
+                probeSortAsc = true;
+            }
+            // Update sort indicators
+            document.querySelectorAll('.probe-table th.sortable').forEach(h => {
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+            th.classList.add(probeSortAsc ? 'sort-asc' : 'sort-desc');
+            renderProbeTable();
+        });
+    });
 }
 
 // Socket.IO listeners
@@ -70,15 +109,25 @@ function setupSocketListeners() {
     socket.on('log', (data) => {
         addLog(data.tool, data.message, data.timestamp);
     });
+
+    socket.on('probe', (data) => {
+        probeData.push(data);
+        // Keep only the last 100 probes client-side
+        if (probeData.length > 100) {
+            probeData = probeData.slice(-100);
+        }
+        renderProbeTable();
+    });
 }
 
-// API Calls
+// API Calls with CSRF token
 async function apiCall(endpoint, method = 'GET', data = null) {
     try {
         const options = {
             method: method,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCsrfToken()
             }
         };
 
@@ -87,10 +136,32 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         }
 
         const response = await fetch(endpoint, options);
+
+        // If 401, redirect to login
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return { success: false, error: 'Session expired' };
+        }
+
         return await response.json();
     } catch (error) {
         console.error('API call failed:', error);
         return { success: false, error: error.message };
+    }
+}
+
+// Logout
+async function doLogout() {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
+}
+
+// Load probe buffer from server
+async function loadProbeBuffer() {
+    const result = await apiCall('/api/probes');
+    if (result && result.success && result.probes) {
+        probeData = result.probes;
+        renderProbeTable();
     }
 }
 
@@ -144,9 +215,9 @@ function updateInterfacesList(interfaces) {
 
     container.innerHTML = interfaces.map(iface => `
         <div class="stat">
-            <span>${iface.name}</span>
+            <span>${escapeHtml(iface.name)}</span>
             <span style="color: ${iface.mode === 'Monitor' ? 'var(--accent-green)' : 'var(--text-secondary)'}">
-                ${iface.mode}
+                ${escapeHtml(iface.mode)}
             </span>
         </div>
     `).join('');
@@ -162,7 +233,7 @@ function populateInterfaceSelects(interfaces) {
 
         select.innerHTML = '<option value="">Select interface...</option>' +
             interfaces.map(iface =>
-                `<option value="${iface.name}">${iface.name} (${iface.mode})</option>`
+                `<option value="${escapeHtml(iface.name)}">${escapeHtml(iface.name)} (${escapeHtml(iface.mode)})</option>`
             ).join('');
 
         // Restore previous selection if still available
@@ -177,13 +248,13 @@ function updateSSIDFilesList(files) {
     const container = document.getElementById('ssid-files-list');
 
     if (files.length === 0) {
-        container.innerHTML = '<p class="empty-message">No SSID files found</p>';
+        container.innerHTML = '<p class="empty-message">No SSID files found in ssid_files/</p>';
         return;
     }
 
     container.innerHTML = files.map(file => `
         <div class="stat">
-            <span>${file.name}</span>
+            <span>${escapeHtml(file.name)}</span>
             <span>${file.count} SSIDs</span>
         </div>
     `).join('');
@@ -199,7 +270,7 @@ function populateSSIDFileSelects(files) {
 
         select.innerHTML = '<option value="">Select file...</option>' +
             files.map(file =>
-                `<option value="${file.name}">${file.name} (${file.count} SSIDs)</option>`
+                `<option value="${escapeHtml(file.name)}">${escapeHtml(file.name)} (${file.count} SSIDs)</option>`
             ).join('');
 
         // Restore previous selection if still available
@@ -240,15 +311,65 @@ function updateCapturesList(captures) {
     container.innerHTML = captures.map(capture => `
         <div class="capture-item">
             <div class="capture-info">
-                <div class="capture-name">${capture.name}</div>
+                <div class="capture-name">${escapeHtml(capture.name)}</div>
                 <div class="capture-meta">
-                    ${formatBytes(capture.size)} • ${capture.modified}
+                    ${formatBytes(capture.size)} - ${escapeHtml(capture.modified)}
                 </div>
             </div>
-            <a href="/api/capture/${capture.name}" class="capture-download">Download</a>
+            <a href="/api/capture/${encodeURIComponent(capture.name)}" class="capture-download">Download</a>
         </div>
     `).join('');
 }
+
+// --- Probe Table ---
+
+function renderProbeTable() {
+    const tbody = document.getElementById('probe-table-body');
+    const countBadge = document.getElementById('probe-count');
+
+    // Filter
+    let filtered = probeData;
+    if (probeFilterText) {
+        filtered = probeData.filter(p => {
+            const haystack = [p.mac || '', p.ssid || '', p.vendor || '', p.timestamp || ''].join(' ').toLowerCase();
+            return haystack.includes(probeFilterText);
+        });
+    }
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+        let va = a[probeSortKey] || '';
+        let vb = b[probeSortKey] || '';
+        if (probeSortKey === 'signal') {
+            va = a.signal != null ? a.signal : -999;
+            vb = b.signal != null ? b.signal : -999;
+            return probeSortAsc ? va - vb : vb - va;
+        }
+        va = String(va).toLowerCase();
+        vb = String(vb).toLowerCase();
+        if (va < vb) return probeSortAsc ? -1 : 1;
+        if (va > vb) return probeSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    countBadge.textContent = probeData.length;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-message">No probe requests captured yet. Start the monitor above.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(p => `
+        <tr>
+            <td>${escapeHtml(p.timestamp || '')}</td>
+            <td class="mono">${escapeHtml(p.mac || '')}</td>
+            <td>${escapeHtml(p.vendor || '')}</td>
+            <td>${escapeHtml(p.ssid || '(hidden)')}</td>
+            <td>${p.signal != null ? p.signal + ' dBm' : '--'}</td>
+        </tr>
+    `).join('');
+}
+
 
 // Tool control functions
 async function startMonitor() {
@@ -348,7 +469,7 @@ async function startCapturer() {
     }
 
     // Confirmation dialog
-    if (!confirm('⚠️ AUTHORIZATION REQUIRED\n\nThis tool creates a rogue access point and captures network traffic.\n\nOnly proceed if you have written authorization to test this network.\n\nUnauthorized use may be illegal.\n\nDo you confirm you have authorization?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool creates a rogue access point and captures network traffic.\n\nOnly proceed if you have written authorization to test this network.\n\nUnauthorized use may be illegal.\n\nDo you confirm you have authorization?')) {
         return;
     }
 
@@ -413,7 +534,7 @@ async function startDeauth() {
     }
 
     // Confirmation dialog
-    if (!confirm('⚠️ AUTHORIZATION REQUIRED\n\nThis tool sends WiFi deauthentication frames that will disconnect clients from wireless networks.\n\nThis is a DISRUPTIVE action!\n\nOnly proceed if you have written authorization to test this network.\n\nUnauthorized use may violate:\n- Computer Fraud and Abuse Act (CFAA)\n- Federal Wiretap Act\n- Local computer crime laws\n\nDo you confirm you have authorization?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool sends WiFi deauthentication frames that will disconnect clients from wireless networks.\n\nThis is a DISRUPTIVE action!\n\nOnly proceed if you have written authorization to test this network.\n\nDo you confirm you have authorization?')) {
         return;
     }
 
@@ -458,8 +579,8 @@ function addLog(tool, message, timestamp = null) {
     const toolLabel = tool.toUpperCase();
 
     logEntry.innerHTML = `
-        <span class="log-time">${timestamp}</span>
-        <span class="log-tool ${toolClass}">[${toolLabel}]</span>
+        <span class="log-time">${escapeHtml(timestamp)}</span>
+        <span class="log-tool ${toolClass}">[${escapeHtml(toolLabel)}]</span>
         <span class="log-message">${escapeHtml(message)}</span>
     `;
 

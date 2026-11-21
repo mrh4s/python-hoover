@@ -46,10 +46,37 @@ header {
     box-shadow: 0 4px 12px var(--shadow);
 }
 
-header h1 {
+.header-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.header-top h1 {
     font-size: 2.5rem;
     margin-bottom: 10px;
     color: var(--accent-blue);
+}
+
+.btn-logout {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-logout:hover {
+    background: var(--accent-red);
+    color: #fff;
+    border-color: var(--accent-red);
 }
 
 .subtitle {
@@ -64,6 +91,100 @@ header h1 {
     padding: 12px 20px;
     border-radius: 8px;
     font-weight: 600;
+    margin-top: 20px;
+}
+
+/* Login Page */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 40px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 4px 24px var(--shadow);
+    text-align: center;
+}
+
+.login-card h1 {
+    font-size: 2rem;
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+}
+
+.login-subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+    font-size: 1rem;
+}
+
+.login-card .form-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.login-card .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.login-card .form-group input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.login-card .form-group input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.btn-login {
+    width: 100%;
+    padding: 12px 24px;
+    background: var(--accent-blue);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-login:hover {
+    background: #4493e6;
+}
+
+.login-error {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--accent-red);
+    border: 1px solid var(--accent-red);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+}
+
+.login-hint {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
     margin-top: 20px;
 }
 
@@ -87,6 +208,12 @@ header h1 {
     color: var(--accent-blue);
     margin-bottom: 15px;
     font-size: 1.1rem;
+}
+
+.status-card h3 small {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 400;
 }
 
 .stat {
@@ -269,6 +396,128 @@ header h1 {
     background: var(--bg-hover);
 }
 
+/* Probe Request Table */
+.probe-controls {
+    margin-bottom: 15px;
+}
+
+.probe-filter-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.probe-filter-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.probe-filter-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.probe-count-badge {
+    display: inline-block;
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.probe-table-wrapper {
+    overflow-x: auto;
+}
+
+.probe-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.probe-table th {
+    background: var(--bg-tertiary);
+    color: var(--accent-blue);
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.probe-table th.sortable {
+    cursor: pointer;
+    position: relative;
+    padding-right: 24px;
+}
+
+.probe-table th.sortable:hover {
+    color: var(--accent-purple);
+}
+
+.probe-table th.sortable::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--text-secondary);
+    opacity: 0.4;
+}
+
+.probe-table th.sort-asc::after {
+    border-top-color: transparent;
+    border-bottom-color: var(--accent-blue);
+    transform: translateY(-75%);
+    opacity: 1;
+}
+
+.probe-table th.sort-desc::after {
+    border-top-color: var(--accent-blue);
+    border-bottom-color: transparent;
+    transform: translateY(-25%);
+    opacity: 1;
+}
+
+.probe-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.probe-table tbody tr:nth-child(even) {
+    background: var(--bg-tertiary);
+}
+
+.probe-table tbody tr:nth-child(odd) {
+    background: var(--bg-secondary);
+}
+
+.probe-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.probe-table td.empty-message {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px;
+}
+
+.probe-table .mono {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+}
+
 /* Logs Section */
 .logs-section {
     background: var(--bg-secondary);
@@ -333,6 +582,10 @@ header h1 {
 
 .log-tool.capturer {
     color: var(--accent-green);
+}
+
+.log-tool.deauth {
+    color: var(--accent-red);
 }
 
 .log-tool.system {
@@ -459,8 +712,17 @@ footer {
 
 /* Responsive */
 @media (max-width: 768px) {
-    header h1 {
+    .header-top h1 {
         font-size: 1.8rem;
+    }
+
+    .btn-logout {
+        position: static;
+        margin-top: 10px;
+    }
+
+    .header-top {
+        flex-direction: column;
     }
 
     .form-row {
@@ -474,5 +736,14 @@ footer {
     .btn {
         width: 100%;
         justify-content: center;
+    }
+
+    .probe-table {
+        font-size: 0.8rem;
+    }
+
+    .probe-table th,
+    .probe-table td {
+        padding: 6px 8px;
     }
 }
