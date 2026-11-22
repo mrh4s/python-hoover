@@ -91,6 +91,13 @@ hoover-report = "reporting:main"
 wardriving = "wardriving:main"
 cloud-c2 = "cloud_c2:main"
 wep-attack = "wep_attack:main"
+ft-attack = "ft_attack:main"
+password-crack = "password_crack:main"
+channel-mitm = "channel_mitm:main"
+wifi-direct = "wifi_direct:main"
+jamming-detect = "jamming_detect:main"
+dhcp-dns-attack = "dhcp_dns_attack:main"
+portal-bypass = "portal_bypass:main"
 
 [tool.setuptools]
 py-modules = [
@@ -125,6 +132,13 @@ py-modules = [
     "wardriving",
     "cloud_c2",
     "wep_attack",
+    "ft_attack",
+    "password_crack",
+    "channel_mitm",
+    "wifi_direct",
+    "jamming_detect",
+    "dhcp_dns_attack",
+    "portal_bypass",
 ]
 
 [tool.ruff]
