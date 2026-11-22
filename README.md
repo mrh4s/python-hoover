@@ -1,6 +1,6 @@
 # Python-Hoover
 
-A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 28+ integrated tools covering reconnaissance, attack, defense, automation, and extensibility — all controllable from a web dashboard, REST API, or CLI.
+A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 35 integrated tools covering reconnaissance, attack, defense, automation, and extensibility — all controllable from a web dashboard, REST API, or CLI.
 
 ## Tools
 
@@ -32,11 +32,18 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 | `fragattacks` | FragAttacks — A-MSDU injection (CVE-2020-24588), mixed key fragments (CVE-2020-24587), fragment cache (CVE-2020-24586) |
 | `wep-attack` | WEP cracking — IV collection, ARP replay, key recovery via aircrack-ng |
 | `ble-attack` | BLE GATT attacks — service enumeration, characteristic read/write, notification flooding |
+| `ft-attack` | 802.11r FT testing — Fast BSS Transition key reinstallation vulnerability detection (CVE-2017-13082) |
+| `password-crack` | Password cracker — automated hashcat/aircrack-ng integration, pcap format conversion, auto tool selection |
+| `channel-mitm` | Channel MitM — 2-adapter man-in-the-middle with rogue AP clone, deauth, frame relay |
+| `wifi-direct` | WiFi Direct P2P — device discovery, GO negotiation analysis, WPS weakness assessment |
+| `dhcp-dns-attack` | DHCP/DNS attacks — DHCP starvation, rogue DHCP server, DNS spoofing |
+| `portal-bypass` | Captive portal bypass — DNS tunnel, ICMP tunnel, MAC cloning, direct IP bypass |
 
 ### Defense
 | Tool | Description |
 |------|-------------|
 | `wids` | Wireless IDS — rogue AP, evil twin, deauth flood, karma detection, alerting |
+| `jamming-detect` | RF jamming detection — beacon loss, noise floor monitoring, deauth storm, signal anomaly, dead channel detection |
 
 ### Automation & Infrastructure
 | Tool | Description |
@@ -58,7 +65,7 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 ### System dependencies
 
 ```bash
-sudo apt-get install hostapd dnsmasq tcpdump iptables aircrack-ng reaver
+sudo apt-get install hostapd dnsmasq tcpdump iptables aircrack-ng reaver hashcat hcxpcapngtool
 ```
 
 ### Python dependencies
@@ -81,7 +88,7 @@ cd python-hoover
 pip install -e .
 ```
 
-This installs all 28+ tools as CLI commands.
+This installs all 35 tools as CLI commands.
 
 ## Quick Start
 
@@ -427,6 +434,97 @@ sudo wep-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF --min-ivs 50000  # min IVs befo
 
 Collects WEP initialization vectors via passive capture or active ARP replay, then recovers the key using aircrack-ng.
 
+### ft-attack — 802.11r FT Vulnerability Detection
+
+```bash
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF --detect-only            # passive FT detection
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m reassoc               # CVE-2017-13082 reassoc replay
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m pmk-r1                # PMK-R1 key reinstallation
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m over-ds               # FT-over-DS variant
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m all                   # run all tests
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -c 11:22:33:44:55:66     # target specific client
+sudo ft-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -t 300 -o /tmp/results   # custom timeout + output
+```
+
+Detects 802.11r Fast BSS Transition key reinstallation vulnerabilities by parsing Mobility Domain IE (ID 54) and FTIE (ID 55), tracking reassociation ANonce values, and identifying nonce reuse across FT reassociation and FT-over-DS action frames. Modes: `reassoc`, `pmk-r1`, `over-ds`, `all`.
+
+### password-crack — Hashcat/Aircrack-ng Integration
+
+```bash
+sudo password-crack capture.pcap                                          # auto-select tool + rockyou.txt
+sudo password-crack capture.pcap -w /path/to/wordlist.txt                 # custom wordlist
+sudo password-crack capture.22000 --tool hashcat --rules best64.rule      # force hashcat with rules
+sudo password-crack capture.cap -b AA:BB:CC:DD:EE:FF --tool aircrack      # force aircrack-ng
+sudo password-crack capture.pcap --no-gpu -t 7200                         # CPU only, 2h timeout
+sudo password-crack capture.pcap -o /tmp/results                          # custom output dir
+```
+
+Automated password cracking wrapper: auto-detects installed tools (hashcat/aircrack-ng), converts capture formats (pcap → hccapx/22000 via hcxpcapngtool), parses cracking output for recovered passwords. Supports GPU acceleration, custom rules, and configurable timeouts. Requires `hashcat` and/or `aircrack-ng` installed.
+
+### channel-mitm — Channel-Based MitM
+
+```bash
+sudo channel-mitm --rogue-iface wlan1 --monitor-iface wlan0mon \
+    -b AA:BB:CC:DD:EE:FF -c 6                                            # basic MitM
+sudo channel-mitm --rogue-iface wlan1 --monitor-iface wlan0mon \
+    -b AA:BB:CC:DD:EE:FF -c 6 --client CC:DD:EE:FF:00:11 --ssid "Target" # targeted with SSID clone
+sudo channel-mitm --rogue-iface wlan1 --monitor-iface wlan0mon \
+    -b AA:BB:CC:DD:EE:FF -c 6 --rogue-channel 11 --no-forward            # custom rogue channel
+```
+
+Two-adapter channel-based MitM: creates a rogue AP clone on a different channel using hostapd, deauthenticates the target client from the real AP, and relays frames between channels. Requires two wireless adapters (one for rogue AP, one in monitor mode on the real AP's channel).
+
+### wifi-direct — WiFi Direct P2P Testing
+
+```bash
+sudo wifi-direct -i wlan0mon                                              # passive P2P device discovery
+sudo wifi-direct -i wlan0mon -m analyze                                   # GO negotiation analysis
+sudo wifi-direct -i wlan0mon -m wps-test                                  # WPS PIN weakness assessment
+sudo wifi-direct -i wlan0mon -m detect-groups                             # detect active P2P groups
+sudo wifi-direct -i wlan0mon -m all --target AA:BB:CC:DD:EE:FF            # all tests, specific device
+sudo wifi-direct -i wlan0mon -t 300 -o /tmp/p2p                           # custom timeout + output
+```
+
+Passive WiFi Direct (P2P) security testing: device discovery via P2P IE parsing (OUI 50:6f:9a type 9), Group Owner negotiation analysis, WPS method weakness assessment, and active group detection. Modes: `discover`, `analyze`, `wps-test`, `detect-groups`, `all`.
+
+### jamming-detect — RF Jamming Detection
+
+```bash
+sudo jamming-detect -i wlan0mon                                           # monitor all channels
+sudo jamming-detect -i wlan0mon -c 1,6,11                                 # specific channels
+sudo jamming-detect -i wlan0mon --beacon-threshold 0.3                    # stricter beacon loss
+sudo jamming-detect -i wlan0mon --deauth-threshold 100                    # higher deauth threshold
+sudo jamming-detect -i wlan0mon -t 600 -o /tmp/alerts                    # 10 min, custom output
+```
+
+Passive RF jamming detection: monitors beacon frame rates to detect loss, tracks noise floor levels, counts deauthentication storms, analyzes signal strength anomalies, and identifies dead channels. Configurable thresholds and channel hopping with scan interval. Receive-only — nothing is transmitted.
+
+### dhcp-dns-attack — DHCP/DNS Attacks
+
+```bash
+sudo dhcp-dns-attack -i wlan0 -m dhcp-starvation -t 120                  # exhaust DHCP pool
+sudo dhcp-dns-attack -i wlan0 -m dhcp-spoof \
+    --rogue-gateway 10.0.0.1 --rogue-dns 10.0.0.1                        # rogue DHCP server
+sudo dhcp-dns-attack -i wlan0 -m dns-spoof \
+    --spoof-domain example.com --spoof-ip 10.0.0.1                        # DNS spoofing
+sudo dhcp-dns-attack -i wlan0 -m all -t 300                              # run all attacks
+```
+
+Tests DHCP and DNS resilience: DHCP pool starvation with random MAC generation, rogue DHCP server offering attacker-controlled gateway/DNS, and targeted DNS response spoofing. Modes: `dhcp-starvation`, `dhcp-spoof`, `dns-spoof`, `all`.
+
+### portal-bypass — Captive Portal Bypass
+
+```bash
+sudo portal-bypass -i wlan0 -m probe                                     # probe all bypass techniques
+sudo portal-bypass -i wlan0 -m dns-tunnel --dns-domain tunnel.example.com # test DNS tunneling
+sudo portal-bypass -i wlan0 -m icmp-tunnel --target-ip 1.1.1.1           # test ICMP tunneling
+sudo portal-bypass -i wlan0 -m mac-clone                                  # clone authenticated client MAC
+sudo portal-bypass -i wlan0 -m direct-ip --target-ip 1.1.1.1             # test direct IP bypass
+sudo portal-bypass -i wlan0 -m all                                        # run all bypass tests
+```
+
+Tests captive portal bypass feasibility: DNS tunnel (requires controlled authoritative DNS server), ICMP tunnel (requires ICMP echo responder), MAC address cloning from authenticated clients, and direct IP access bypass. Modes: `probe`, `dns-tunnel`, `icmp-tunnel`, `mac-clone`, `direct-ip`, `all`.
+
 ### wardriving — GPS-Tagged AP Mapping
 
 ```bash
@@ -484,7 +582,7 @@ sudo ./setup_interface.sh managed wlan0mon
 
 ```bash
 pip install pytest pytest-cov
-python -m pytest tests/ -v          # 785 tests, no root/hardware needed
+python -m pytest tests/ -v          # 1084 tests, no root/hardware needed
 python -m pytest tests/ --cov       # with coverage report
 ```
 
@@ -520,12 +618,19 @@ python-hoover/
 ├── cloud_c2.py            # Cloud C2 server
 ├── wep_attack.py          # WEP attack
 ├── ble_attack.py          # BLE GATT attacks
+├── ft_attack.py           # 802.11r FT vulnerability detection
+├── password_crack.py      # Hashcat/aircrack-ng integration
+├── channel_mitm.py        # Channel-based MitM
+├── wifi_direct.py         # WiFi Direct P2P testing
+├── jamming_detect.py      # RF jamming detection
+├── dhcp_dns_attack.py     # DHCP/DNS attacks
+├── portal_bypass.py       # Captive portal bypass
 ├── hoover_web.py          # Web dashboard
 ├── utils.py               # Shared utilities
 ├── oui_lookup.py          # MAC vendor lookup
 ├── templates/             # Web GUI HTML
 ├── static/                # CSS + JS
-├── tests/                 # 785 pytest tests
+├── tests/                 # 1084 pytest tests
 ├── ssid_files/            # SSID list files
 ├── captures/              # Output directory
 ├── pyproject.toml         # Project config + entry points
