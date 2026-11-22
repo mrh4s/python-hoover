@@ -155,7 +155,7 @@ tool_status = {
     'wps_attack': {'running': False, 'pid': None, 'interface': None},
     'network_mapper': {'running': False, 'pid': None, 'interface': None},
     'ble_scanner': {'running': False, 'pid': None, 'interface': None},
-    'pentest_workflow': {'running': False, 'pid': None, 'interface': None},
+    'pentest_workflow': {'running': False, 'pid': None, 'interface': None, 'output_dir': None},
     'eap_attack': {'running': False, 'pid': None, 'interface': None},
     'pmkid_capture': {'running': False, 'pid': None, 'interface': None},
     'mitm_attack': {'running': False, 'pid': None, 'interface': None},
@@ -1661,6 +1661,22 @@ def api_pentest_workflow_start():
     skip_wps = data.get('skip_wps', False)
     timeout = data.get('timeout', 300)
 
+    reveal_hidden = data.get('reveal_hidden', False)
+    fingerprint = data.get('fingerprint', False)
+    no_verify = data.get('no_verify', False)
+    dragonblood = data.get('dragonblood', False)
+    krack = data.get('krack', False)
+    fragattacks = data.get('fragattacks', False)
+    wep = data.get('wep', False)
+    ble = data.get('ble', False)
+    wardriving = data.get('wardriving', False)
+    gpsd_host = data.get('gpsd_host')
+    gpsd_port = data.get('gpsd_port')
+    report_format = data.get('report_format')
+    plugins_dir = data.get('plugins_dir')
+    full_auto = data.get('full_auto', False)
+    output_dir = data.get('output_dir', 'pentest_results')
+
     ok, err = validate_interface(interface)
     if not ok:
         return jsonify({'success': False, 'error': err}), 400
@@ -1670,8 +1686,28 @@ def api_pentest_workflow_start():
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
 
+    if gpsd_port is not None:
+        ok, err = validate_positive_number(gpsd_port, 'gpsd_port')
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+        gpsd_port = int(gpsd_port)
+
+    if gpsd_host is not None and not isinstance(gpsd_host, str):
+        return jsonify({'success': False, 'error': 'gpsd_host must be a string'}), 400
+
+    if report_format is not None and report_format not in ('json', 'html', 'pdf', 'all'):
+        return jsonify({'success': False, 'error': "report_format must be one of 'json', 'html', 'pdf', 'all'"}), 400
+
+    if plugins_dir is not None:
+        if not isinstance(plugins_dir, str) or '..' in plugins_dir:
+            return jsonify({'success': False, 'error': 'Invalid plugins_dir'}), 400
+
+    if not isinstance(output_dir, str) or '..' in output_dir:
+        return jsonify({'success': False, 'error': 'Invalid output_dir'}), 400
+
     try:
-        cmd = ['python3', 'pentest_workflow.py', '-i', interface, '-t', str(timeout)]
+        cmd = ['python3', 'pentest_workflow.py', '-i', interface, '-t', str(timeout),
+               '-o', output_dir]
         if bssid:
             ok, err = validate_mac(bssid)
             if not ok:
@@ -1681,6 +1717,34 @@ def api_pentest_workflow_start():
             cmd.append('--no-deauth')
         if skip_wps:
             cmd.append('--skip-wps')
+        if reveal_hidden:
+            cmd.append('--reveal-hidden')
+        if fingerprint:
+            cmd.append('--fingerprint')
+        if no_verify:
+            cmd.append('--no-verify')
+        if dragonblood:
+            cmd.append('--dragonblood')
+        if krack:
+            cmd.append('--krack')
+        if fragattacks:
+            cmd.append('--fragattacks')
+        if wep:
+            cmd.append('--wep')
+        if ble:
+            cmd.append('--ble')
+        if wardriving:
+            cmd.append('--wardriving')
+        if gpsd_host:
+            cmd.extend(['--gpsd-host', gpsd_host])
+        if gpsd_port is not None:
+            cmd.extend(['--gpsd-port', str(gpsd_port)])
+        if report_format:
+            cmd.extend(['--report-format', report_format])
+        if plugins_dir:
+            cmd.extend(['--plugins-dir', plugins_dir])
+        if full_auto:
+            cmd.append('--full-auto')
 
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
@@ -1688,6 +1752,7 @@ def api_pentest_workflow_start():
             tool_status['pentest_workflow']['running'] = True
             tool_status['pentest_workflow']['pid'] = process.pid
             tool_status['pentest_workflow']['interface'] = interface
+            tool_status['pentest_workflow']['output_dir'] = output_dir
             active_processes['pentest_workflow'] = process
 
         monitor = ProcessMonitor('pentest_workflow', process, emit_log)
@@ -1724,12 +1789,59 @@ def api_pentest_workflow_stop():
             tool_status['pentest_workflow']['running'] = False
             tool_status['pentest_workflow']['pid'] = None
             tool_status['pentest_workflow']['interface'] = None
+            tool_status['pentest_workflow']['output_dir'] = None
 
         emit_log('pentest_workflow', 'Pentest workflow stopped')
         return jsonify({'success': True})
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/pentest-workflow/status', methods=['GET'])
+@login_required
+def api_pentest_workflow_status():
+    """Get current pentest workflow state, including phases completed so far.
+
+    The workflow runs as a subprocess, so phase progress is read back from
+    the most recent ``pentest_report_*.json`` file it writes to its output
+    directory (the live process state comes from tool_status).
+    """
+    with _state_lock:
+        status_copy = dict(tool_status['pentest_workflow'])
+        process = active_processes.get('pentest_workflow')
+
+    if process is not None:
+        status_copy['exit_code'] = process.poll()
+
+    report = None
+    output_dir = status_copy.get('output_dir') or 'pentest_results'
+    try:
+        report_dir = Path(output_dir)
+        if report_dir.is_dir():
+            reports = sorted(
+                report_dir.glob('pentest_report_*.json'),
+                key=lambda p: p.stat().st_mtime,
+            )
+            if reports:
+                with open(reports[-1], 'r', encoding='utf-8') as f:
+                    report = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        return jsonify({
+            'success': True,
+            'status': status_copy,
+            'report': None,
+            'error': f'Failed to read report: {e}',
+        })
+
+    phases = report.get('phases', {}) if report else {}
+    return jsonify({
+        'success': True,
+        'status': status_copy,
+        'workflow_status': report.get('status') if report else None,
+        'phases_completed': list(phases.keys()),
+        'report': report,
+    })
 
 
 # --- EAP Attack ---
