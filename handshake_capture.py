@@ -16,7 +16,7 @@ from typing import Optional
 from scapy.layers.dot11 import Dot11, Dot11Deauth, RadioTap
 from scapy.layers.eap import EAPOL
 from scapy.sendrecv import sniff, sendp
-from scapy.utils import wrpcap
+from scapy.utils import wrpcap, rdpcap
 
 from utils import validate_mac, validate_interface, check_monitor_mode, require_root, setup_logging
 from oui_lookup import lookup_vendor
@@ -45,6 +45,8 @@ class HandshakeCapture:
         self.handshake_complete: bool = False
         self._stop_event = threading.Event()
         self._start_time: Optional[float] = None
+        self.verified: bool = False
+        self.verification_result: Optional[dict] = None
 
     def packet_handler(self, packet) -> None:
         if not packet.haslayer(EAPOL):
@@ -188,6 +190,225 @@ class HandshakeCapture:
             "elapsed_time": round(elapsed, 1),
         }
 
+    # ------------------------------------------------------------------
+    # Handshake verification
+    # ------------------------------------------------------------------
+
+    # Key Info field bit masks (EAPOL-Key frame, offsets per 802.11i)
+    _KEY_INFO_INSTALL = 0x0040
+    _KEY_INFO_ACK = 0x0080
+    _KEY_INFO_MIC = 0x0100
+    _KEY_INFO_SECURE = 0x0200
+    _KEY_INFO_PAIRWISE = 0x0008
+
+    def classify_eapol_message(self, eapol_data: bytes) -> int:
+        """Classify an EAPOL-Key frame body (bytes) as handshake message 1-4.
+
+        ``eapol_data`` is the EAPOL-Key frame body (i.e. everything after
+        the 4-byte EAPOL header: descriptor type, key info, key length,
+        replay counter, nonce, ...). Returns 0 if the frame cannot be
+        classified as part of a WPA/WPA2 4-way handshake.
+        """
+        if not eapol_data or len(eapol_data) < 3:
+            return 0
+
+        key_info = int.from_bytes(eapol_data[1:3], byteorder="big")
+
+        ack = bool(key_info & self._KEY_INFO_ACK)
+        mic = bool(key_info & self._KEY_INFO_MIC)
+
+        # Message 3: Pairwise + ACK + MIC + Install
+        if key_info & 0x01C8 == 0x01C8:
+            return 3
+        # Message 4: Pairwise + MIC + Secure, ACK clear
+        if key_info & 0x0308 == 0x0308 and not ack:
+            return 4
+        # Message 2: Pairwise + MIC, ACK clear
+        if key_info & 0x0108 == 0x0108 and not ack:
+            return 2
+        # Message 1: Pairwise + ACK, MIC clear
+        if key_info & 0x0088 == 0x0088 and not mic:
+            return 1
+
+        return 0
+
+    def _get_eapol_body(self, frame) -> bytes:
+        """Extract the raw EAPOL-Key frame body bytes from a captured frame."""
+        try:
+            eapol_layer = frame[EAPOL]
+            payload = getattr(eapol_layer, "payload", None)
+            if payload is not None:
+                return bytes(payload)
+            return bytes(eapol_layer)
+        except Exception as e:
+            self.logger.debug("Could not extract EAPOL body: %s", e)
+            return b""
+
+    def _get_dot11(self, frame):
+        try:
+            return frame[Dot11]
+        except Exception:
+            return None
+
+    def _classify_eapol_messages(self, frames: list) -> dict:
+        """Classify a list of captured frames into msg1/2/3/4 groups.
+
+        Returns a dict ``{1: [...], 2: [...], 3: [...], 4: [...]}`` where
+        each entry is a list of ``{"frame": frame, "data": bytes}`` dicts.
+        """
+        classified: dict = {1: [], 2: [], 3: [], 4: []}
+        for frame in frames or []:
+            data = self._get_eapol_body(frame)
+            if not data:
+                continue
+            msg_num = self.classify_eapol_message(data)
+            if msg_num in classified:
+                classified[msg_num].append({"frame": frame, "data": data})
+        return classified
+
+    def _check_nonce_consistency(self, classified: dict) -> bool:
+        """Verify the ANonce in msg1 matches the ANonce in msg3."""
+        msg1_frames = classified.get(1, [])
+        msg3_frames = classified.get(3, [])
+        if not msg1_frames or not msg3_frames:
+            return False
+
+        anonce1 = msg1_frames[0]["data"][13:45]
+        anonce3 = msg3_frames[0]["data"][13:45]
+        return len(anonce1) == 32 and anonce1 == anonce3
+
+    def _check_replay_counters(self, classified: dict) -> bool:
+        """Verify replay counters increment (non-decreasing) across msg1-4."""
+        counters = []
+        for msg_num in (1, 2, 3, 4):
+            items = classified.get(msg_num, [])
+            if not items:
+                continue
+            data = items[0]["data"]
+            if len(data) < 13:
+                continue
+            counters.append(int.from_bytes(data[5:13], byteorder="big"))
+
+        if len(counters) < 2:
+            return False
+
+        return all(counters[i] <= counters[i + 1] for i in range(len(counters) - 1))
+
+    def _check_mic_present(self, classified: dict) -> bool:
+        """Verify the MIC field is non-zero in msg2 and msg4 frames."""
+        for msg_num in (2, 4):
+            for item in classified.get(msg_num, []):
+                data = item["data"]
+                mic = data[77:93] if len(data) >= 93 else b""
+                if not mic or mic == b"\x00" * len(mic):
+                    return False
+        return True
+
+    def _extract_handshake_params(self, classified: dict) -> dict:
+        """Extract ANonce, SNonce, AP MAC and client MAC from classified frames."""
+        params: dict = {
+            "anonce": None,
+            "snonce": None,
+            "ap_mac": None,
+            "client_mac": None,
+        }
+
+        msg1_frames = classified.get(1, [])
+        msg2_frames = classified.get(2, [])
+
+        if msg1_frames:
+            data = msg1_frames[0]["data"]
+            if len(data) >= 45:
+                params["anonce"] = data[13:45].hex()
+            dot11 = self._get_dot11(msg1_frames[0]["frame"])
+            if dot11 is not None:
+                params["ap_mac"] = str(getattr(dot11, "addr2", "") or "").upper() or None
+                params["client_mac"] = str(getattr(dot11, "addr1", "") or "").upper() or None
+
+        if msg2_frames:
+            data = msg2_frames[0]["data"]
+            if len(data) >= 45:
+                params["snonce"] = data[13:45].hex()
+            if not params["ap_mac"] or not params["client_mac"]:
+                dot11 = self._get_dot11(msg2_frames[0]["frame"])
+                if dot11 is not None:
+                    params["ap_mac"] = params["ap_mac"] or (
+                        str(getattr(dot11, "addr1", "") or "").upper() or None
+                    )
+                    params["client_mac"] = params["client_mac"] or (
+                        str(getattr(dot11, "addr2", "") or "").upper() or None
+                    )
+
+        return params
+
+    def verify_handshake(self, frames: Optional[list] = None) -> dict:
+        """Validate a captured WPA 4-way handshake.
+
+        Uses ``frames`` if given, otherwise falls back to the in-memory
+        frames collected during ``start()`` (``self.eapol_frames``).
+        """
+        if frames is None:
+            frames = self.eapol_frames
+
+        classified = self._classify_eapol_messages(frames)
+        errors: list = []
+
+        msg1_count = len(classified[1])
+        msg2_count = len(classified[2])
+        msg3_count = len(classified[3])
+        msg4_count = len(classified[4])
+
+        has_complete_handshake = all(classified[i] for i in (1, 2, 3, 4))
+        if not has_complete_handshake:
+            errors.append("Incomplete handshake: missing one or more of msg1-msg4")
+
+        nonce_consistent = self._check_nonce_consistency(classified)
+        if not nonce_consistent:
+            errors.append("ANonce mismatch (or missing) between msg1 and msg3")
+
+        replay_counter_valid = self._check_replay_counters(classified)
+        if not replay_counter_valid:
+            errors.append("Replay counters do not increment correctly")
+
+        mic_present = self._check_mic_present(classified)
+        if not mic_present:
+            errors.append("MIC field is zero in msg2 and/or msg4")
+
+        params = self._extract_handshake_params(classified)
+
+        valid = (
+            has_complete_handshake
+            and nonce_consistent
+            and replay_counter_valid
+            and mic_present
+        )
+
+        result = {
+            "valid": valid,
+            "msg1_count": msg1_count,
+            "msg2_count": msg2_count,
+            "msg3_count": msg3_count,
+            "msg4_count": msg4_count,
+            "has_complete_handshake": has_complete_handshake,
+            "nonce_consistent": nonce_consistent,
+            "replay_counter_valid": replay_counter_valid,
+            "mic_present": mic_present,
+            "ap_mac": params.get("ap_mac"),
+            "client_mac": params.get("client_mac"),
+            "anonce": params.get("anonce"),
+            "snonce": params.get("snonce"),
+            "errors": errors,
+        }
+
+        self.verified = valid
+        self.verification_result = result
+        return result
+
+    def verify_pcap_file(self, filepath: str) -> dict:
+        """Load EAPOL frames from a pcap file and verify the handshake."""
+        frames = rdpcap(filepath)
+        return self.verify_handshake(frames)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -209,9 +430,9 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
+    parser.add_argument("-i", "--interface",
                         help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
+    parser.add_argument("-b", "--bssid",
                         help="Target AP BSSID (MAC address)")
     parser.add_argument("-c", "--client",
                         help="Target client MAC (default: any)")
@@ -229,10 +450,45 @@ Note: Interface must be in monitor mode.
                         help="Passive capture only (no deauth)")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Verbose output")
+    parser.add_argument("--verify", metavar="PCAP_FILE",
+                        help="Path to a .pcap file to verify (standalone verification "
+                             "mode; no capture is performed)")
+    parser.add_argument("--verify-captured", action="store_true",
+                        help="Verify the 4-way handshake after capture completes")
 
     args = parser.parse_args()
 
     logger = setup_logging("handshake_capture", verbose=args.verbose)
+
+    # Standalone verification mode: just load a pcap and check it, no
+    # interface/root/capture required.
+    if args.verify:
+        verifier = HandshakeCapture(
+            interface=args.interface or "none",
+            target_bssid=args.bssid or "00:00:00:00:00:00",
+        )
+        result = verifier.verify_pcap_file(args.verify)
+        print(f"\nHandshake verification for: {args.verify}")
+        print(f"  Valid handshake:      {result['valid']}")
+        print(f"  Complete (4 msgs):    {result['has_complete_handshake']}")
+        print(f"  Msg1/2/3/4 counts:    "
+              f"{result['msg1_count']}/{result['msg2_count']}/"
+              f"{result['msg3_count']}/{result['msg4_count']}")
+        print(f"  Nonce consistent:     {result['nonce_consistent']}")
+        print(f"  Replay counters OK:   {result['replay_counter_valid']}")
+        print(f"  MIC present:          {result['mic_present']}")
+        print(f"  AP MAC:               {result['ap_mac']}")
+        print(f"  Client MAC:           {result['client_mac']}")
+        if result["errors"]:
+            print("  Errors:")
+            for err in result["errors"]:
+                print(f"    - {err}")
+        sys.exit(0 if result["valid"] else 1)
+
+    if not args.interface or not args.bssid:
+        logger.error("-i/--interface and -b/--bssid are required unless --verify is used")
+        sys.exit(1)
+
     require_root()
 
     if not validate_mac(args.bssid):
@@ -270,6 +526,13 @@ Note: Interface must be in monitor mode.
         print(f"\nPartial capture saved to: {filepath}")
     else:
         print("\nNo EAPOL frames captured")
+
+    if args.verify_captured:
+        result = capturer.verify_handshake()
+        print(f"\nHandshake verification result: valid={result['valid']}")
+        if result["errors"]:
+            for err in result["errors"]:
+                print(f"  - {err}")
 
     sys.exit(0 if success else 1)
 

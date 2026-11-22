@@ -1,6 +1,6 @@
 # Python-Hoover
 
-A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 18 integrated tools covering reconnaissance, attack, defense, and automation — all controllable from a web dashboard or CLI.
+A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 28+ integrated tools covering reconnaissance, attack, defense, automation, and extensibility — all controllable from a web dashboard, REST API, or CLI.
 
 ## Tools
 
@@ -8,7 +8,8 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 | Tool | Description |
 |------|-------------|
 | `hoover` | Probe request monitor — capture device SSIDs with channel hopping, OUI vendor lookup, CSV/JSON/SQLite export |
-| `ap-scanner` | Passive AP discovery — beacon/probe response capture, encryption detection (WEP/WPA/WPA2/WPA3), signal strength |
+| `ap-scanner` | Passive AP discovery — beacon/probe response capture, encryption detection (WEP/WPA/WPA2/WPA3/OWE), PMF, hidden SSID reveal, signal strength |
+| `wardriving` | GPS-tagged AP mapping — gpsd integration, KML/CSV export, signal heatmapping |
 | `ble-scanner` | Bluetooth Low Energy recon — device scanning, GATT service enumeration, RSSI filtering |
 | `network-mapper` | Network discovery — ARP scan, port scan (top 100), banner grabbing, OS fingerprinting |
 
@@ -26,17 +27,27 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 | `eap-attack` | WPA-Enterprise — fake RADIUS/EAP server, credential capture (PEAP/TTLS/MD5) |
 | `pmkid-capture` | PMKID extraction — clientless WPA attack, hashcat 22000 output |
 | `mitm-attack` | MitM/ARP spoof — ARP cache poisoning, HTTP credential capture, DNS logging |
+| `dragonblood` | WPA3/SAE testing — downgrade, timing side-channel, group negotiation attacks |
+| `krack-detect` | KRACK detection — key reinstallation via EAPOL nonce reuse monitoring |
+| `fragattacks` | FragAttacks — A-MSDU injection (CVE-2020-24588), mixed key fragments (CVE-2020-24587), fragment cache (CVE-2020-24586) |
+| `wep-attack` | WEP cracking — IV collection, ARP replay, key recovery via aircrack-ng |
+| `ble-attack` | BLE GATT attacks — service enumeration, characteristic read/write, notification flooding |
 
 ### Defense
 | Tool | Description |
 |------|-------------|
 | `wids` | Wireless IDS — rogue AP, evil twin, deauth flood, karma detection, alerting |
 
-### Automation
+### Automation & Infrastructure
 | Tool | Description |
 |------|-------------|
 | `pentest-workflow` | Automated chain — scan → target → deauth → handshake → report |
 | `hoover-web` | Web dashboard — control all tools from a browser with real-time monitoring |
+| `hoover-api` | REST API — token-authenticated JSON API, rate limiting, programmatic tool control |
+| `hoover-report` | Report generation — HTML/JSON/CSV security assessment reports |
+| `multi-adapter` | Multi-adapter management — concurrent operations across multiple WiFi interfaces |
+| `cloud-c2` | Cloud C2 — remote session management via Flask-SocketIO |
+| `plugin-system` | Plugin architecture — extensible HooverPlugin base class with PluginManager |
 
 ## Requirements
 
@@ -53,7 +64,13 @@ sudo apt-get install hostapd dnsmasq tcpdump iptables aircrack-ng reaver
 ### Python dependencies
 
 ```bash
-pip install scapy flask flask-socketio eventlet psutil bleak
+pip install scapy flask flask-socketio eventlet psutil          # core
+pip install bleak                                                # BLE support
+pip install reportlab                                            # PDF reports
+pip install gpsd-py3                                             # GPS/wardriving
+pip install cryptography                                         # C2 encryption
+# Or install everything:
+pip install ".[all]"
 ```
 
 ## Installation
@@ -291,6 +308,134 @@ sudo mitm-attack -i eth0 --target 192.168.1.100 --gateway 192.168.1.1 -o /tmp/mi
 
 ARP cache poisoning with IP forwarding, HTTP credential extraction (POST data with username/password fields), and DNS query logging. Automatically restores ARP tables on stop. Default capture ports: `80,8080,443,21,25,110,143`. Captured data saved to JSON.
 
+### ble-attack — BLE GATT Attacks
+
+```bash
+ble-attack -m scan -t 15                                              # scan for BLE devices
+ble-attack -m enumerate --target AA:BB:CC:DD:EE:FF                     # full GATT enumeration
+ble-attack -m replay --target AA:BB:CC:DD:EE:FF \
+    --uuid 0000ffe1-0000-1000-8000-00805f9b34fb --write-data deadbeef \
+    --replay-count 20 --replay-interval 0.2                           # replay a captured write
+ble-attack -m fuzz --target AA:BB:CC:DD:EE:FF \
+    --uuid 0000ffe1-0000-1000-8000-00805f9b34fb                       # fuzz a characteristic
+ble-attack -m spoof --spoof-name "Fake Device"                        # spoof advertisement (BlueZ)
+```
+
+GATT service/characteristic/descriptor enumeration, characteristic read/write, write replay, notification capture, and characteristic fuzzing (zeros, 0xFF, incrementing bytes, oversized data, format strings) via `bleak`. Advertisement spoofing uses `hcitool`/`hciconfig` and is limited by BlueZ/hardware support; full raw BLE packet injection requires specialized hardware (Ubertooth, nRF52840). No root required for most operations. Results saved to JSON. Requires `bleak` Python package.
+
+### hoover-api — REST API
+
+```bash
+hoover-api --host 127.0.0.1 --port 8080                    # starts, prints an auto-generated token
+hoover-api --token mysecrettoken123                        # use a fixed token
+hoover-api --cors-origins http://localhost:3000             # enable CORS for a dashboard origin
+hoover-api --no-auth                                        # DANGEROUS: disables authentication
+```
+
+A token-authenticated JSON REST API (separate from the `hoover-web` HTML GUI) for driving the toolkit programmatically. Tool instances run in-process (daemon threads), not as subprocesses. All requests except where noted require an `Authorization: Bearer <token>` header, and are rate-limited to 60 requests/minute per IP.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/status` | Overall system status |
+| GET | `/api/v1/interfaces` | List wireless interfaces |
+| GET | `/api/v1/tools` | List all tools and their status |
+| POST | `/api/v1/tools/{tool}/start` | Start a tool with a JSON body of its constructor params |
+| POST | `/api/v1/tools/{tool}/stop` | Stop a running tool |
+| GET | `/api/v1/tools/{tool}/status` | Get status of a specific tool |
+| GET | `/api/v1/captures` | List capture files |
+| GET | `/api/v1/captures/{filename}` | Download a capture file |
+| GET | `/api/v1/results/{tool}` | Get results/data from a tool run |
+| POST | `/api/v1/scan/ap` | Start an AP scan, return results when done |
+| POST | `/api/v1/scan/clients` | Start a client probe scan |
+| GET | `/api/v1/fingerprints` | Get client fingerprints |
+| POST | `/api/v1/handshake/capture` | Start a handshake capture |
+| POST | `/api/v1/handshake/verify` | Verify a captured handshake file |
+| POST | `/api/v1/attack/{type}` | Start an attack (`deauth`, `karma`, `pmkid`, `eap`, `mitm`, `wps`) |
+| GET | `/api/v1/reports` | List generated reports |
+| POST | `/api/v1/reports/generate` | Generate a report from results |
+
+Responses are always JSON: `{"success": true, "data": {...}}` on success, or `{"success": false, "error": "message", "code": "ERROR_CODE"}` on failure. Long-running tools return a `task_id`; poll `/api/v1/tools/{tool}/status` for completion. **Authorized pentest use only** — bind to `127.0.0.1` and keep authentication enabled unless you have a specific, authorized reason to expose this more broadly.
+
+### dragonblood — WPA3/SAE Testing
+
+```bash
+sudo dragonblood -i wlan0mon -b AA:BB:CC:DD:EE:FF              # run all tests
+sudo dragonblood -i wlan0mon -b AA:BB:CC:DD:EE:FF --mode downgrade  # downgrade attack only
+sudo dragonblood -i wlan0mon -b AA:BB:CC:DD:EE:FF --mode timing     # timing side-channel
+sudo dragonblood -i wlan0mon -b AA:BB:CC:DD:EE:FF --mode group      # group negotiation
+```
+
+Tests WPA3/SAE networks for Dragonblood vulnerabilities: SAE downgrade to WPA2, timing side-channel leaks, and weak group negotiation.
+
+### krack-detect — Key Reinstallation Detection
+
+```bash
+sudo krack-detect -i wlan0mon                                   # monitor all traffic
+sudo krack-detect -i wlan0mon -b AA:BB:CC:DD:EE:FF              # monitor specific AP
+sudo krack-detect -i wlan0mon --timeout 300                      # 5-minute capture
+```
+
+Monitors EAPOL frames to detect key reinstallation attacks by tracking nonce reuse across the 4-way handshake.
+
+### fragattacks — Frame Fragmentation Testing
+
+```bash
+sudo fragattacks -i wlan0mon -b AA:BB:CC:DD:EE:FF               # all tests
+sudo fragattacks -i wlan0mon -b AA:BB:CC:DD:EE:FF --mode amsdu  # CVE-2020-24588
+sudo fragattacks -i wlan0mon -b AA:BB:CC:DD:EE:FF --mode mixed-key  # CVE-2020-24587
+sudo fragattacks -i wlan0mon -b AA:BB:CC:DD:EE:FF --mode cache  # CVE-2020-24586
+```
+
+Tests for FragAttacks (fragmentation and aggregation) vulnerabilities: A-MSDU injection, mixed key fragment attack, and fragment cache poisoning.
+
+### wep-attack — WEP Key Recovery
+
+```bash
+sudo wep-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF                # collect IVs + crack
+sudo wep-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF --arp-replay   # active ARP replay
+sudo wep-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF --min-ivs 50000  # min IVs before crack
+```
+
+Collects WEP initialization vectors via passive capture or active ARP replay, then recovers the key using aircrack-ng.
+
+### wardriving — GPS-Tagged AP Mapping
+
+```bash
+sudo wardriving -i wlan0mon                                      # scan with gpsd
+sudo wardriving -i wlan0mon -o wardrive_results.csv              # CSV output
+sudo wardriving -i wlan0mon --export-kml map.kml                 # KML for Google Earth
+```
+
+Combines AP scanning with GPS coordinates from gpsd for wardriving. Exports to CSV or KML for mapping and analysis.
+
+### cloud-c2 — Remote Command & Control
+
+```bash
+sudo cloud-c2 --port 8443                                       # start C2 server
+sudo cloud-c2 --port 8443 --secret mysecret                     # with shared secret
+```
+
+Flask-SocketIO-based remote session management for controlling Hoover agents from a central server. Restricted command execution (no arbitrary shell).
+
+### multi-adapter — Multi-Adapter Management
+
+```bash
+sudo multi-adapter --adapters wlan0mon,wlan1mon                  # manage multiple adapters
+sudo multi-adapter --adapters wlan0mon,wlan1mon --task scan      # parallel scanning
+```
+
+Manages concurrent operations across multiple WiFi adapters with thread-safe task scheduling.
+
+### hoover-report — Report Generation
+
+```bash
+hoover-report -i results.json -o report.html --format html      # HTML report
+hoover-report -i results.json -o report.json --format json       # JSON report
+hoover-report -i results.json -o report.csv --format csv         # CSV report
+```
+
+Generates security assessment reports from scan results in HTML, JSON, or CSV format.
+
 ## Monitor Mode Setup
 
 ```bash
@@ -310,7 +455,7 @@ sudo ./setup_interface.sh managed wlan0mon
 
 ```bash
 pip install pytest pytest-cov
-python -m pytest tests/ -v          # 495 tests, no root/hardware needed
+python -m pytest tests/ -v          # 734 tests, no root/hardware needed
 python -m pytest tests/ --cov       # with coverage report
 ```
 
@@ -335,12 +480,23 @@ python-hoover/
 ├── eap_attack.py          # WPA-Enterprise EAP attack
 ├── pmkid_capture.py       # PMKID clientless capture
 ├── mitm_attack.py         # MitM/ARP spoofing
+├── dragonblood.py         # WPA3/SAE Dragonblood testing
+├── krack.py               # KRACK detection
+├── fragattacks.py         # FragAttacks vulnerability testing
+├── multi_adapter.py       # Multi-adapter management
+├── rest_api.py            # REST API server
+├── reporting.py           # Report generation (HTML/JSON/CSV)
+├── plugin_system.py       # Plugin architecture
+├── wardriving.py          # GPS/wardriving
+├── cloud_c2.py            # Cloud C2 server
+├── wep_attack.py          # WEP attack
+├── ble_attack.py          # BLE GATT attacks
 ├── hoover_web.py          # Web dashboard
 ├── utils.py               # Shared utilities
 ├── oui_lookup.py          # MAC vendor lookup
 ├── templates/             # Web GUI HTML
 ├── static/                # CSS + JS
-├── tests/                 # 495 pytest tests
+├── tests/                 # 734 pytest tests
 ├── ssid_files/            # SSID list files
 ├── captures/              # Output directory
 ├── pyproject.toml         # Project config + entry points

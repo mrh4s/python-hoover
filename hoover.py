@@ -126,13 +126,64 @@ class OutputWriter:
             self._db_conn.close()
 
 
+class ClientFingerprint:
+    """Detailed fingerprint data extracted from a client's probe requests."""
+
+    def __init__(self) -> None:
+        self.mac: str = ""
+        self.vendor: str = ""
+        self.probed_ssids: set[str] = set()
+        self.supported_rates: list[float] = []
+        self.extended_rates: list[float] = []
+        self.ht_capable: bool = False
+        self.ht_channel_width_40: bool = False
+        self.vht_capable: bool = False
+        self.he_capable: bool = False  # 802.11ax / WiFi 6
+        self.power_capability: Optional[tuple[int, int]] = None  # (min, max) dBm
+        self.supported_channels: list[int] = []
+        self.wps_enabled: bool = False
+        self.wps_device_name: Optional[str] = None
+        self.os_guess: str = "Unknown"
+        self.device_type: str = "Unknown"
+        self.first_seen: str = ""
+        self.last_seen: str = ""
+        self.signal_history: list[int] = []
+        self.probe_count: int = 0
+
+    def to_dict(self) -> dict:
+        """Return a JSON/CSV-serializable representation of this fingerprint."""
+        return {
+            "mac": self.mac,
+            "vendor": self.vendor,
+            "probed_ssids": sorted(self.probed_ssids),
+            "supported_rates": self.supported_rates,
+            "extended_rates": self.extended_rates,
+            "ht_capable": self.ht_capable,
+            "ht_channel_width_40": self.ht_channel_width_40,
+            "vht_capable": self.vht_capable,
+            "he_capable": self.he_capable,
+            "power_capability": list(self.power_capability) if self.power_capability else None,
+            "supported_channels": self.supported_channels,
+            "wps_enabled": self.wps_enabled,
+            "wps_device_name": self.wps_device_name,
+            "os_guess": self.os_guess,
+            "device_type": self.device_type,
+            "first_seen": self.first_seen,
+            "last_seen": self.last_seen,
+            "signal_history": self.signal_history,
+            "probe_count": self.probe_count,
+        }
+
+
 class ProbeMonitor:
     def __init__(self, interface: str, verbose: bool = False,
                  json_output: bool = False, use_color: bool = True,
                  output_writer: Optional[OutputWriter] = None,
                  channel_hop: bool = True, hop_interval: float = 0.25,
                  fixed_channel: Optional[int] = None,
-                 bands: str = "2.4") -> None:
+                 bands: str = "2.4",
+                 fingerprint_mode: bool = False,
+                 fp_output: Optional[str] = None) -> None:
         self.interface: str = interface
         self.verbose: bool = verbose
         self.json_output: bool = json_output
@@ -145,6 +196,9 @@ class ProbeMonitor:
         self.probes: defaultdict[str, set[str]] = defaultdict(set)
         self.logger = setup_logging("hoover", verbose)
         self._hop_stop = threading.Event()
+        self.fingerprints: dict[str, ClientFingerprint] = {}  # MAC -> fingerprint
+        self.fingerprint_mode: bool = fingerprint_mode
+        self.fp_output: Optional[str] = fp_output
 
     def _set_channel(self, channel: int) -> None:
         """Set the wireless interface to the specified channel."""
@@ -167,8 +221,319 @@ class ProbeMonitor:
             idx = (idx + 1) % len(channels)
             self._hop_stop.wait(self.hop_interval)
 
+    # -----------------------------------------------------------------
+    # Client fingerprinting
+    # -----------------------------------------------------------------
+
+    def _parse_supported_rates(self, elt_info: bytes) -> list[float]:
+        """Parse IE ID=1 Supported Rates: each byte = rate/500kbps, MSB=basic."""
+        rates: list[float] = []
+        if not elt_info:
+            return rates
+        for byte in elt_info:
+            rates.append((byte & 0x7F) * 0.5)
+        return rates
+
+    def _parse_extended_rates(self, elt_info: bytes) -> list[float]:
+        """Parse IE ID=50 Extended Supported Rates (same encoding as ID=1)."""
+        return self._parse_supported_rates(elt_info)
+
+    def _parse_ht_capabilities(self, elt_info: bytes) -> dict:
+        """Parse IE ID=45 HT Capabilities: channel width, SM power save, short GI."""
+        if not elt_info or len(elt_info) < 2:
+            return {}
+        cap_info = elt_info[0] | (elt_info[1] << 8)
+        return {
+            "ldpc_coding": bool(cap_info & 0x0001),
+            "channel_width_40": bool(cap_info & 0x0002),
+            "sm_power_save": (cap_info >> 2) & 0x3,
+            "greenfield": bool(cap_info & 0x0010),
+            "short_gi_20": bool(cap_info & 0x0020),
+            "short_gi_40": bool(cap_info & 0x0040),
+            "tx_stbc": bool(cap_info & 0x0080),
+        }
+
+    def _parse_vht_capabilities(self, elt_info: bytes) -> dict:
+        """Parse IE ID=191 VHT Capabilities: max MCS, supported widths."""
+        if not elt_info or len(elt_info) < 4:
+            return {"vht_capable": False}
+        cap_info = int.from_bytes(elt_info[0:4], "little")
+        supported_width = (cap_info >> 2) & 0x3
+        max_mcs = None
+        if len(elt_info) >= 6:
+            mcs_map = int.from_bytes(elt_info[4:6], "little")
+            max_mcs = mcs_map
+        return {
+            "vht_capable": True,
+            "supported_channel_width": supported_width,
+            "max_mcs_map": max_mcs,
+        }
+
+    def _parse_he_capabilities(self, elt_info: bytes) -> dict:
+        """Parse IE ID=255 (ext ID=35) HE Capabilities element."""
+        if not elt_info:
+            return {"he_capable": False}
+        ext_id = elt_info[0]
+        if ext_id == 35:
+            return {"he_capable": True}
+        return {"he_capable": False}
+
+    def _parse_wps_ie(self, elt_info: bytes) -> dict:
+        """Parse WPS IE (ID=221, OUI 00:50:F2:04): device name, model, manufacturer."""
+        result: dict = {
+            "wps_enabled": False,
+            "device_name": None,
+            "manufacturer": None,
+            "model_name": None,
+            "model_number": None,
+        }
+        if not elt_info or len(elt_info) < 4:
+            return result
+
+        oui = bytes(elt_info[0:3])
+        vendor_type = elt_info[3]
+        if oui != b"\x00\x50\xf2" or vendor_type != 4:
+            return result
+
+        result["wps_enabled"] = True
+        attr_map = {
+            0x1011: "device_name",
+            0x1021: "manufacturer",
+            0x1023: "model_name",
+            0x1024: "model_number",
+        }
+        data = bytes(elt_info[4:])
+        idx = 0
+        while idx + 4 <= len(data):
+            attr_type = int.from_bytes(data[idx:idx + 2], "big")
+            attr_len = int.from_bytes(data[idx + 2:idx + 4], "big")
+            value = data[idx + 4:idx + 4 + attr_len]
+            if attr_type in attr_map:
+                try:
+                    result[attr_map[attr_type]] = value.decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+            idx += 4 + attr_len
+        return result
+
+    def _parse_power_capability(self, elt_info: bytes) -> tuple[int, int]:
+        """Parse IE ID=33: min_power, max_power (signed int8 dBm)."""
+        if not elt_info or len(elt_info) < 2:
+            return (0, 0)
+
+        def _signed8(val: int) -> int:
+            return val - 256 if val >= 128 else val
+
+        return (_signed8(elt_info[0]), _signed8(elt_info[1]))
+
+    def _guess_os(self, fingerprint: "ClientFingerprint") -> str:
+        """Heuristic OS detection from rate sets, IE ordering, and OUI."""
+        vendor = fingerprint.vendor
+
+        if vendor == "Apple":
+            return "iOS/macOS"
+
+        android_vendors = {
+            "Samsung", "Google", "Xiaomi", "OnePlus", "Huawei",
+            "LG", "Motorola", "Sony",
+        }
+        if vendor in android_vendors:
+            return "Android"
+
+        if vendor == "Microsoft":
+            return "Windows"
+
+        if fingerprint.wps_enabled and vendor in ("TP-Link", "Netgear", "Realtek", "Broadcom"):
+            return "Linux"
+
+        return "Unknown"
+
+    def _guess_device_type(self, fingerprint: "ClientFingerprint") -> str:
+        """Classify as phone/laptop/IoT/tablet from capabilities + vendor."""
+        vendor = fingerprint.vendor
+
+        iot_vendors = {"Espressif", "Raspberry Pi"}
+        phone_vendors = {
+            "Apple", "Samsung", "Google", "Xiaomi", "OnePlus", "Huawei",
+            "LG", "Motorola", "Sony",
+        }
+        laptop_vendors = {"Intel", "Dell", "HP", "Broadcom", "Realtek", "Qualcomm"}
+
+        if vendor in iot_vendors:
+            return "IoT"
+
+        if vendor in phone_vendors:
+            return "Phone"
+
+        if vendor in laptop_vendors:
+            return "Laptop"
+
+        if not fingerprint.ht_capable and not fingerprint.vht_capable and not fingerprint.he_capable:
+            return "IoT"
+
+        return "Unknown"
+
+    def fingerprint_client(self, packet: object) -> Optional["ClientFingerprint"]:
+        """Extract a full client fingerprint from a probe request's IEs."""
+        if not packet.haslayer(Dot11ProbeReq):
+            return None
+
+        try:
+            client_mac: str = packet[Dot11].addr2
+        except Exception:
+            return None
+
+        if not client_mac:
+            return None
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        fp = self.fingerprints.get(client_mac)
+        if fp is None:
+            fp = ClientFingerprint()
+            fp.mac = client_mac
+            fp.vendor = lookup_vendor(client_mac)
+            fp.first_seen = timestamp
+            self.fingerprints[client_mac] = fp
+
+        fp.last_seen = timestamp
+        fp.probe_count += 1
+
+        if hasattr(packet, "dBm_AntSignal") and packet.dBm_AntSignal is not None:
+            fp.signal_history.append(packet.dBm_AntSignal)
+
+        # Walk the chain of Dot11Elt information elements.
+        elt = None
+        try:
+            elt = packet.getlayer(Dot11Elt)
+        except Exception:
+            elt = None
+
+        max_iterations = 64
+        seen = 0
+        while elt is not None and seen < max_iterations:
+            seen += 1
+            try:
+                eid = elt.ID
+                info = elt.info
+            except Exception:
+                break
+
+            try:
+                if eid == 0:
+                    ssid = info.decode("utf-8", errors="ignore") if info else ""
+                    if ssid:
+                        fp.probed_ssids.add(ssid)
+                elif eid == 1:
+                    fp.supported_rates = self._parse_supported_rates(info)
+                elif eid == 50:
+                    fp.extended_rates = self._parse_extended_rates(info)
+                elif eid == 33:
+                    fp.power_capability = self._parse_power_capability(info)
+                elif eid == 36:
+                    channels: list[int] = []
+                    for i in range(0, len(info) - 1, 2):
+                        first_channel = info[i]
+                        num_channels = info[i + 1]
+                        channels.extend(range(first_channel, first_channel + num_channels))
+                    fp.supported_channels = channels
+                elif eid == 45:
+                    ht = self._parse_ht_capabilities(info)
+                    if ht:
+                        fp.ht_capable = True
+                        fp.ht_channel_width_40 = ht.get("channel_width_40", False)
+                elif eid == 191:
+                    vht = self._parse_vht_capabilities(info)
+                    fp.vht_capable = vht.get("vht_capable", False)
+                elif eid == 255:
+                    he = self._parse_he_capabilities(info)
+                    if he.get("he_capable"):
+                        fp.he_capable = True
+                elif eid == 221:
+                    wps = self._parse_wps_ie(info)
+                    if wps.get("wps_enabled"):
+                        fp.wps_enabled = True
+                        fp.wps_device_name = wps.get("device_name")
+            except Exception as e:
+                if self.verbose:
+                    self.logger.debug("Error parsing IE %s: %s", eid, e)
+
+            try:
+                next_elt = elt.payload.getlayer(Dot11Elt)
+            except Exception:
+                next_elt = None
+            if next_elt is elt:
+                break
+            elt = next_elt
+
+        fp.os_guess = self._guess_os(fp)
+        fp.device_type = self._guess_device_type(fp)
+        return fp
+
+    def get_fingerprints(self) -> dict:
+        """Return all client fingerprints as serializable dicts."""
+        return {mac: fp.to_dict() for mac, fp in self.fingerprints.items()}
+
+    def print_fingerprint_summary(self) -> None:
+        """Print a formatted fingerprint table."""
+        print("\n" + "=" * 70)
+        print(_color("bold", "CLIENT FINGERPRINTS", self.use_color))
+        print("=" * 70)
+
+        if not self.fingerprints:
+            print("No fingerprints collected.")
+            return
+
+        for mac, fp in self.fingerprints.items():
+            print(f"\n{mac} ({fp.vendor})")
+            print(f"  OS Guess:     {fp.os_guess}")
+            print(f"  Device Type:  {fp.device_type}")
+            print(f"  Probe Count:  {fp.probe_count}")
+            print(f"  HT: {fp.ht_capable}  VHT: {fp.vht_capable}  HE (WiFi 6): {fp.he_capable}")
+            if fp.power_capability:
+                print(f"  Power Capability: {fp.power_capability[0]}/{fp.power_capability[1]} dBm")
+            if fp.wps_enabled:
+                print(f"  WPS Device Name: {fp.wps_device_name}")
+            if fp.probed_ssids:
+                print(f"  Probed SSIDs: {', '.join(sorted(fp.probed_ssids))}")
+
+    def _write_fingerprints(self, filepath: str) -> None:
+        """Write collected fingerprints to a .json or .csv file."""
+        ext = os.path.splitext(filepath)[1].lower()
+        fingerprints = self.get_fingerprints()
+        try:
+            if ext == ".json":
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(fingerprints, f, indent=2)
+            elif ext == ".csv":
+                with open(filepath, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        "mac", "vendor", "os_guess", "device_type", "probe_count",
+                        "ht_capable", "vht_capable", "he_capable", "wps_enabled",
+                        "wps_device_name", "probed_ssids",
+                    ])
+                    for mac, fp in fingerprints.items():
+                        writer.writerow([
+                            mac, fp["vendor"], fp["os_guess"], fp["device_type"],
+                            fp["probe_count"], fp["ht_capable"], fp["vht_capable"],
+                            fp["he_capable"], fp["wps_enabled"], fp["wps_device_name"],
+                            ";".join(fp["probed_ssids"]),
+                        ])
+            else:
+                self.logger.error("Unsupported fingerprint output format: %s", ext)
+        except OSError as e:
+            self.logger.error("Error writing fingerprint output: %s", e)
+
     def packet_handler(self, packet: object) -> None:
         """Handle captured WiFi packets."""
+        if self.fingerprint_mode and packet.haslayer(Dot11ProbeReq):
+            try:
+                self.fingerprint_client(packet)
+            except Exception as e:
+                if self.verbose:
+                    self.logger.debug("Error fingerprinting packet: %s", e)
+
         if packet.haslayer(Dot11ProbeReq):
             try:
                 # Extract client MAC address
@@ -262,6 +627,10 @@ class ProbeMonitor:
             if not self.json_output:
                 print()
                 self.print_summary()
+                if self.fingerprint_mode:
+                    self.print_fingerprint_summary()
+            if self.fingerprint_mode and self.fp_output:
+                self._write_fingerprints(self.fp_output)
         except Exception as e:
             self._hop_stop.set()
             self.logger.error(_color("red", f"Error: {e}", self.use_color))
@@ -330,6 +699,10 @@ Note: Interface must be in monitor mode
     parser.add_argument("--bands", default="2.4,5",
                         choices=["2.4", "5", "2.4,5", "all"],
                         help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)")
+    parser.add_argument("--fingerprint", action="store_true",
+                        help="Enable detailed client fingerprinting")
+    parser.add_argument("--fp-output", metavar="FILE", dest="fp_output",
+                        help="Output fingerprint data to file (.json or .csv)")
 
     args = parser.parse_args()
 
@@ -372,6 +745,8 @@ Note: Interface must be in monitor mode
         hop_interval=args.hop_interval,
         fixed_channel=fixed_channel,
         bands=args.bands,
+        fingerprint_mode=args.fingerprint,
+        fp_output=args.fp_output,
     )
     monitor.start()
 
