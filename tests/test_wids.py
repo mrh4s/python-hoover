@@ -274,6 +274,24 @@ class TestChannelHop:
             monitor._channel_hop_loop()
         mock_run.assert_called_once()
 
+    def test_default_bands(self, monitor):
+        assert monitor.bands == "2.4"
+
+    @patch("wids.subprocess.run")
+    @patch("wids.time.sleep", side_effect=StopIteration)
+    def test_hop_loop_6ghz_band(self, mock_sleep, mock_run, mock_interface, tmp_path):
+        m = WIDSMonitor(
+            interface=mock_interface,
+            log_file=str(tmp_path / "alerts.json"),
+            channel_hop=False,
+            bands="6",
+        )
+        m._hop_running = True
+        with pytest.raises(StopIteration):
+            m._channel_hop_loop()
+        args = mock_run.call_args[0][0]
+        assert "1" in args
+
 
 class TestPrintSummary:
     def test_print(self, monitor, capsys):

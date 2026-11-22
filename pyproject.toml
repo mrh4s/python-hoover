@@ -59,6 +59,9 @@ wps-attack = "wps_attack:main"
 network-mapper = "network_mapper:main"
 ble-scanner = "ble_scanner:main"
 pentest-workflow = "pentest_workflow:main"
+eap-attack = "eap_attack:main"
+pmkid-capture = "pmkid_capture:main"
+mitm-attack = "mitm_attack:main"
 
 [tool.setuptools]
 py-modules = [
@@ -79,6 +82,9 @@ py-modules = [
     "network_mapper",
     "ble_scanner",
     "pentest_workflow",
+    "eap_attack",
+    "pmkid_capture",
+    "mitm_attack",
 ]
 
 [tool.ruff]

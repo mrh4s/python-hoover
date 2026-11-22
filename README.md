@@ -1,6 +1,6 @@
 # Python-Hoover
 
-A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 15 integrated tools covering reconnaissance, attack, defense, and automation — all controllable from a web dashboard or CLI.
+A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 18 integrated tools covering reconnaissance, attack, defense, and automation — all controllable from a web dashboard or CLI.
 
 ## Tools
 
@@ -23,6 +23,9 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 | `karma-attack` | Karma — auto-respond to all probe requests with matching beacons |
 | `wps-attack` | WPS PIN brute force — Reaver/Bully/Pixie Dust wrapper |
 | `packet-replay` | Packet replay — capture, filter, and replay WiFi frames from pcap |
+| `eap-attack` | WPA-Enterprise — fake RADIUS/EAP server, credential capture (PEAP/TTLS/MD5) |
+| `pmkid-capture` | PMKID extraction — clientless WPA attack, hashcat 22000 output |
+| `mitm-attack` | MitM/ARP spoof — ARP cache poisoning, HTTP credential capture, DNS logging |
 
 ### Defense
 | Tool | Description |
@@ -61,7 +64,7 @@ cd python-hoover
 pip install -e .
 ```
 
-This installs all 15 tools as CLI commands.
+This installs all 18 tools as CLI commands.
 
 ## Quick Start
 
@@ -252,6 +255,42 @@ sudo pentest-workflow -i wlan0mon -t 600 -o results/                 # 10 min, c
 
 Workflow: scan APs → select target → deauth clients → capture handshake → WPS test → generate HTML report.
 
+### eap-attack — WPA-Enterprise EAP Testing
+
+```bash
+sudo eap-attack -i wlan0 -s "Corp-WiFi"                               # PEAP (default)
+sudo eap-attack -i wlan0 -s "Eduroam" -m ttls                         # EAP-TTLS
+sudo eap-attack -i wlan0 -s "Office" -m md5                           # EAP-MD5
+sudo eap-attack -i wlan0 -s "Corp" -ch 11 -t 600                      # channel 11, 10 min
+sudo eap-attack -i wlan0 -s "Corp" -o /tmp/creds                      # custom output dir
+```
+
+Creates a rogue WPA-Enterprise AP using hostapd's integrated EAP server. Captures EAP identities, MSCHAPv2 challenge/response pairs, and MD5 challenges. Credentials saved to JSON in output directory. Methods: `peap`, `ttls`, `md5`.
+
+### pmkid-capture — Clientless PMKID Extraction
+
+```bash
+sudo pmkid-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF                   # capture PMKID
+sudo pmkid-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -ch 6             # set channel
+sudo pmkid-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -t 30             # 30s timeout
+sudo pmkid-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF --client-mac 11:22:33:44:55:66
+sudo pmkid-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -o /tmp/caps      # custom output
+```
+
+Extracts PMKID from EAPOL Key message 1 without requiring connected clients. Sends association request to trigger the AP's response, then parses the PMKID KDE. Output: hashcat 22000 format (`WPA*02*<PMKID>*<AP_MAC>*<STA_MAC>*<ESSID_hex>***`). Use with `hashcat -m 22000`.
+
+### mitm-attack — MitM / ARP Spoofing
+
+```bash
+sudo mitm-attack -i eth0 --target 192.168.1.100 --gateway 192.168.1.1          # basic MitM
+sudo mitm-attack -i wlan0 --target 192.168.1.50 --gateway 192.168.1.1 -t 600   # 10 min
+sudo mitm-attack -i eth0 --target 10.0.0.5 --gateway 10.0.0.1 --no-forward     # no IP forwarding
+sudo mitm-attack -i eth0 --target 192.168.1.100 --gateway 192.168.1.1 -p 80,443,8080
+sudo mitm-attack -i eth0 --target 192.168.1.100 --gateway 192.168.1.1 -o /tmp/mitm
+```
+
+ARP cache poisoning with IP forwarding, HTTP credential extraction (POST data with username/password fields), and DNS query logging. Automatically restores ARP tables on stop. Default capture ports: `80,8080,443,21,25,110,143`. Captured data saved to JSON.
+
 ## Monitor Mode Setup
 
 ```bash
@@ -271,7 +310,7 @@ sudo ./setup_interface.sh managed wlan0mon
 
 ```bash
 pip install pytest pytest-cov
-python -m pytest tests/ -v          # 349 tests, no root/hardware needed
+python -m pytest tests/ -v          # 495 tests, no root/hardware needed
 python -m pytest tests/ --cov       # with coverage report
 ```
 
@@ -293,12 +332,15 @@ python-hoover/
 ├── network_mapper.py      # Network mapper
 ├── ble_scanner.py         # BLE scanner
 ├── pentest_workflow.py    # Automated workflow
+├── eap_attack.py          # WPA-Enterprise EAP attack
+├── pmkid_capture.py       # PMKID clientless capture
+├── mitm_attack.py         # MitM/ARP spoofing
 ├── hoover_web.py          # Web dashboard
 ├── utils.py               # Shared utilities
 ├── oui_lookup.py          # MAC vendor lookup
 ├── templates/             # Web GUI HTML
 ├── static/                # CSS + JS
-├── tests/                 # 349 pytest tests
+├── tests/                 # 495 pytest tests
 ├── ssid_files/            # SSID list files
 ├── captures/              # Output directory
 ├── pyproject.toml         # Project config + entry points

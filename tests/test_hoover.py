@@ -80,6 +80,7 @@ class TestProbeMonitorInit:
         assert pm.fixed_channel is None
         assert pm.output_writer is None
         assert isinstance(pm.probes, defaultdict)
+        assert pm.bands == "2.4"
 
     def test_probe_monitor_custom_args(self):
         pm = ProbeMonitor(
@@ -170,6 +171,23 @@ class TestChannelHopper:
 
         # Should have cycled through 1..13
         assert channels_set == list(range(1, 14))
+
+    @patch("hoover.subprocess.run")
+    def test_channel_hopper_custom_bands(self, mock_run):
+        """Channel hopper should use the 5 GHz channel list when configured."""
+        pm = ProbeMonitor(interface="wlan0mon", bands="5")
+        channels_set = []
+
+        def capture_channel(*args, **kwargs):
+            ch = int(args[0][3])
+            channels_set.append(ch)
+            if len(channels_set) >= 1:
+                pm._hop_stop.set()
+
+        mock_run.side_effect = capture_channel
+        pm._channel_hop_loop()
+
+        assert channels_set == [36]
 
 
 # ---------------------------------------------------------------------------

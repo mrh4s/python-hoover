@@ -19,7 +19,7 @@ from typing import Optional, TextIO
 from scapy.layers.dot11 import Dot11, Dot11ProbeReq, Dot11Elt, RadioTap
 from scapy.sendrecv import sniff
 
-from utils import validate_mac, check_monitor_mode, require_root, setup_logging
+from utils import validate_mac, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
 
 # ANSI color codes
@@ -131,7 +131,8 @@ class ProbeMonitor:
                  json_output: bool = False, use_color: bool = True,
                  output_writer: Optional[OutputWriter] = None,
                  channel_hop: bool = True, hop_interval: float = 0.25,
-                 fixed_channel: Optional[int] = None) -> None:
+                 fixed_channel: Optional[int] = None,
+                 bands: str = "2.4") -> None:
         self.interface: str = interface
         self.verbose: bool = verbose
         self.json_output: bool = json_output
@@ -140,6 +141,7 @@ class ProbeMonitor:
         self.channel_hop: bool = channel_hop
         self.hop_interval: float = hop_interval
         self.fixed_channel: Optional[int] = fixed_channel
+        self.bands: str = bands
         self.probes: defaultdict[str, set[str]] = defaultdict(set)
         self.logger = setup_logging("hoover", verbose)
         self._hop_stop = threading.Event()
@@ -157,8 +159,8 @@ class ProbeMonitor:
             pass
 
     def _channel_hop_loop(self) -> None:
-        """Background thread: cycle through WiFi channels 1-13."""
-        channels = list(range(1, 14))
+        """Background thread: cycle through WiFi channels for the configured bands."""
+        channels = get_channels(self.bands)
         idx = 0
         while not self._hop_stop.is_set():
             self._set_channel(channels[idx])
@@ -325,6 +327,9 @@ Note: Interface must be in monitor mode
                         help="Channel hop dwell time in seconds (default: 0.25)")
     parser.add_argument("--channel", type=int, default=None,
                         help="Fixed WiFi channel (disables channel hopping)")
+    parser.add_argument("--bands", default="2.4,5",
+                        choices=["2.4", "5", "2.4,5", "all"],
+                        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)")
 
     args = parser.parse_args()
 
@@ -366,6 +371,7 @@ Note: Interface must be in monitor mode
         channel_hop=channel_hop,
         hop_interval=args.hop_interval,
         fixed_channel=fixed_channel,
+        bands=args.bands,
     )
     monitor.start()
 
