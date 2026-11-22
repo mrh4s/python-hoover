@@ -177,6 +177,19 @@ def _make_reassoc_req_packet(bssid: str = BSSID, client: str = CLIENT,
     return pkt
 
 
+class _FakePayload:
+    """Stand-in for a Dot11 payload that supports bytes() conversion."""
+
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def __bytes__(self):
+        return self._data
+
+    def __bool__(self):
+        return bool(self._data)
+
+
 def _make_action_packet(bssid: str = BSSID, client: str = CLIENT,
                          category: int = FT_ACTION_CATEGORY,
                          action_code: int = FT_ACTION_REQUEST):
@@ -191,8 +204,7 @@ def _make_action_packet(bssid: str = BSSID, client: str = CLIENT,
     dot11_layer.subtype = 13
 
     payload_bytes = bytes([category, action_code])
-    dot11_layer.payload = MagicMock()
-    dot11_layer.payload.__bytes__ = lambda self: payload_bytes
+    dot11_layer.payload = _FakePayload(payload_bytes)
 
     layers_present = {Dot11}
 
