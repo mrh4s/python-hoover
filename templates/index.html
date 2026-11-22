@@ -686,6 +686,152 @@
                     </div>
                 </div>
             </div>
+
+            <!-- EAP Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>EAP Attack</h2>
+                    <span class="status-badge" id="eap-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">WPA-Enterprise rogue AP with EAP credential capture</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="eap-attack-interface">Interface:</label>
+                        <select id="eap-attack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="eap-attack-ssid">SSID:</label>
+                        <input type="text" id="eap-attack-ssid" value="Corp-WiFi" placeholder="Target SSID">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="eap-attack-channel">Channel:</label>
+                            <input type="number" id="eap-attack-channel" value="6" min="1" max="14">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="eap-attack-method">EAP Method:</label>
+                            <select id="eap-attack-method">
+                                <option value="peap">PEAP</option>
+                                <option value="ttls">TTLS</option>
+                                <option value="md5">MD5</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="eap-attack-timeout">Timeout (s):</label>
+                        <input type="number" id="eap-attack-timeout" value="300" min="1" max="3600">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="eap-attack-start">Start EAP Attack</button>
+                        <button class="btn btn-stop" id="eap-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PMKID Capture -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>PMKID Capture</h2>
+                    <span class="status-badge" id="pmkid-capture-status">Stopped</span>
+                </div>
+                <p class="tool-description">Clientless PMKID extraction from WPA/WPA2 access points</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="pmkid-capture-interface">Interface:</label>
+                        <select id="pmkid-capture-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pmkid-capture-bssid">Target BSSID:</label>
+                        <input type="text" id="pmkid-capture-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pmkid-capture-timeout">Timeout (s):</label>
+                            <input type="number" id="pmkid-capture-timeout" value="60" min="1" max="600">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pmkid-capture-channel">Channel:</label>
+                            <input type="number" id="pmkid-capture-channel" placeholder="Auto" min="1" max="165">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pmkid-capture-client-mac">Client MAC (optional spoof):</label>
+                        <input type="text" id="pmkid-capture-client-mac" placeholder="Leave empty for real MAC">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="pmkid-capture-start">Start PMKID Capture</button>
+                        <button class="btn btn-stop" id="pmkid-capture-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MitM Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>MitM Attack</h2>
+                    <span class="status-badge" id="mitm-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">ARP spoofing with HTTP credential capture and DNS logging</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="mitm-attack-interface">Interface:</label>
+                        <select id="mitm-attack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mitm-attack-target">Target IP:</label>
+                        <input type="text" id="mitm-attack-target" placeholder="192.168.1.100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mitm-attack-gateway">Gateway IP:</label>
+                        <input type="text" id="mitm-attack-gateway" placeholder="192.168.1.1">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mitm-attack-timeout">Timeout (s):</label>
+                            <input type="number" id="mitm-attack-timeout" value="300" min="1" max="3600">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mitm-attack-ports">Ports:</label>
+                            <input type="text" id="mitm-attack-ports" value="80,8080,443,21,25,110,143" placeholder="80,443,...">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mitm-attack-no-forward">
+                            <input type="checkbox" id="mitm-attack-no-forward">
+                            Disable IP forwarding
+                        </label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="mitm-attack-start">Start MitM</button>
+                        <button class="btn btn-stop" id="mitm-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Logs Section -->

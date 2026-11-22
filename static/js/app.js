@@ -83,6 +83,18 @@ function initializeEventListeners() {
     document.getElementById('pentest-workflow-start').addEventListener('click', startPentestWorkflow);
     document.getElementById('pentest-workflow-stop').addEventListener('click', stopPentestWorkflow);
 
+    // EAP Attack controls
+    document.getElementById('eap-attack-start').addEventListener('click', startEAPAttack);
+    document.getElementById('eap-attack-stop').addEventListener('click', stopEAPAttack);
+
+    // PMKID Capture controls
+    document.getElementById('pmkid-capture-start').addEventListener('click', startPMKIDCapture);
+    document.getElementById('pmkid-capture-stop').addEventListener('click', stopPMKIDCapture);
+
+    // MitM Attack controls
+    document.getElementById('mitm-attack-start').addEventListener('click', startMitMAttack);
+    document.getElementById('mitm-attack-stop').addEventListener('click', stopMitMAttack);
+
     // Capturer rotation checkbox
     document.getElementById('capturer-rotate').addEventListener('change', (e) => {
         document.getElementById('capturer-ssid-group').style.display =
@@ -249,6 +261,9 @@ function updateUI(data) {
     updateToolStatus('network-mapper', data.status.network_mapper);
     updateToolStatus('ble-scanner', data.status.ble_scanner);
     updateToolStatus('pentest-workflow', data.status.pentest_workflow);
+    updateToolStatus('eap-attack', data.status.eap_attack);
+    updateToolStatus('pmkid-capture', data.status.pmkid_capture);
+    updateToolStatus('mitm-attack', data.status.mitm_attack);
 
     // Update captures
     updateCapturesList(data.captures);
@@ -277,7 +292,8 @@ function updateInterfacesList(interfaces) {
 function populateInterfaceSelects(interfaces) {
     const selects = ['monitor-interface', 'generator-interface', 'capturer-interface', 'deauth-interface',
                      'ap-scanner-interface', 'handshake-interface', 'portal-interface', 'karma-interface', 'wids-interface',
-                     'packet-replay-interface', 'wps-attack-interface', 'network-mapper-interface', 'pentest-workflow-interface'];
+                     'packet-replay-interface', 'wps-attack-interface', 'network-mapper-interface', 'pentest-workflow-interface',
+                     'eap-attack-interface', 'pmkid-capture-interface', 'mitm-attack-interface'];
 
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -874,6 +890,103 @@ async function startPentestWorkflow() {
 async function stopPentestWorkflow() {
     const result = await apiCall('/api/pentest-workflow/stop', 'POST');
     if (!result.success) { alert(`Failed to stop pentest workflow: ${result.error}`); }
+}
+
+// --- EAP Attack ---
+
+async function startEAPAttack() {
+    const interface_name = document.getElementById('eap-attack-interface').value;
+    const ssid = document.getElementById('eap-attack-ssid').value.trim();
+    const channel = parseInt(document.getElementById('eap-attack-channel').value);
+    const method = document.getElementById('eap-attack-method').value;
+    const timeout = parseInt(document.getElementById('eap-attack-timeout').value);
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+    if (!ssid) { alert('Please enter an SSID'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool creates a rogue WPA-Enterprise AP to capture EAP credentials.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/eap-attack/start', 'POST', {
+        interface: interface_name, ssid: ssid, channel: channel,
+        method: method, timeout: timeout
+    });
+
+    if (result.success) { addLog('eap_attack', `EAP attack started (SSID: ${ssid}, method: ${method})`); }
+    else { alert(`Failed to start EAP attack: ${result.error}`); }
+}
+
+async function stopEAPAttack() {
+    const result = await apiCall('/api/eap-attack/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop EAP attack: ${result.error}`); }
+}
+
+// --- PMKID Capture ---
+
+async function startPMKIDCapture() {
+    const interface_name = document.getElementById('pmkid-capture-interface').value;
+    const bssid = document.getElementById('pmkid-capture-bssid').value.trim();
+    const timeout = parseInt(document.getElementById('pmkid-capture-timeout').value);
+    const channelEl = document.getElementById('pmkid-capture-channel');
+    const channel = channelEl.value ? parseInt(channelEl.value) : null;
+    const client_mac = document.getElementById('pmkid-capture-client-mac').value.trim() || null;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+    if (!bssid) { alert('Please enter target BSSID'); return; }
+
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
+    if (client_mac && !macRegex.test(client_mac)) { alert('Invalid client MAC format'); return; }
+
+    const result = await apiCall('/api/pmkid-capture/start', 'POST', {
+        interface: interface_name, bssid: bssid, timeout: timeout,
+        channel: channel, client_mac: client_mac
+    });
+
+    if (result.success) { addLog('pmkid_capture', `PMKID capture started targeting ${bssid}`); }
+    else { alert(`Failed to start PMKID capture: ${result.error}`); }
+}
+
+async function stopPMKIDCapture() {
+    const result = await apiCall('/api/pmkid-capture/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop PMKID capture: ${result.error}`); }
+}
+
+// --- MitM Attack ---
+
+async function startMitMAttack() {
+    const interface_name = document.getElementById('mitm-attack-interface').value;
+    const target = document.getElementById('mitm-attack-target').value.trim();
+    const gateway = document.getElementById('mitm-attack-gateway').value.trim();
+    const timeout = parseInt(document.getElementById('mitm-attack-timeout').value);
+    const ports = document.getElementById('mitm-attack-ports').value.trim() || null;
+    const no_forward = document.getElementById('mitm-attack-no-forward').checked;
+
+    if (!interface_name) { alert('Please select an interface'); return; }
+    if (!target) { alert('Please enter target IP'); return; }
+    if (!gateway) { alert('Please enter gateway IP'); return; }
+
+    const ipRegex = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+    if (!ipRegex.test(target)) { alert('Invalid target IP format'); return; }
+    if (!ipRegex.test(gateway)) { alert('Invalid gateway IP format'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs ARP spoofing to intercept network traffic.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
+    const result = await apiCall('/api/mitm-attack/start', 'POST', {
+        interface: interface_name, target: target, gateway: gateway,
+        timeout: timeout, ports: ports, no_forward: no_forward
+    });
+
+    if (result.success) { addLog('mitm_attack', `MitM attack started (${target} <-> ${gateway})`); }
+    else { alert(`Failed to start MitM attack: ${result.error}`); }
+}
+
+async function stopMitMAttack() {
+    const result = await apiCall('/api/mitm-attack/stop', 'POST');
+    if (!result.success) { alert(`Failed to stop MitM attack: ${result.error}`); }
 }
 
 // Logging functions
