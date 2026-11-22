@@ -14,6 +14,10 @@ from utils import (
     load_ssids,
     require_root,
     setup_logging,
+    get_channels,
+    CHANNELS_2GHZ,
+    CHANNELS_5GHZ,
+    CHANNELS_6GHZ,
 )
 
 
@@ -170,6 +174,60 @@ class TestRequireRoot:
     def test_require_root_as_root(self, _mock_geteuid):
         # Should not raise
         require_root()
+
+
+# ---------------------------------------------------------------------------
+# get_channels
+# ---------------------------------------------------------------------------
+
+class TestGetChannels:
+    """Tests for get_channels()."""
+
+    def test_get_channels_2ghz(self):
+        result = get_channels("2.4")
+        assert result == list(range(1, 14))
+
+    def test_get_channels_5ghz(self):
+        result = get_channels("5")
+        assert result == CHANNELS_5GHZ
+        assert result[0] == 36
+
+    def test_get_channels_6ghz(self):
+        result = get_channels("6")
+        assert result == CHANNELS_6GHZ
+        assert result[0] == 1
+
+    def test_get_channels_all(self):
+        result = get_channels("all")
+        assert result == CHANNELS_2GHZ + CHANNELS_5GHZ + CHANNELS_6GHZ
+
+    def test_get_channels_default(self):
+        result = get_channels()
+        assert result == list(range(1, 14))
+
+    def test_get_channels_combined(self):
+        result = get_channels("2.4,5")
+        assert result == CHANNELS_2GHZ + CHANNELS_5GHZ
+
+    def test_get_channels_combined_all_three(self):
+        result = get_channels("2.4,5,6")
+        assert result == CHANNELS_2GHZ + CHANNELS_5GHZ + CHANNELS_6GHZ
+
+    def test_get_channels_whitespace(self):
+        result = get_channels(" 2.4 , 5 ")
+        assert result == CHANNELS_2GHZ + CHANNELS_5GHZ
+
+    def test_get_channels_no_duplicates(self):
+        result = get_channels("2.4,2.4")
+        assert result == CHANNELS_2GHZ
+
+    def test_get_channels_invalid_band(self):
+        with pytest.raises(ValueError):
+            get_channels("2.4,bogus")
+
+    def test_get_channels_empty_string(self):
+        with pytest.raises(ValueError):
+            get_channels("")
 
 
 # ---------------------------------------------------------------------------

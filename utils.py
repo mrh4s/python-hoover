@@ -8,6 +8,67 @@ import subprocess
 import logging
 
 
+CHANNELS_2GHZ: list[int] = list(range(1, 14))
+CHANNELS_5GHZ: list[int] = [
+    36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128,
+    132, 136, 140, 144, 149, 153, 157, 161, 165,
+]
+CHANNELS_6GHZ: list[int] = [
+    1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73,
+    77, 81, 85, 89, 93,
+]
+
+_BAND_CHANNELS: dict[str, list[int]] = {
+    "2.4": CHANNELS_2GHZ,
+    "5": CHANNELS_5GHZ,
+    "6": CHANNELS_6GHZ,
+}
+
+
+def get_channels(bands: str = "2.4") -> list[int]:
+    """Return the channel list for the given bands.
+
+    Args:
+        bands: Comma-separated string of bands, e.g. "2.4", "2.4,5",
+            "2.4,5,6", "5", or "all" (shorthand for every supported band).
+
+    Returns:
+        A list of channel numbers covering the requested bands, in band
+        order (2.4 GHz, then 5 GHz, then 6 GHz), with duplicates removed.
+
+    Raises:
+        ValueError: If an unrecognized band is given.
+    """
+    if not bands or not isinstance(bands, str):
+        raise ValueError(f"Invalid bands value: {bands!r}")
+
+    bands = bands.strip().lower()
+    if bands == "all":
+        requested = ["2.4", "5", "6"]
+    else:
+        requested = [b.strip() for b in bands.split(",") if b.strip()]
+
+    if not requested:
+        raise ValueError(f"Invalid bands value: {bands!r}")
+
+    channels: list[int] = []
+    seen_bands: set[str] = set()
+    for band in requested:
+        if band not in _BAND_CHANNELS:
+            raise ValueError(
+                f"Unknown band: {band!r} (expected one of 2.4, 5, 6, or all)"
+            )
+        if band in seen_bands:
+            # Avoid duplicating an entire band's channel list if it was
+            # requested more than once (channel numbers can legitimately
+            # repeat across different bands, e.g. 1 in both 2.4 and 6 GHz).
+            continue
+        seen_bands.add(band)
+        channels.extend(_BAND_CHANNELS[band])
+
+    return channels
+
+
 def validate_mac(mac: str) -> bool:
     """Validate MAC address format (XX:XX:XX:XX:XX:XX).
 

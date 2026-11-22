@@ -22,7 +22,7 @@ from scapy.layers.dot11 import (
 from scapy.layers.eap import EAPOL
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, check_monitor_mode, require_root, setup_logging
+from utils import validate_interface, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
 
 
@@ -44,12 +44,14 @@ class WIDSMonitor:
                  hop_interval: float = 0.5,
                  deauth_threshold: int = 10,
                  deauth_window: int = 5,
-                 log_file: str = "captures/wids_alerts.json") -> None:
+                 log_file: str = "captures/wids_alerts.json",
+                 bands: str = "2.4") -> None:
         self.interface: str = interface
         self.known_aps: dict[str, dict] = {}
         self.alert_callback = alert_callback
         self.channel_hop: bool = channel_hop
         self.hop_interval: float = hop_interval
+        self.bands: str = bands
         self.deauth_threshold: int = deauth_threshold
         self.deauth_window: int = deauth_window
         self.log_file: str = log_file
@@ -260,7 +262,7 @@ class WIDSMonitor:
                 self.logger.debug("Alert callback error: %s", e)
 
     def _channel_hop_loop(self) -> None:
-        channels = list(range(1, 14))
+        channels = get_channels(self.bands)
         idx = 0
         while self._hop_running:
             ch = channels[idx % len(channels)]
@@ -401,6 +403,9 @@ Note: Interface must be in monitor mode.
                         help="Disable channel hopping")
     parser.add_argument("--hop-interval", type=float, default=0.5,
                         help="Channel hop interval (default: 0.5)")
+    parser.add_argument("--bands", default="2.4,5",
+                        choices=["2.4", "5", "2.4,5", "all"],
+                        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)")
     parser.add_argument("--deauth-threshold", type=int, default=10,
                         help="Deauth frames threshold (default: 10)")
     parser.add_argument("--deauth-window", type=int, default=5,
@@ -428,6 +433,7 @@ Note: Interface must be in monitor mode.
         deauth_threshold=args.deauth_threshold,
         deauth_window=args.deauth_window,
         log_file=args.output,
+        bands=args.bands,
     )
 
     monitor.start()
