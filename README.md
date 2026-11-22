@@ -1,319 +1,319 @@
-# python-hoover
-Hoover is a powerful WiFi probe request monitoring tool for Kali Linux and other security-focused distributions. It captures and analyzes probe requests sent by nearby wireless devices, revealing the SSIDs (network names) they're searching for.
+# Python-Hoover
 
-## Features
+A comprehensive WiFi security testing toolkit for Kali Linux and security-focused distributions. 15 integrated tools covering reconnaissance, attack, defense, and automation — all controllable from a web dashboard or CLI.
 
-- **Probe Request Monitoring** (`hoover.py`): Captures and displays WiFi probe requests from nearby devices
-- **SSID Generator** (`ssid_generator.py`): Broadcasts custom SSIDs from a text file for testing and research
-- **SSID Capturer** (`ssid_capturer.py`): Creates rogue access points and captures traffic from connecting clients
-- **Web GUI** (`hoover_web.py`): Modern dark-themed web interface to control all tools from your browser
+## Tools
+
+### Reconnaissance
+| Tool | Description |
+|------|-------------|
+| `hoover` | Probe request monitor — capture device SSIDs with channel hopping, OUI vendor lookup, CSV/JSON/SQLite export |
+| `ap-scanner` | Passive AP discovery — beacon/probe response capture, encryption detection (WEP/WPA/WPA2/WPA3), signal strength |
+| `ble-scanner` | Bluetooth Low Energy recon — device scanning, GATT service enumeration, RSSI filtering |
+| `network-mapper` | Network discovery — ARP scan, port scan (top 100), banner grabbing, OS fingerprinting |
+
+### Attack
+| Tool | Description |
+|------|-------------|
+| `deauth` | Deauthentication — targeted or broadcast, continuous mode |
+| `ssid-generator` | SSID broadcasting — beacon frames from text file |
+| `ssid-capturer` | Rogue AP — hostapd access point with traffic capture, encryption, internet sharing |
+| `handshake-capture` | WPA handshake — EAPOL 4-way capture + PMKID, .pcapng/.hccapx output for hashcat |
+| `captive-portal` | Evil twin — fake login pages (hotel/airport/corporate), credential logging |
+| `karma-attack` | Karma — auto-respond to all probe requests with matching beacons |
+| `wps-attack` | WPS PIN brute force — Reaver/Bully/Pixie Dust wrapper |
+| `packet-replay` | Packet replay — capture, filter, and replay WiFi frames from pcap |
+
+### Defense
+| Tool | Description |
+|------|-------------|
+| `wids` | Wireless IDS — rogue AP, evil twin, deauth flood, karma detection, alerting |
+
+### Automation
+| Tool | Description |
+|------|-------------|
+| `pentest-workflow` | Automated chain — scan → target → deauth → handshake → report |
+| `hoover-web` | Web dashboard — control all tools from a browser with real-time monitoring |
 
 ## Requirements
 
-### Basic Requirements (all tools)
-- Python 3.x
-- Scapy (`pip install scapy`)
-- Wireless interface capable of monitor mode
-- Root/sudo privileges
-- Linux-based system (tested on Kali Linux)
+- Python 3.9+
+- Linux with wireless interface supporting monitor mode
+- Root privileges
 
-### Additional Requirements (for SSID Capturer)
-- hostapd (access point daemon)
-- dnsmasq (DHCP server)
-- tcpdump (packet capture)
-- iptables (for internet sharing)
+### System dependencies
 
-Install on Debian/Ubuntu/Kali:
 ```bash
-sudo apt-get install hostapd dnsmasq tcpdump iptables
+sudo apt-get install hostapd dnsmasq tcpdump iptables aircrack-ng reaver
+```
+
+### Python dependencies
+
+```bash
+pip install scapy flask flask-socketio eventlet psutil bleak
 ```
 
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/python-hoover.git
+git clone https://github.com/mrh4s/python-hoover.git
 cd python-hoover
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Or install manually
-pip install scapy flask flask-socketio psutil
+pip install -e .
 ```
 
-## Usage
+This installs all 15 tools as CLI commands.
 
-### Web GUI (Recommended)
+## Quick Start
 
-The easiest way to use Hoover is through the web interface:
+### Web Dashboard (recommended)
 
 ```bash
-# Start the web server (requires root for full functionality)
-sudo python3 hoover_web.py
+sudo hoover-web
+# Open http://127.0.0.1:5000
+# Password is printed to terminal on startup
 ```
 
-Then open your browser to: **http://127.0.0.1:5000**
-
-#### Web GUI Features
-
-- 🎨 **Modern Dark Theme**: Easy on the eyes during long testing sessions
-- 📊 **Real-time Dashboard**: Monitor system resources and tool status
-- 🎛️ **Unified Control Panel**: Start/stop all tools from one interface
-- 📝 **Live Logging**: Real-time output from all running tools
-- 💾 **Capture Management**: View and download captured .pcap files
-- 📱 **Responsive Design**: Works on desktop and tablet devices
-
-#### Web GUI Screenshot
-
-The interface provides:
-- **Probe Request Monitor**: Start/stop monitoring with interface selection
-- **SSID Generator**: Configure and broadcast SSIDs with custom settings
-- **SSID Capturer**: Set up rogue APs with encryption and internet sharing
-- **Activity Log**: Real-time logs with color-coded tool identifiers
-- **Capture Files**: Download and manage captured traffic
-
-### Command-Line Tools
-
-If you prefer command-line usage or need to script operations:
-
-### Hoover - Probe Request Monitor
-
-Monitor WiFi probe requests from nearby devices:
+### CLI — scan nearby APs
 
 ```bash
-# Enable monitor mode on your interface
+sudo ap-scanner -i wlan0mon -t 60 -o scan_results.json
+```
+
+### CLI — monitor probe requests
+
+```bash
+sudo hoover -i wlan0mon --channel-hop --output probes.csv
+```
+
+### CLI — automated pentest
+
+```bash
+sudo pentest-workflow -i wlan0mon -o pentest_results/ -v
+```
+
+## Tool Reference
+
+### hoover — Probe Request Monitor
+
+```bash
+sudo hoover -i wlan0mon                          # basic monitoring
+sudo hoover -i wlan0mon --output probes.csv      # save to CSV
+sudo hoover -i wlan0mon --output probes.json     # save to JSON lines
+sudo hoover -i wlan0mon --output probes.db       # save to SQLite
+sudo hoover -i wlan0mon --json                   # JSON stdout
+sudo hoover -i wlan0mon --channel 6 --no-hop     # fixed channel
+sudo hoover -i wlan0mon --hop-interval 0.5       # slower hopping
+sudo hoover -i wlan0mon --no-color               # no ANSI colors
+```
+
+### ap-scanner — Passive AP Discovery
+
+```bash
+sudo ap-scanner -i wlan0mon                      # 30s scan
+sudo ap-scanner -i wlan0mon -t 120               # 2 minute scan
+sudo ap-scanner -i wlan0mon -ch 6 --no-hop       # fixed channel
+sudo ap-scanner -i wlan0mon -o aps.json          # save results
+sudo ap-scanner -i wlan0mon --hop-interval 1.0   # slower hopping
+```
+
+### deauth — Deauthentication
+
+```bash
+sudo deauth -i wlan0mon -b AA:BB:CC:DD:EE:FF              # broadcast deauth (10 packets)
+sudo deauth -i wlan0mon -b AA:BB:CC:DD:EE:FF -c 11:22:33:44:55:66  # targeted
+sudo deauth -i wlan0mon -b AA:BB:CC:DD:EE:FF -n 50        # 50 packets
+sudo deauth -i wlan0mon -b AA:BB:CC:DD:EE:FF --continuous  # continuous
+sudo deauth -i wlan0mon -b AA:BB:CC:DD:EE:FF -d 0.5       # 0.5s delay between packets
+sudo deauth -i wlan0mon -b AA:BB:CC:DD:EE:FF -ch 11       # set channel first
+```
+
+### handshake-capture — WPA Handshake + PMKID
+
+```bash
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF              # capture with auto-deauth
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF --no-deauth  # passive capture
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -c 11:22:33:44:55:66  # target client
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -t 300       # 5 min timeout
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -ch 6        # set channel
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -o /tmp/caps # output directory
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF --deauth-count 10 --deauth-interval 5.0
+```
+
+Output: `captures/handshake_<BSSID>_<timestamp>.pcapng` — use with `hashcat -m 22000` or `aircrack-ng`.
+
+### ssid-generator — SSID Broadcasting
+
+```bash
+sudo ssid-generator -i wlan0mon -f ssids.txt           # broadcast once
+sudo ssid-generator -i wlan0mon -f ssids.txt -c        # continuous loop
+sudo ssid-generator -i wlan0mon -f ssids.txt -t 0.5    # 0.5s interval
+sudo ssid-generator -i wlan0mon -f ssids.txt -ch 11    # channel 11
+python3 ssid_generator.py -f ssids.txt -l              # list SSIDs (no root)
+```
+
+### ssid-capturer — Rogue Access Point
+
+```bash
+sudo ssid-capturer -i wlan0 -f ssids.txt -s "Free-WiFi" -d 300        # open AP, 5 min
+sudo ssid-capturer -i wlan0 -f ssids.txt -s "Hotel-WiFi" -e wpa2 -p "password123"  # WPA2
+sudo ssid-capturer -i wlan0 -f ssids.txt -r -d 120                    # rotate SSIDs
+sudo ssid-capturer -i wlan0 -f ssids.txt -s "Airport" --internet -u eth0  # NAT forwarding
+```
+
+### captive-portal — Evil Twin with Login Page
+
+```bash
+sudo captive-portal -i wlan0 -s "Hotel-Guest"                        # default template
+sudo captive-portal -i wlan0 -s "Airport-WiFi" -t airport            # airport template
+sudo captive-portal -i wlan0 -s "Corp-VPN" -t corporate              # corporate login
+sudo captive-portal -i wlan0 -s "Cafe" -ch 11 -o creds.log           # custom output
+sudo captive-portal -i wlan0 -s "Free" --bind 10.0.0.1               # custom gateway IP
+```
+
+Templates: `default`, `hotel`, `airport`, `corporate`. Credentials saved to `captures/portal_creds.log`.
+
+### karma-attack — Auto Probe Response
+
+```bash
+sudo karma-attack -i wlan0mon                                         # respond to all probes
+sudo karma-attack -i wlan0mon --whitelist AA:BB:CC:DD:EE:FF           # target specific MAC
+sudo karma-attack -i wlan0mon --blacklist 11:22:33:44:55:66           # exclude MAC
+sudo karma-attack -i wlan0mon --bssid DE:AD:BE:EF:00:01              # custom BSSID
+sudo karma-attack -i wlan0mon -ch 6 -o karma.log                     # fixed channel + log
+```
+
+### wids — Wireless Intrusion Detection
+
+```bash
+sudo wids -i wlan0mon                                                 # monitor with defaults
+sudo wids -i wlan0mon --known-aps known.json                         # compare against whitelist
+sudo wids -i wlan0mon --deauth-threshold 20 --deauth-window 10       # custom flood detection
+sudo wids -i wlan0mon -o alerts.json                                  # save alerts to JSON
+```
+
+Detects: rogue APs, evil twins, deauth floods, karma attacks, EAPOL anomalies.
+
+### packet-replay — Capture and Replay
+
+```bash
+sudo packet-replay -i wlan0mon -w capture.pcap -t 60                 # capture 60s to file
+sudo packet-replay -i wlan0mon -r capture.pcap                       # replay once
+sudo packet-replay -i wlan0mon -r capture.pcap -c 5 -d 0.5           # replay 5x, 0.5s delay
+sudo packet-replay -i wlan0mon -r capture.pcap --filter beacon        # replay only beacons
+sudo packet-replay -i wlan0mon -r capture.pcap --filter-mac AA:BB:CC:DD:EE:FF
+```
+
+Filter types: `beacon`, `probe_req`, `probe_resp`, `deauth`, `auth`, `assoc`, `data`, `eapol`.
+
+### wps-attack — WPS PIN Brute Force
+
+```bash
+sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF                     # reaver (default)
+sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m bully            # bully
+sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m pixie            # pixie dust
+sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF --pin 12345670      # known PIN
+sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -t 600 -ch 6       # 10 min timeout
+```
+
+Requires `reaver` or `bully` installed.
+
+### network-mapper — ARP Scan + Port Discovery
+
+```bash
+sudo network-mapper -i wlan0                                          # scan 192.168.1.0/24
+sudo network-mapper -i wlan0 -r 10.0.0.0/24                          # custom range
+sudo network-mapper -i wlan0 --no-port-scan                           # ARP only
+sudo network-mapper -i wlan0 -p 22,80,443,8080                       # custom ports
+sudo network-mapper -i wlan0 -t 5.0 -o network.json                  # 5s timeout, save
+```
+
+### ble-scanner — BLE Reconnaissance
+
+```bash
+ble-scanner                                                           # 10s scan
+ble-scanner -t 30                                                     # 30s scan
+ble-scanner --services                                                # enumerate GATT services
+ble-scanner --filter-name "iPhone"                                    # filter by name
+ble-scanner --filter-rssi -60                                         # minimum signal strength
+ble-scanner -o devices.json                                           # save results
+```
+
+No root needed for BLE. Requires `bleak` Python package.
+
+### pentest-workflow — Automated Assessment
+
+```bash
+sudo pentest-workflow -i wlan0mon                                     # full auto workflow
+sudo pentest-workflow -i wlan0mon -b AA:BB:CC:DD:EE:FF               # target specific AP
+sudo pentest-workflow -i wlan0mon --no-deauth                         # passive only
+sudo pentest-workflow -i wlan0mon --skip-wps                          # skip WPS testing
+sudo pentest-workflow -i wlan0mon -t 600 -o results/                 # 10 min, custom output
+```
+
+Workflow: scan APs → select target → deauth clients → capture handshake → WPS test → generate HTML report.
+
+## Monitor Mode Setup
+
+```bash
+# Using airmon-ng
+sudo airmon-ng check kill
 sudo airmon-ng start wlan0
+# Interface becomes wlan0mon
 
-# Run Hoover
-sudo python3 hoover.py -i wlan0mon
-
-# Run with verbose output
-sudo python3 hoover.py -i wlan0mon -v
-```
-
-### SSID Generator Add-on
-
-Broadcast SSIDs from a text file to a wireless interface:
-
-```bash
-# List SSIDs in file (no root required)
-python3 ssid_generator.py -f example_ssids.txt -l
-
-# Broadcast SSIDs once
-sudo python3 ssid_generator.py -i wlan0mon -f example_ssids.txt
-
-# Continuously broadcast SSIDs
-sudo python3 ssid_generator.py -i wlan0mon -f example_ssids.txt -c
-
-# Custom interval and channel
-sudo python3 ssid_generator.py -i wlan0mon -f example_ssids.txt -t 0.5 -ch 11
-```
-
-#### SSID File Format
-
-Create a text file with one SSID per line:
-
-```
-# Comments start with #
-CoffeeShop-WiFi
-Hotel-Guest
-Airport-Free-WiFi
-Corporate-Network
-```
-
-See `example_ssids.txt` for a complete example.
-
-#### SSID Generator Options
-
-- `-i, --interface`: Wireless interface in monitor mode (required for broadcasting)
-- `-f, --file`: Text file containing SSIDs (required)
-- `-c, --continuous`: Continuously broadcast SSIDs in a loop
-- `-t, --interval`: Time interval between frames in seconds (default: 0.1)
-- `-ch, --channel`: WiFi channel to use (default: 6)
-- `-l, --list`: List SSIDs from file without broadcasting
-
-### SSID Capturer - Rogue Access Point with Traffic Capture
-
-Create fake access points from your SSID list and capture all traffic from connecting clients:
-
-```bash
-# Setup helper (optional - enables monitor mode)
+# Or use the included helper
 sudo ./setup_interface.sh monitor wlan0
 
-# Single open SSID for 5 minutes
-sudo python3 ssid_capturer.py -i wlan0 -f example_ssids.txt -s "Free-WiFi" -d 300
-
-# WPA2 protected SSID
-sudo python3 ssid_capturer.py -i wlan0 -f example_ssids.txt -s "CoffeeShop-WiFi" \
-    -e wpa2 -p "password123" -d 600
-
-# Rotate through all SSIDs (2 minutes each)
-sudo python3 ssid_capturer.py -i wlan0 -f example_ssids.txt -r -d 120
-
-# With internet sharing (requires upstream connection)
-sudo python3 ssid_capturer.py -i wlan0 -f example_ssids.txt -s "Airport-WiFi" \
-    --internet -u eth0 -d 600
-
-# Return interface to normal mode when done
-sudo ./setup_interface.sh managed wlan0
+# Return to managed mode
+sudo ./setup_interface.sh managed wlan0mon
 ```
 
-#### SSID Capturer Features
-
-- **Rogue Access Point**: Creates real WiFi access points using hostapd
-- **Traffic Capture**: Records all packets to .pcap files using tcpdump
-- **Client Logging**: Tracks connected clients with MAC/IP addresses
-- **Encryption Support**: Open networks, WPA2, or WEP
-- **Internet Sharing**: Optional NAT forwarding to upstream interface
-- **SSID Rotation**: Cycle through multiple SSIDs automatically
-- **Detailed Logging**: Timestamps and connection information
-
-#### SSID Capturer Options
-
-- `-i, --interface`: Wireless interface (will be auto-configured)
-- `-f, --file`: Text file containing SSIDs (required)
-- `-s, --ssid`: Specific SSID to use (required if not using -r)
-- `-r, --rotate`: Rotate through all SSIDs in file
-- `-d, --duration`: Duration in seconds (per SSID if rotating, default: 300)
-- `-o, --output`: Output directory for captures (default: ./captures)
-- `-ch, --channel`: WiFi channel (default: 6)
-- `-e, --encryption`: Encryption type: wpa2, wep (default: open)
-- `-p, --password`: Password for encrypted network
-- `--internet`: Enable internet sharing (requires -u)
-- `-u, --upstream`: Upstream interface for internet (e.g., eth0, ppp0)
-
-#### Captured Data
-
-All data is saved to the output directory (default: `./captures/`):
-
-- `capture_<ssid>_<timestamp>.pcap` - Full packet capture (analyze with Wireshark)
-- `capture_log.txt` - Timestamped activity log
-- `connected_clients.txt` - List of all clients that connected
-- `hostapd.conf` - Configuration used for access point
-- `dnsmasq.conf` - DHCP server configuration
-
-#### Analyzing Captured Data
+## Testing
 
 ```bash
-# View captures with Wireshark
-wireshark captures/capture_Free-WiFi_*.pcap
-
-# Extract credentials from captures (requires additional tools)
-# Example with tshark:
-tshark -r captures/capture_*.pcap -Y "http.request.method == POST" -T fields \
-    -e http.request.uri -e http.file_data
-
-# View connected clients
-cat captures/connected_clients.txt
-
-# View activity log
-cat captures/capture_log.txt
+pip install pytest pytest-cov
+python -m pytest tests/ -v          # 349 tests, no root/hardware needed
+python -m pytest tests/ --cov       # with coverage report
 ```
 
-## Use Cases
+## Project Structure
 
-### Authorized Security Testing
-- Penetration testing of wireless security systems
-- Testing device behavior and probe request patterns
-- Evaluating WiFi tracking prevention mechanisms
-
-### Research and Education
-- Studying WiFi protocol behavior
-- Demonstrating wireless security concepts
-- Academic research on wireless privacy
-
-### Testing
-- Testing custom wireless applications
-- Validating WiFi detection systems
-- Network security tool development
+```
+python-hoover/
+├── hoover.py              # Probe request monitor
+├── ap_scanner.py          # Passive AP scanner
+├── deauth.py              # Deauthentication
+├── handshake_capture.py   # WPA handshake capture
+├── ssid_generator.py      # SSID broadcasting
+├── ssid_capturer.py       # Rogue AP
+├── captive_portal.py      # Evil twin captive portal
+├── karma_attack.py        # Karma attack
+├── wids.py                # Wireless IDS
+├── packet_replay.py       # Packet replay
+├── wps_attack.py          # WPS attack
+├── network_mapper.py      # Network mapper
+├── ble_scanner.py         # BLE scanner
+├── pentest_workflow.py    # Automated workflow
+├── hoover_web.py          # Web dashboard
+├── utils.py               # Shared utilities
+├── oui_lookup.py          # MAC vendor lookup
+├── templates/             # Web GUI HTML
+├── static/                # CSS + JS
+├── tests/                 # 349 pytest tests
+├── ssid_files/            # SSID list files
+├── captures/              # Output directory
+├── pyproject.toml         # Project config + entry points
+└── requirements.txt       # Python dependencies
+```
 
 ## Legal Notice
 
-This tool is designed for authorized security testing, research, and educational purposes only. Users must:
+This toolkit is for **authorized security testing, research, and education only**. Users must:
 
 - Obtain proper authorization before testing any networks
-- Comply with local laws and regulations
-- Use only on networks you own or have explicit permission to test
-- Not use for malicious purposes or unauthorized access
+- Comply with all applicable local laws and regulations
+- Use only on networks they own or have explicit written permission to test
 
-Unauthorized use of this tool may violate laws including the Computer Fraud and Abuse Act (US) and similar legislation in other jurisdictions.
-
-## How It Works
-
-### Probe Request Monitoring
-When devices search for WiFi networks, they send probe requests containing SSIDs of networks they've previously connected to. Hoover captures these requests to reveal what networks devices are looking for.
-
-### SSID Broadcasting
-The SSID generator creates beacon frames (the packets access points use to advertise their presence) with custom SSIDs from your text file. This can be used to test how devices respond to specific network names.
-
-### Traffic Capture (Rogue AP)
-The SSID capturer creates a fully functional access point using hostapd. When clients connect:
-1. **Association**: Client associates with the fake access point
-2. **DHCP**: dnsmasq assigns an IP address to the client
-3. **Capture**: tcpdump records all network traffic to/from the client
-4. **Logging**: Client information (MAC, IP) is logged with timestamps
-5. **Optional Internet**: Traffic can be forwarded to an upstream interface (MITM)
-
-All captured traffic is saved as .pcap files for analysis with tools like Wireshark or tshark.
-
-## Troubleshooting
-
-### Interface not in monitor mode
-```bash
-# Enable monitor mode
-sudo airmon-ng start wlan0
-
-# Check monitor mode
-iwconfig wlan0mon
-```
-
-### Permission denied
-Make sure to run with sudo:
-```bash
-sudo python3 hoover.py -i wlan0mon
-sudo python3 ssid_generator.py -i wlan0mon -f ssids.txt
-```
-
-### No packets captured
-- Verify monitor mode is enabled
-- Check that you're using the correct interface name
-- Ensure wireless drivers support monitor mode
-- Try a different channel
-
-### Hostapd fails to start (SSID Capturer)
-```bash
-# Check if interface is in use
-sudo airmon-ng check kill
-
-# Verify interface supports AP mode
-iw list | grep -A 10 "Supported interface modes"
-
-# Try a different channel
-sudo python3 ssid_capturer.py -i wlan0 -f ssids.txt -s "Test" -ch 11
-```
-
-### No clients connecting (SSID Capturer)
-- Ensure the SSID matches one devices are looking for
-- Try using an open network (no encryption) first
-- Check that the channel is correct for your region
-- Verify the wireless interface supports AP mode
-- Test with your own device first
-
-### Internet sharing not working
-```bash
-# Verify upstream interface has internet
-ping -I eth0 8.8.8.8
-
-# Check iptables rules
-sudo iptables -t nat -L -n -v
-
-# Ensure IP forwarding is enabled
-sudo sysctl net.ipv4.ip_forward
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+Unauthorized use may violate the Computer Fraud and Abuse Act (US) and similar legislation worldwide.
 
 ## License
 
