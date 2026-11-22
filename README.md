@@ -203,14 +203,14 @@ sudo packet-replay -i wlan0mon -r capture.pcap --filter beacon        # replay o
 sudo packet-replay -i wlan0mon -r capture.pcap --filter-mac AA:BB:CC:DD:EE:FF
 ```
 
-Filter types: `beacon`, `probe_req`, `probe_resp`, `deauth`, `auth`, `assoc`, `data`, `eapol`.
+Filter types: `beacon`, `probe`, `deauth`, `eapol`, `all`.
 
 ### wps-attack — WPS PIN Brute Force
 
 ```bash
 sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF                     # reaver (default)
 sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m bully            # bully
-sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m pixie            # pixie dust
+sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -m pixie-dust       # pixie dust
 sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF --pin 12345670      # known PIN
 sudo wps-attack -i wlan0mon -b AA:BB:CC:DD:EE:FF -t 600 -ch 6       # 10 min timeout
 ```
