@@ -7,7 +7,7 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 ### Reconnaissance
 | Tool | Description |
 |------|-------------|
-| `hoover` | Probe request monitor — capture device SSIDs with channel hopping, OUI vendor lookup, CSV/JSON/SQLite export |
+| `hoover` | Probe request monitor — capture device SSIDs with channel hopping, OUI vendor lookup, client fingerprinting, CSV/JSON/SQLite export |
 | `ap-scanner` | Passive AP discovery — beacon/probe response capture, encryption detection (WEP/WPA/WPA2/WPA3/OWE), PMF, hidden SSID reveal, signal strength |
 | `wardriving` | GPS-tagged AP mapping — gpsd integration, KML/CSV export, signal heatmapping |
 | `ble-scanner` | Bluetooth Low Energy recon — device scanning, GATT service enumeration, RSSI filtering |
@@ -19,7 +19,7 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 | `deauth` | Deauthentication — targeted or broadcast, continuous mode |
 | `ssid-generator` | SSID broadcasting — beacon frames from text file |
 | `ssid-capturer` | Rogue AP — hostapd access point with traffic capture, encryption, internet sharing |
-| `handshake-capture` | WPA handshake — EAPOL 4-way capture + PMKID, .pcapng/.hccapx output for hashcat |
+| `handshake-capture` | WPA handshake — EAPOL 4-way capture + PMKID, handshake verification, .pcapng/.hccapx output for hashcat |
 | `captive-portal` | Evil twin — fake login pages (hotel/airport/corporate), credential logging |
 | `karma-attack` | Karma — auto-respond to all probe requests with matching beacons |
 | `wps-attack` | WPS PIN brute force — Reaver/Bully/Pixie Dust wrapper |
@@ -41,7 +41,7 @@ A comprehensive WiFi security testing toolkit for Kali Linux and security-focuse
 ### Automation & Infrastructure
 | Tool | Description |
 |------|-------------|
-| `pentest-workflow` | Automated chain — scan → target → deauth → handshake → report |
+| `pentest-workflow` | Automated chain — scan → reveal hidden → fingerprint → target → deauth → capture → verify → WPS → dragonblood → KRACK → fragattacks → WEP → BLE → report |
 | `hoover-web` | Web dashboard — control all tools from a browser with real-time monitoring |
 | `hoover-api` | REST API — token-authenticated JSON API, rate limiting, programmatic tool control |
 | `hoover-report` | Report generation — HTML/JSON/CSV security assessment reports |
@@ -81,7 +81,7 @@ cd python-hoover
 pip install -e .
 ```
 
-This installs all 18 tools as CLI commands.
+This installs all 28+ tools as CLI commands.
 
 ## Quick Start
 
@@ -124,7 +124,13 @@ sudo hoover -i wlan0mon --json                   # JSON stdout
 sudo hoover -i wlan0mon --channel 6 --no-hop     # fixed channel
 sudo hoover -i wlan0mon --hop-interval 0.5       # slower hopping
 sudo hoover -i wlan0mon --no-color               # no ANSI colors
+sudo hoover -i wlan0mon --fingerprint            # client fingerprinting mode
+sudo hoover -i wlan0mon --fingerprint --fp-output fps.json  # save fingerprints
 ```
+
+#### Client Fingerprinting
+
+When `--fingerprint` is passed, `hoover` extracts detailed client fingerprints from probe request Information Elements: supported rates, HT/VHT/HE capabilities, WPS data, power capability, and probed SSIDs. It uses these to guess the OS (iOS/Android/Windows/macOS/Linux) and device type (phone/laptop/tablet/IoT/AP). Save fingerprints with `--fp-output fingerprints.json`.
 
 ### ap-scanner — Passive AP Discovery
 
@@ -134,6 +140,8 @@ sudo ap-scanner -i wlan0mon -t 120               # 2 minute scan
 sudo ap-scanner -i wlan0mon -ch 6 --no-hop       # fixed channel
 sudo ap-scanner -i wlan0mon -o aps.json          # save results
 sudo ap-scanner -i wlan0mon --hop-interval 1.0   # slower hopping
+sudo ap-scanner -i wlan0mon --reveal-hidden      # reveal hidden SSIDs via directed probes
+sudo ap-scanner -i wlan0mon --reveal-hidden --deauth-reveal  # deauth clients to reveal hidden SSIDs
 ```
 
 ### deauth — Deauthentication
@@ -157,9 +165,13 @@ sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -t 300       # 5 min tim
 sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -ch 6        # set channel
 sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF -o /tmp/caps # output directory
 sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF --deauth-count 10 --deauth-interval 5.0
+sudo handshake-capture --verify /path/to/capture.pcap        # verify a pcap file for complete handshake
+sudo handshake-capture -i wlan0mon -b AA:BB:CC:DD:EE:FF --verify-captured  # capture then verify
 ```
 
 Output: `captures/handshake_<BSSID>_<timestamp>.pcapng` — use with `hashcat -m 22000` or `aircrack-ng`.
+
+Verification checks: EAPOL 4-way message classification, nonce consistency, replay counter ordering, MIC presence.
 
 ### ssid-generator — SSID Broadcasting
 
@@ -263,14 +275,31 @@ No root needed for BLE. Requires `bleak` Python package.
 ### pentest-workflow — Automated Assessment
 
 ```bash
-sudo pentest-workflow -i wlan0mon                                     # full auto workflow
+sudo pentest-workflow -i wlan0mon                                     # basic workflow
+sudo pentest-workflow -i wlan0mon --full-auto                         # run ALL applicable tests
 sudo pentest-workflow -i wlan0mon -b AA:BB:CC:DD:EE:FF               # target specific AP
 sudo pentest-workflow -i wlan0mon --no-deauth                         # passive only
 sudo pentest-workflow -i wlan0mon --skip-wps                          # skip WPS testing
 sudo pentest-workflow -i wlan0mon -t 600 -o results/                 # 10 min, custom output
+
+# Individual test toggles
+sudo pentest-workflow -i wlan0mon --reveal-hidden                     # reveal hidden SSIDs
+sudo pentest-workflow -i wlan0mon --fingerprint                       # client fingerprinting
+sudo pentest-workflow -i wlan0mon --no-verify                         # skip handshake verification
+sudo pentest-workflow -i wlan0mon --dragonblood                       # WPA3/SAE vulnerability testing
+sudo pentest-workflow -i wlan0mon --krack                             # KRACK detection
+sudo pentest-workflow -i wlan0mon --fragattacks                       # FragAttacks testing
+sudo pentest-workflow -i wlan0mon --wep                               # WEP attack for WEP targets
+sudo pentest-workflow -i wlan0mon --ble                               # BLE device scanning
+sudo pentest-workflow -i wlan0mon --wardriving --gpsd-host 127.0.0.1 --gpsd-port 2947
+
+# Report and plugin options
+sudo pentest-workflow -i wlan0mon --report-format html                # HTML report (json/html/pdf/all)
+sudo pentest-workflow -i wlan0mon --plugins-dir ./plugins             # load plugins
+sudo pentest-workflow -i wlan0mon --adapters '[{"interface":"wlan1mon","role":"inject"}]'
 ```
 
-Workflow: scan APs → select target → deauth clients → capture handshake → WPS test → generate HTML report.
+Workflow phases (in order): scan APs → reveal hidden SSIDs → fingerprint clients → select target → deauth clients → capture handshake → verify handshake → WPS check → Dragonblood WPA3 test → KRACK detection → FragAttacks → WEP attack → BLE scan → generate report. Each phase is skipped when its flag is not set (unless `--full-auto` enables all). The workflow is also controllable from the web dashboard via `/api/pentest-workflow/start`.
 
 ### eap-attack — WPA-Enterprise EAP Testing
 
@@ -455,7 +484,7 @@ sudo ./setup_interface.sh managed wlan0mon
 
 ```bash
 pip install pytest pytest-cov
-python -m pytest tests/ -v          # 734 tests, no root/hardware needed
+python -m pytest tests/ -v          # 785 tests, no root/hardware needed
 python -m pytest tests/ --cov       # with coverage report
 ```
 
@@ -496,7 +525,7 @@ python-hoover/
 ├── oui_lookup.py          # MAC vendor lookup
 ├── templates/             # Web GUI HTML
 ├── static/                # CSS + JS
-├── tests/                 # 734 pytest tests
+├── tests/                 # 785 pytest tests
 ├── ssid_files/            # SSID list files
 ├── captures/              # Output directory
 ├── pyproject.toml         # Project config + entry points
