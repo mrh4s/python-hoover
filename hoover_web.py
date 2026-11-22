@@ -127,6 +127,14 @@ def validate_positive_number(value, label, allow_float=False):
         return False, f'{label} must be greater than 0'
     return True, None
 
+_RE_IP = re.compile(r'^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$')
+
+def validate_ip(ip):
+    """Return (ok, error_msg) for an IPv4 address string."""
+    if not ip or not _RE_IP.match(ip):
+        return False, 'Invalid IP address format'
+    return True, None
+
 def validate_encryption(enc):
     """Return (ok, error_msg) for an encryption choice."""
     if enc is None or enc == '':
@@ -166,6 +174,13 @@ tool_status = {
     'wardriving': {'running': False, 'pid': None, 'interface': None},
     'cloud_c2': {'running': False, 'pid': None, 'interface': None},
     'wep_attack': {'running': False, 'pid': None, 'interface': None},
+    'ft_attack': {'running': False, 'pid': None, 'interface': None},
+    'password_crack': {'running': False, 'pid': None, 'interface': None},
+    'channel_mitm': {'running': False, 'pid': None, 'interface': None},
+    'wifi_direct': {'running': False, 'pid': None, 'interface': None},
+    'jamming_detect': {'running': False, 'pid': None, 'interface': None},
+    'dhcp_dns_attack': {'running': False, 'pid': None, 'interface': None},
+    'portal_bypass': {'running': False, 'pid': None, 'interface': None},
 }
 
 # --- Probe Request Buffer ---
@@ -2761,6 +2776,724 @@ def api_capture_download(filename):
             return jsonify({'success': False, 'error': 'File not found'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- FT Attack (802.11r) ---
+
+@app.route('/api/ft-attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ft_attack_start():
+    """Start 802.11r FT key reinstallation detection"""
+    with _state_lock:
+        if tool_status['ft_attack']['running']:
+            return jsonify({'success': False, 'error': 'FT attack already running'})
+
+    data = request.json or {}
+    interface = data.get('interface', '')
+    bssid = data.get('bssid', '')
+    client = data.get('client')
+    mode = data.get('mode', 'reassoc')
+    timeout = data.get('timeout', 180)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    ok, err = validate_mac(bssid)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    if client:
+        ok, err = validate_mac(client)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+    if mode not in ('reassoc', 'pmk-r1', 'over-ds', 'all'):
+        return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['sudo', 'python3', 'ft_attack.py', '-i', interface, '-b', bssid,
+               '-m', mode, '-t', str(timeout)]
+        if client:
+            cmd.extend(['-c', client])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['ft_attack'] = process
+            tool_status['ft_attack']['running'] = True
+            tool_status['ft_attack']['pid'] = process.pid
+            tool_status['ft_attack']['interface'] = interface
+
+        monitor = ProcessMonitor('ft_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('ft_attack', f'FT attack detection started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ft-attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ft_attack_stop():
+    """Stop FT attack detection"""
+    with _state_lock:
+        if not tool_status['ft_attack']['running']:
+            return jsonify({'success': False, 'error': 'FT attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('ft_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['ft_attack']['running'] = False
+            tool_status['ft_attack']['pid'] = None
+            tool_status['ft_attack']['interface'] = None
+
+        emit_log('ft_attack', 'FT attack detection stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ft-attack/status')
+@login_required
+def api_ft_attack_status():
+    """Get FT attack status"""
+    with _state_lock:
+        return jsonify(tool_status['ft_attack'])
+
+
+# --- Password Cracker ---
+
+@app.route('/api/password-crack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_password_crack_start():
+    """Start password cracking"""
+    with _state_lock:
+        if tool_status['password_crack']['running']:
+            return jsonify({'success': False, 'error': 'Password cracker already running'})
+
+    data = request.json or {}
+    capture_file = data.get('capture_file', '')
+    wordlist = data.get('wordlist', '/usr/share/wordlists/rockyou.txt')
+    tool = data.get('tool', 'auto')
+    timeout = data.get('timeout', 3600)
+    output_dir = data.get('output_dir', 'crack_results')
+
+    if not capture_file or not isinstance(capture_file, str):
+        return jsonify({'success': False, 'error': 'capture_file is required'}), 400
+    if '..' in capture_file or capture_file.startswith('/'):
+        return jsonify({'success': False, 'error': 'Invalid capture file path'}), 400
+    if tool not in ('auto', 'hashcat', 'aircrack'):
+        return jsonify({'success': False, 'error': 'Invalid tool choice'}), 400
+    if not isinstance(output_dir, str) or '..' in output_dir:
+        return jsonify({'success': False, 'error': 'Invalid output directory'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 86400))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['python3', 'password_crack.py', capture_file,
+               '--tool', tool, '-t', str(timeout), '-o', output_dir]
+        if wordlist and isinstance(wordlist, str) and '..' not in wordlist:
+            cmd.extend(['-w', wordlist])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['password_crack'] = process
+            tool_status['password_crack']['running'] = True
+            tool_status['password_crack']['pid'] = process.pid
+            tool_status['password_crack']['interface'] = None
+
+        monitor = ProcessMonitor('password_crack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('password_crack', f'Password cracking started on {capture_file}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/password-crack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_password_crack_stop():
+    """Stop password cracking"""
+    with _state_lock:
+        if not tool_status['password_crack']['running']:
+            return jsonify({'success': False, 'error': 'Password cracker not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('password_crack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['password_crack']['running'] = False
+            tool_status['password_crack']['pid'] = None
+
+        emit_log('password_crack', 'Password cracking stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/password-crack/status')
+@login_required
+def api_password_crack_status():
+    """Get password cracker status"""
+    with _state_lock:
+        return jsonify(tool_status['password_crack'])
+
+
+# --- Channel MitM ---
+
+@app.route('/api/channel-mitm/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_channel_mitm_start():
+    """Start channel-based MitM attack"""
+    with _state_lock:
+        if tool_status['channel_mitm']['running']:
+            return jsonify({'success': False, 'error': 'Channel MitM already running'})
+
+    data = request.json or {}
+    rogue_iface = data.get('rogue_interface', '')
+    monitor_iface = data.get('monitor_interface', '')
+    bssid = data.get('bssid', '')
+    channel = data.get('channel')
+    rogue_channel = data.get('rogue_channel')
+    ssid = data.get('ssid')
+    timeout = data.get('timeout', 600)
+
+    ok, err = validate_interface(rogue_iface)
+    if not ok:
+        return jsonify({'success': False, 'error': f'Rogue interface: {err}'}), 400
+    ok, err = validate_interface(monitor_iface)
+    if not ok:
+        return jsonify({'success': False, 'error': f'Monitor interface: {err}'}), 400
+    ok, err = validate_mac(bssid)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        channel = int(channel)
+        if channel < 1 or channel > 196:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid channel number'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 7200))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['sudo', 'python3', 'channel_mitm.py',
+               '--rogue-iface', rogue_iface,
+               '--monitor-iface', monitor_iface,
+               '-b', bssid, '-c', str(channel),
+               '-t', str(timeout)]
+        if rogue_channel is not None:
+            try:
+                rogue_channel = int(rogue_channel)
+                cmd.extend(['--rogue-channel', str(rogue_channel)])
+            except (TypeError, ValueError):
+                pass
+        if ssid and isinstance(ssid, str) and len(ssid) <= 32:
+            cmd.extend(['--ssid', ssid])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['channel_mitm'] = process
+            tool_status['channel_mitm']['running'] = True
+            tool_status['channel_mitm']['pid'] = process.pid
+            tool_status['channel_mitm']['interface'] = rogue_iface
+
+        monitor = ProcessMonitor('channel_mitm', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('channel_mitm', f'Channel MitM started: {rogue_iface}/{monitor_iface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/channel-mitm/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_channel_mitm_stop():
+    """Stop channel MitM"""
+    with _state_lock:
+        if not tool_status['channel_mitm']['running']:
+            return jsonify({'success': False, 'error': 'Channel MitM not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('channel_mitm')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['channel_mitm']['running'] = False
+            tool_status['channel_mitm']['pid'] = None
+            tool_status['channel_mitm']['interface'] = None
+
+        emit_log('channel_mitm', 'Channel MitM stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/channel-mitm/status')
+@login_required
+def api_channel_mitm_status():
+    """Get channel MitM status"""
+    with _state_lock:
+        return jsonify(tool_status['channel_mitm'])
+
+
+# --- WiFi Direct ---
+
+@app.route('/api/wifi-direct/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wifi_direct_start():
+    """Start WiFi Direct P2P testing"""
+    with _state_lock:
+        if tool_status['wifi_direct']['running']:
+            return jsonify({'success': False, 'error': 'WiFi Direct already running'})
+
+    data = request.json or {}
+    interface = data.get('interface', '')
+    mode = data.get('mode', 'discover')
+    target = data.get('target')
+    timeout = data.get('timeout', 120)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    if mode not in ('discover', 'analyze', 'wps-test', 'detect-groups', 'all'):
+        return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+    if target:
+        ok, err = validate_mac(target)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['sudo', 'python3', 'wifi_direct.py', '-i', interface,
+               '-m', mode, '-t', str(timeout)]
+        if target:
+            cmd.extend(['--target', target])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['wifi_direct'] = process
+            tool_status['wifi_direct']['running'] = True
+            tool_status['wifi_direct']['pid'] = process.pid
+            tool_status['wifi_direct']['interface'] = interface
+
+        monitor = ProcessMonitor('wifi_direct', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('wifi_direct', f'WiFi Direct testing started on {interface} (mode: {mode})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wifi-direct/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wifi_direct_stop():
+    """Stop WiFi Direct testing"""
+    with _state_lock:
+        if not tool_status['wifi_direct']['running']:
+            return jsonify({'success': False, 'error': 'WiFi Direct not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('wifi_direct')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['wifi_direct']['running'] = False
+            tool_status['wifi_direct']['pid'] = None
+            tool_status['wifi_direct']['interface'] = None
+
+        emit_log('wifi_direct', 'WiFi Direct testing stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wifi-direct/status')
+@login_required
+def api_wifi_direct_status():
+    """Get WiFi Direct status"""
+    with _state_lock:
+        return jsonify(tool_status['wifi_direct'])
+
+
+# --- Jamming Detection ---
+
+@app.route('/api/jamming-detect/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_jamming_detect_start():
+    """Start RF jamming detection"""
+    with _state_lock:
+        if tool_status['jamming_detect']['running']:
+            return jsonify({'success': False, 'error': 'Jamming detection already running'})
+
+    data = request.json or {}
+    interface = data.get('interface', '')
+    channels = data.get('channels')
+    timeout = data.get('timeout', 0)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        timeout = max(0, min(int(timeout), 86400))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['sudo', 'python3', 'jamming_detect.py', '-i', interface,
+               '-t', str(timeout)]
+        if channels and isinstance(channels, str) and re.match(r'^[\d, ]+$', channels):
+            cmd.extend(['-c', channels])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['jamming_detect'] = process
+            tool_status['jamming_detect']['running'] = True
+            tool_status['jamming_detect']['pid'] = process.pid
+            tool_status['jamming_detect']['interface'] = interface
+
+        monitor = ProcessMonitor('jamming_detect', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('jamming_detect', f'Jamming detection started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/jamming-detect/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_jamming_detect_stop():
+    """Stop jamming detection"""
+    with _state_lock:
+        if not tool_status['jamming_detect']['running']:
+            return jsonify({'success': False, 'error': 'Jamming detection not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('jamming_detect')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['jamming_detect']['running'] = False
+            tool_status['jamming_detect']['pid'] = None
+            tool_status['jamming_detect']['interface'] = None
+
+        emit_log('jamming_detect', 'Jamming detection stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/jamming-detect/status')
+@login_required
+def api_jamming_detect_status():
+    """Get jamming detection status"""
+    with _state_lock:
+        return jsonify(tool_status['jamming_detect'])
+
+
+# --- DHCP/DNS Attack ---
+
+@app.route('/api/dhcp-dns-attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_dhcp_dns_attack_start():
+    """Start DHCP/DNS attack"""
+    with _state_lock:
+        if tool_status['dhcp_dns_attack']['running']:
+            return jsonify({'success': False, 'error': 'DHCP/DNS attack already running'})
+
+    data = request.json or {}
+    interface = data.get('interface', '')
+    mode = data.get('mode', 'dhcp-starvation')
+    target_ip = data.get('target_ip')
+    spoof_domain = data.get('spoof_domain')
+    spoof_ip = data.get('spoof_ip')
+    rogue_gateway = data.get('rogue_gateway')
+    rogue_dns = data.get('rogue_dns')
+    timeout = data.get('timeout', 300)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    if mode not in ('dhcp-starvation', 'dhcp-spoof', 'dns-spoof', 'all'):
+        return jsonify({'success': False, 'error': 'Invalid attack mode'}), 400
+    if target_ip:
+        ok, err = validate_ip(target_ip)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+    if spoof_ip:
+        ok, err = validate_ip(spoof_ip)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+    if rogue_gateway:
+        ok, err = validate_ip(rogue_gateway)
+        if not ok:
+            return jsonify({'success': False, 'error': f'Rogue gateway: {err}'}), 400
+    if rogue_dns:
+        ok, err = validate_ip(rogue_dns)
+        if not ok:
+            return jsonify({'success': False, 'error': f'Rogue DNS: {err}'}), 400
+    if spoof_domain and (not isinstance(spoof_domain, str) or len(spoof_domain) > 253):
+        return jsonify({'success': False, 'error': 'Invalid spoof domain'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['sudo', 'python3', 'dhcp_dns_attack.py', '-i', interface,
+               '-m', mode, '-t', str(timeout)]
+        if target_ip:
+            cmd.extend(['--target-ip', target_ip])
+        if spoof_domain:
+            cmd.extend(['--spoof-domain', spoof_domain])
+        if spoof_ip:
+            cmd.extend(['--spoof-ip', spoof_ip])
+        if rogue_gateway:
+            cmd.extend(['--rogue-gateway', rogue_gateway])
+        if rogue_dns:
+            cmd.extend(['--rogue-dns', rogue_dns])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['dhcp_dns_attack'] = process
+            tool_status['dhcp_dns_attack']['running'] = True
+            tool_status['dhcp_dns_attack']['pid'] = process.pid
+            tool_status['dhcp_dns_attack']['interface'] = interface
+
+        monitor = ProcessMonitor('dhcp_dns_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('dhcp_dns_attack', f'DHCP/DNS attack started on {interface} (mode: {mode})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/dhcp-dns-attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_dhcp_dns_attack_stop():
+    """Stop DHCP/DNS attack"""
+    with _state_lock:
+        if not tool_status['dhcp_dns_attack']['running']:
+            return jsonify({'success': False, 'error': 'DHCP/DNS attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('dhcp_dns_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['dhcp_dns_attack']['running'] = False
+            tool_status['dhcp_dns_attack']['pid'] = None
+            tool_status['dhcp_dns_attack']['interface'] = None
+
+        emit_log('dhcp_dns_attack', 'DHCP/DNS attack stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/dhcp-dns-attack/status')
+@login_required
+def api_dhcp_dns_attack_status():
+    """Get DHCP/DNS attack status"""
+    with _state_lock:
+        return jsonify(tool_status['dhcp_dns_attack'])
+
+
+# --- Portal Bypass ---
+
+@app.route('/api/portal-bypass/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_portal_bypass_start():
+    """Start captive portal bypass"""
+    with _state_lock:
+        if tool_status['portal_bypass']['running']:
+            return jsonify({'success': False, 'error': 'Portal bypass already running'})
+
+    data = request.json or {}
+    interface = data.get('interface', '')
+    mode = data.get('mode', 'probe')
+    dns_domain = data.get('dns_domain')
+    target_ip = data.get('target_ip')
+    timeout = data.get('timeout', 120)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    if mode not in ('probe', 'dns-tunnel', 'icmp-tunnel', 'mac-clone', 'direct-ip', 'all'):
+        return jsonify({'success': False, 'error': 'Invalid bypass mode'}), 400
+    if target_ip:
+        ok, err = validate_ip(target_ip)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+    if dns_domain and (not isinstance(dns_domain, str) or len(dns_domain) > 253):
+        return jsonify({'success': False, 'error': 'Invalid DNS domain'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['sudo', 'python3', 'portal_bypass.py', '-i', interface,
+               '-m', mode, '-t', str(timeout)]
+        if dns_domain:
+            cmd.extend(['--dns-domain', dns_domain])
+        if target_ip:
+            cmd.extend(['--target-ip', target_ip])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            active_processes['portal_bypass'] = process
+            tool_status['portal_bypass']['running'] = True
+            tool_status['portal_bypass']['pid'] = process.pid
+            tool_status['portal_bypass']['interface'] = interface
+
+        monitor = ProcessMonitor('portal_bypass', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('portal_bypass', f'Portal bypass started on {interface} (mode: {mode})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/portal-bypass/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_portal_bypass_stop():
+    """Stop portal bypass"""
+    with _state_lock:
+        if not tool_status['portal_bypass']['running']:
+            return jsonify({'success': False, 'error': 'Portal bypass not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('portal_bypass')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['portal_bypass']['running'] = False
+            tool_status['portal_bypass']['pid'] = None
+            tool_status['portal_bypass']['interface'] = None
+
+        emit_log('portal_bypass', 'Portal bypass stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/portal-bypass/status')
+@login_required
+def api_portal_bypass_status():
+    """Get portal bypass status"""
+    with _state_lock:
+        return jsonify(tool_status['portal_bypass'])
+
 
 @socketio.on('connect')
 def handle_connect():
