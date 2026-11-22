@@ -15,13 +15,6 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
-# Mock multi_adapter and deauth so channel_mitm's imports succeed without
-# requiring their real implementations (and so we can control behavior).
-_mock_multi_adapter = MagicMock()
-_mock_deauth_module = MagicMock()
-sys.modules.setdefault("multi_adapter", _mock_multi_adapter)
-sys.modules.setdefault("deauth", _mock_deauth_module)
-
 from channel_mitm import (  # noqa: E402
     ChannelMitM,
     CHANNELS_2GHZ,
