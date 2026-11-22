@@ -23,6 +23,9 @@ from oui_lookup import lookup_vendor
 
 
 class APScanner:
+    # Vendor IE prefix: Wi-Fi Alliance OUI 50:6F:9A + type 28 (OWE Transition Mode)
+    OWE_TRANSITION_PREFIX: bytes = b"\x50\x6f\x9a\x1c"
+
     def __init__(self, interface: str, timeout: int = 30,
                  channel_hop: bool = True, hop_interval: float = 0.5,
                  fixed_channel: Optional[int] = None,
@@ -38,6 +41,8 @@ class APScanner:
         self.logger = setup_logging("ap_scanner")
         self.access_points: dict[str, dict] = {}
         self._last_akm_suites: list = []
+        self._last_rsn_info: dict = {}
+        self._last_owe: dict = {}
         self._hop_running: bool = False
 
     def packet_handler(self, packet) -> None:
@@ -71,8 +76,12 @@ class APScanner:
                     pass
 
             self._last_akm_suites = []
+            self._last_rsn_info = {}
+            self._last_owe = {}
             encryption = self._determine_encryption(packet)
             akm_suites = list(self._last_akm_suites)
+            rsn_info = self._last_rsn_info
+            owe = self._last_owe
             vendor = lookup_vendor(bssid)
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -93,6 +102,11 @@ class APScanner:
                     "signal": signal,
                     "encryption": encryption,
                     "akm_suites": akm_suites,
+                    "pmf_capable": bool(rsn_info.get("pmf_capable", False)),
+                    "pmf_required": bool(rsn_info.get("pmf_required", False)),
+                    "owe_mode": owe.get("mode"),
+                    "owe_transition_bssid": owe.get("bssid"),
+                    "owe_transition_ssid": owe.get("ssid"),
                     "vendor": vendor,
                     "first_seen": now,
                     "last_seen": now,
@@ -116,30 +130,97 @@ class APScanner:
 
         has_privacy = bool(cap & 0x0010) if isinstance(cap, int) else "privacy" in str(cap)
 
-        if not has_privacy:
-            return "Open"
-
         elt = packet.getlayer(Dot11Elt)
         has_rsn = False
         has_wpa = False
         rsn_info = b""
+        transition = None
         while elt:
             if elt.ID == 48:
                 has_rsn = True
                 rsn_info = bytes(elt.info or b"")
             if elt.ID == 221 and elt.info and len(elt.info) >= 4:
-                oui = elt.info[:3]
-                if oui == b"\x00\x50\xf2" and elt.info[3:4] == b"\x01":
+                info = bytes(elt.info)
+                if info[:3] == b"\x00\x50\xf2" and info[3:4] == b"\x01":
                     has_wpa = True
+                elif info[:4] == self.OWE_TRANSITION_PREFIX:
+                    transition = self._parse_owe_transition_ie(info) or transition
             elt = elt.payload.getlayer(Dot11Elt)
+
+        if transition:
+            self._last_owe = {"mode": "owe_transition",
+                              "bssid": transition["bssid"],
+                              "ssid": transition["ssid"]}
+
+        if not has_privacy:
+            return "Open"
 
         if has_rsn:
             parsed = self._parse_rsn_ie(rsn_info)
+            self._last_rsn_info = parsed
             self._last_akm_suites = parsed["akm_suites"]
-            return self._encryption_from_akms(parsed["akm_suites"])
+            encryption = self._encryption_from_akms(parsed["akm_suites"])
+            if "OWE" in parsed["akm_suites"]:
+                if transition:
+                    encryption = "OWE-Transition"
+                else:
+                    self._last_owe = {"mode": "owe", "bssid": None, "ssid": None}
+            return encryption
         if has_wpa:
             return "WPA"
         return "WEP"
+
+    def _detect_owe_network(self, packet) -> bool:
+        """Return True if the frame advertises OWE (AKM 18) or an OWE Transition IE."""
+        try:
+            elt = packet.getlayer(Dot11Elt)
+            while elt:
+                info = bytes(elt.info or b"")
+                if elt.ID == 48 and "OWE" in self._parse_rsn_ie(info)["akm_suites"]:
+                    return True
+                if elt.ID == 221 and info[:4] == self.OWE_TRANSITION_PREFIX:
+                    return True
+                elt = elt.payload.getlayer(Dot11Elt)
+        except Exception:
+            pass
+        return False
+
+    def _parse_owe_transition_ie(self, elt_info: bytes) -> Optional[dict]:
+        """Parse an OWE Transition Mode vendor IE body (OUI 50:6F:9A, type 28).
+
+        Layout: OUI(3) type(1) BSSID(6) SSID-len(1) SSID(n) [op-class(1) channel(1)].
+        """
+        try:
+            data = bytes(elt_info or b"")
+            if data[:4] != self.OWE_TRANSITION_PREFIX or len(data) < 11:
+                return None
+            bssid = ":".join(f"{b:02X}" for b in data[4:10])
+            ssid_len = data[10]
+            if len(data) < 11 + ssid_len:
+                return None
+            ssid = data[11:11 + ssid_len].decode("utf-8", errors="replace")
+            result = {"bssid": bssid, "ssid": ssid}
+            rest = data[11 + ssid_len:]
+            if len(rest) >= 2:
+                result["operating_class"] = rest[0]
+                result["channel"] = rest[1]
+            return result
+        except Exception:
+            return None
+
+    @staticmethod
+    def _parse_rsn_capabilities(cap_bytes: bytes) -> dict:
+        """Parse the 2-byte RSN Capabilities field (little endian)."""
+        cap = int.from_bytes(bytes(cap_bytes or b"")[:2], "little")
+        return {
+            "rsn_capabilities": cap,
+            "pre_auth": bool(cap & 0x0001),
+            "no_pairwise": bool(cap & 0x0002),
+            "ptksa_replay_counters": (cap >> 2) & 0x3,
+            "gtksa_replay_counters": (cap >> 4) & 0x3,
+            "pmf_required": bool(cap & 0x0040),  # MFPR
+            "pmf_capable": bool(cap & 0x0080),   # MFPC
+        }
 
     @staticmethod
     def _encryption_from_akms(akms: list) -> str:
@@ -203,6 +284,8 @@ class APScanner:
                     result["akm_suites"].append(
                         akm_names.get(data[pos + 3], f"Unknown({data[pos + 3]})"))
                 pos += 4
+            if len(data) >= pos + 2:
+                result.update(self._parse_rsn_capabilities(data[pos:pos + 2]))
         except Exception:
             pass
         return result
@@ -284,15 +367,25 @@ class APScanner:
             self.logger.info("No access points found")
             return
 
-        print(f"\n{'='*104}")
-        print(f"{'BSSID':<20} {'SSID':<25} {'CH':<5} {'Signal':<8} {'Enc':<10} {'Vendor':<20} {'Beacons':<8}")
-        print(f"{'='*104}")
+        print(f"\n{'='*118}")
+        print(f"{'BSSID':<20} {'SSID':<25} {'CH':<5} {'Signal':<8} {'Enc':<10} "
+              f"{'PMF':<9} {'Vendor':<20} {'Beacons':<8}")
+        print(f"{'='*118}")
         for bssid, ap in sorted(self.access_points.items(),
                                  key=lambda x: x[1].get("signal") or -100, reverse=True):
             sig_str = f"{ap['signal']}dBm" if ap["signal"] is not None else "?"
+            if ap.get("pmf_required"):
+                pmf = "Required"
+            elif ap.get("pmf_capable"):
+                pmf = "Capable"
+            else:
+                pmf = "No"
+            enc = ap["encryption"]
+            if ap.get("owe_mode") == "owe_transition":
+                enc = "OWE-T"
             print(f"{bssid:<20} {(ap['ssid'] or '<hidden>'):<25} "
                   f"{str(ap['channel'] or '?'):<5} {sig_str:<8} "
-                  f"{ap['encryption']:<10} {ap['vendor'][:20]:<20} {ap['beacon_count']:<8}")
+                  f"{enc:<10} {pmf:<9} {ap['vendor'][:20]:<20} {ap['beacon_count']:<8}")
         print(f"\nTotal: {len(self.access_points)} access points found")
 
 
