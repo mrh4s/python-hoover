@@ -204,7 +204,6 @@ class APScanner:
     def _send_deauth_for_reveal(self, bssid: str, count: int = 5) -> None:
         """Send deauth frames to force reassociation and leak the SSID."""
         try:
-            src_mac = "02:00:00:00:00:01"
             frame = (
                 RadioTap()
                 / Dot11(addr1="ff:ff:ff:ff:ff:ff", addr2=bssid, addr3=bssid)

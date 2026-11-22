@@ -162,7 +162,7 @@ class DragonbloodAttack:
             + b"".join(akms)
             + b"\x00\x00"          # RSN capabilities
         )
-        return b"\x30" + bytes([len(body)]) + body
+        return body
 
     def _build_downgrade_beacon(self, ssid: str):
         """Build a beacon advertising WPA2-only (no SAE AKM).

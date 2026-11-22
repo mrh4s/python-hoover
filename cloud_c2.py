@@ -20,6 +20,7 @@ import argparse
 import json
 import logging
 import platform
+import hmac
 import ssl
 import subprocess
 import threading
@@ -127,7 +128,7 @@ class CloudC2Server:
                 token = auth.get("token")
             if not token:
                 token = request.args.get("token")
-            if token != self.auth_token:
+            if not hmac.compare_digest(token or "", self.auth_token):
                 self.logger.warning("Rejected unauthenticated connection")
                 disconnect()
                 return False
@@ -287,6 +288,7 @@ class CloudC2Client:
         self._running = False
         self._lock = threading.Lock()
         self._heartbeat_thread: Optional[threading.Thread] = None
+        self._heartbeat_stop = threading.Event()
         self._reconnect_thread: Optional[threading.Thread] = None
 
         # python-socketio client
@@ -375,7 +377,7 @@ class CloudC2Client:
 
     def _heartbeat_loop(self) -> None:
         """Send periodic heartbeats with system status."""
-        while self._running:
+        while self._running and not self._heartbeat_stop.is_set():
             with self._lock:
                 connected = self._connected
             if connected:
@@ -384,7 +386,7 @@ class CloudC2Client:
                     self._sio.emit("heartbeat", heartbeat)
                 except Exception:
                     pass
-            time.sleep(self.heartbeat_interval)
+            self._heartbeat_stop.wait(self.heartbeat_interval)
 
     def _build_heartbeat(self) -> dict:
         """Build a heartbeat message with system status."""
@@ -484,7 +486,11 @@ class CloudC2Client:
                 with self._lock:
                     self._connected = True
                 self.logger.info("Reconnected successfully")
-                # Restart heartbeat
+                # Stop old heartbeat thread and start a new one
+                self._heartbeat_stop.set()
+                if self._heartbeat_thread:
+                    self._heartbeat_thread.join(timeout=2)
+                self._heartbeat_stop = threading.Event()
                 self._heartbeat_thread = threading.Thread(
                     target=self._heartbeat_loop, daemon=True,
                 )

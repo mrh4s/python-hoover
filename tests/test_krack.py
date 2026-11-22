@@ -38,12 +38,12 @@ CLIENT = "11:22:33:44:55:66"
 def _eapol_body(key_info: int, replay_counter: int = 1, nonce: bytes = b"\x00" * 32,
                  mic: bytes = b"\x00" * 16) -> bytes:
     """Build a realistic EAPOL Key frame body for the given key_info bits."""
-    body = bytearray(99)
+    body = bytearray(95)
     body[0] = 0x02  # descriptor type (RSN)
     body[1:3] = key_info.to_bytes(2, "big")
-    body[9:17] = replay_counter.to_bytes(8, "big")
-    body[17:49] = nonce.ljust(32, b"\x00")[:32]
-    body[81:97] = mic.ljust(16, b"\x00")[:16]
+    body[5:13] = replay_counter.to_bytes(8, "big")
+    body[13:45] = nonce.ljust(32, b"\x00")[:32]
+    body[77:93] = mic.ljust(16, b"\x00")[:16]
     return bytes(body)
 
 

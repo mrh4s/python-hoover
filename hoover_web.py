@@ -2026,7 +2026,7 @@ def api_ble_attack_start():
         if tool_status['ble_attack']['running']:
             return jsonify({'success': False, 'error': 'BLE attack already running'})
 
-    data = request.json
+    data = request.json or {}
     target = data.get('target')
     mode = data.get('mode', 'scan')
     scan_time = data.get('scan_time', 10)

@@ -37,8 +37,8 @@ from utils import validate_mac, validate_interface, require_root, setup_logging
 
 
 # EAPOL Key Info field bit masks
-KEY_INFO_INSTALL = 0x0008
-KEY_INFO_ACK = 0x0040
+KEY_INFO_INSTALL = 0x0040
+KEY_INFO_ACK = 0x0080
 KEY_INFO_MIC = 0x0100
 KEY_INFO_SECURE = 0x0200
 
@@ -121,17 +121,17 @@ class KRACKDetector:
             # Byte 0: descriptor type, bytes 1-2: key info (big-endian)
             if len(eapol_data) >= 3:
                 result["key_info"] = int.from_bytes(eapol_data[1:3], "big")
-            # Bytes 9-17: replay counter (8 bytes, big-endian)
-            if len(eapol_data) >= 17:
+            # Bytes 5-13: replay counter (8 bytes, big-endian)
+            if len(eapol_data) >= 13:
                 result["replay_counter"] = int.from_bytes(
-                    eapol_data[9:17], "big"
+                    eapol_data[5:13], "big"
                 )
-            # Bytes 17-49: key nonce (ANonce/SNonce, 32 bytes)
-            if len(eapol_data) >= 49:
-                result["nonce"] = bytes(eapol_data[17:49])
-            # Bytes 81-97: MIC (16 bytes) in a standard EAPOL key frame
-            if len(eapol_data) >= 97:
-                result["mic"] = bytes(eapol_data[81:97])
+            # Bytes 13-45: key nonce (ANonce/SNonce, 32 bytes)
+            if len(eapol_data) >= 45:
+                result["nonce"] = bytes(eapol_data[13:45])
+            # Bytes 77-93: MIC (16 bytes) in a standard EAPOL key frame
+            if len(eapol_data) >= 93:
+                result["mic"] = bytes(eapol_data[77:93])
         except Exception as e:
             self.logger.debug("Error parsing EAPOL key info: %s", e)
 
