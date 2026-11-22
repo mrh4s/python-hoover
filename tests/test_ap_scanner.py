@@ -37,7 +37,7 @@ def scanner_with_output(mock_interface, tmp_path):
 
 
 def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
-                         signal=-50, has_privacy=True, has_rsn=True):
+                         signal=-50, has_privacy=True, has_rsn=True, rsn_info=b"\x01\x00"):
     """Create a mock beacon packet."""
     pkt = MagicMock()
 
@@ -78,7 +78,7 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
 
     rsn_elt = MagicMock()
     rsn_elt.ID = 48 if has_rsn else 99
-    rsn_elt.info = b"\x01\x00"
+    rsn_elt.info = rsn_info
 
     end_elt = MagicMock()
     end_elt.ID = 255
@@ -109,6 +109,7 @@ class TestAPScannerInit:
         assert s.timeout == 30
         assert s.channel_hop is True
         assert s.access_points == {}
+        assert s.bands == "2.4"
 
     def test_custom_params(self, mock_interface):
         s = APScanner(
@@ -120,6 +121,10 @@ class TestAPScannerInit:
         assert s.channel_hop is False
         assert s.fixed_channel == 11
         assert s.output_file == "out.csv"
+
+    def test_custom_bands(self, mock_interface):
+        s = APScanner(interface=mock_interface, bands="2.4,5")
+        assert s.bands == "2.4,5"
 
 
 class TestPacketHandler:
@@ -161,6 +166,65 @@ class TestDetermineEncryption:
         scanner.packet_handler(pkt)
         ap = scanner.access_points["AA:BB:CC:DD:EE:FF"]
         assert ap["encryption"] == "Open"
+
+
+def _make_rsn(*akm_types, pairwise=(4,), group=4):
+    """Build RSN IE body bytes with the given AKM suite types."""
+    rsn = b"\x01\x00"
+    rsn += b"\x00\x0f\xac" + bytes([group])
+    rsn += len(pairwise).to_bytes(2, "little")
+    for p in pairwise:
+        rsn += b"\x00\x0f\xac" + bytes([p])
+    rsn += len(akm_types).to_bytes(2, "little")
+    for a in akm_types:
+        rsn += b"\x00\x0f\xac" + bytes([a])
+    return rsn
+
+
+class TestRSNEncryption:
+    def _enc(self, scanner, *akms):
+        pkt = _make_beacon_packet(rsn_info=_make_rsn(*akms))
+        scanner.packet_handler(pkt)
+        return scanner.access_points["AA:BB:CC:DD:EE:FF"]
+
+    def test_wpa3_sae_detection(self, scanner):
+        ap = self._enc(scanner, 8)
+        assert ap["encryption"] == "WPA3"
+        assert ap["akm_suites"] == ["SAE"]
+
+    def test_wpa3_transition_mode(self, scanner):
+        ap = self._enc(scanner, 2, 8)
+        assert ap["encryption"] == "WPA3/WPA2"
+        assert ap["akm_suites"] == ["PSK", "SAE"]
+
+    def test_wpa2_enterprise_detection(self, scanner):
+        ap = self._enc(scanner, 1)
+        assert ap["encryption"] == "WPA2-Enterprise"
+
+    def test_owe_detection(self, scanner):
+        ap = self._enc(scanner, 18)
+        assert ap["encryption"] == "OWE"
+
+    def test_wpa2_psk_detection_unchanged(self, scanner):
+        ap = self._enc(scanner, 2)
+        assert ap["encryption"] == "WPA2"
+        assert ap["akm_suites"] == ["PSK"]
+
+    def test_wpa3_enterprise_192bit(self, scanner):
+        ap = self._enc(scanner, 11)
+        assert ap["encryption"] == "WPA3-Enterprise"
+
+    def test_rsn_ie_parsing(self, scanner):
+        result = scanner._parse_rsn_ie(_make_rsn(2, 8, pairwise=(4, 2), group=4))
+        assert result == {
+            "akm_suites": ["PSK", "SAE"],
+            "pairwise_ciphers": ["CCMP", "TKIP"],
+            "group_cipher": "CCMP",
+        }
+
+    def test_rsn_ie_parsing_truncated(self, scanner):
+        result = scanner._parse_rsn_ie(b"\x01\x00")
+        assert result["akm_suites"] == []
 
 
 class TestSaveResults:
@@ -221,6 +285,16 @@ class TestChannelHop:
         mock_run.assert_called_once()
         args = mock_run.call_args[0][0]
         assert "11" in args
+
+    @patch("ap_scanner.subprocess.run")
+    @patch("ap_scanner.time.sleep", side_effect=StopIteration)
+    def test_hop_loop_5ghz_band(self, mock_sleep, mock_run, mock_interface):
+        s = APScanner(interface=mock_interface, bands="5")
+        s._hop_running = True
+        with pytest.raises(StopIteration):
+            s._channel_hop_loop()
+        args = mock_run.call_args[0][0]
+        assert "36" in args
 
 
 class TestStart:
