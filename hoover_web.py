@@ -159,6 +159,13 @@ tool_status = {
     'eap_attack': {'running': False, 'pid': None, 'interface': None},
     'pmkid_capture': {'running': False, 'pid': None, 'interface': None},
     'mitm_attack': {'running': False, 'pid': None, 'interface': None},
+    'ble_attack': {'running': False, 'pid': None, 'interface': None},
+    'dragonblood': {'running': False, 'pid': None, 'interface': None},
+    'krack': {'running': False, 'pid': None, 'interface': None},
+    'fragattacks': {'running': False, 'pid': None, 'interface': None},
+    'wardriving': {'running': False, 'pid': None, 'interface': None},
+    'cloud_c2': {'running': False, 'pid': None, 'interface': None},
+    'wep_attack': {'running': False, 'pid': None, 'interface': None},
 }
 
 # --- Probe Request Buffer ---
@@ -2004,6 +2011,549 @@ def api_mitm_attack_stop():
             tool_status['mitm_attack']['interface'] = None
 
         emit_log('mitm_attack', 'MitM attack stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ble-attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ble_attack_start():
+    """Start BLE attack"""
+    with _state_lock:
+        if tool_status['ble_attack']['running']:
+            return jsonify({'success': False, 'error': 'BLE attack already running'})
+
+    data = request.json
+    target = data.get('target')
+    mode = data.get('mode', 'scan')
+    scan_time = data.get('scan_time', 10)
+    uuid = data.get('uuid')
+    write_data = data.get('write_data')
+    replay_count = data.get('replay_count', 10)
+    replay_interval = data.get('replay_interval', 0.5)
+    spoof_name = data.get('spoof_name')
+    timeout = data.get('timeout', 120)
+
+    if mode not in ('scan', 'enumerate', 'replay', 'spoof', 'fuzz'):
+        return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+
+    if target:
+        ok, err = validate_mac(target)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+
+    if mode in ('enumerate', 'replay', 'fuzz') and not target:
+        return jsonify({'success': False, 'error': f'--target is required for mode {mode}'}), 400
+
+    if mode == 'replay' and not uuid:
+        return jsonify({'success': False, 'error': 'UUID is required for replay mode'}), 400
+
+    if mode == 'fuzz' and not uuid:
+        return jsonify({'success': False, 'error': 'UUID is required for fuzz mode'}), 400
+
+    try:
+        cmd = ['python3', 'ble_attack.py', '-m', mode, '-t', str(scan_time),
+               '--timeout', str(timeout)]
+        if target:
+            cmd.extend(['--target', target])
+        if uuid:
+            cmd.extend(['--uuid', uuid])
+        if write_data:
+            cmd.extend(['--write-data', write_data])
+        if mode == 'replay':
+            cmd.extend(['--replay-count', str(replay_count),
+                        '--replay-interval', str(replay_interval)])
+        if spoof_name:
+            cmd.extend(['--spoof-name', spoof_name])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['ble_attack']['running'] = True
+            tool_status['ble_attack']['pid'] = process.pid
+            tool_status['ble_attack']['interface'] = 'bluetooth'
+            active_processes['ble_attack'] = process
+
+        monitor = ProcessMonitor('ble_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('ble_attack', f'BLE attack started (mode: {mode})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/ble-attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_ble_attack_stop():
+    """Stop BLE attack"""
+    with _state_lock:
+        if not tool_status['ble_attack']['running']:
+            return jsonify({'success': False, 'error': 'BLE attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('ble_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['ble_attack']['running'] = False
+            tool_status['ble_attack']['pid'] = None
+            tool_status['ble_attack']['interface'] = None
+
+        emit_log('ble_attack', 'BLE attack stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- Dragonblood WPA3 Testing ---
+
+@app.route('/api/dragonblood/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_dragonblood_start():
+    """Start Dragonblood WPA3 testing"""
+    try:
+        with _state_lock:
+            if tool_status['dragonblood']['running']:
+                return jsonify({'success': False, 'error': 'Dragonblood already running'})
+
+        data = request.json or {}
+        interface = data.get('interface', '')
+        bssid = data.get('bssid', '')
+
+        if not validate_interface(interface):
+            return jsonify({'success': False, 'error': 'Invalid interface name'}), 400
+        if not _RE_MAC.match(bssid):
+            return jsonify({'success': False, 'error': 'Invalid BSSID format'}), 400
+
+        cmd = ['sudo', 'python3', 'dragonblood.py', '-i', interface, '-b', bssid]
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1
+        )
+
+        with _state_lock:
+            active_processes['dragonblood'] = process
+            tool_status['dragonblood']['running'] = True
+            tool_status['dragonblood']['pid'] = process.pid
+            tool_status['dragonblood']['interface'] = interface
+
+        monitor = ProcessMonitor('dragonblood', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('dragonblood', f'Dragonblood started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/dragonblood/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_dragonblood_stop():
+    """Stop Dragonblood"""
+    try:
+        with _state_lock:
+            if not tool_status['dragonblood']['running']:
+                return jsonify({'success': False, 'error': 'Dragonblood not running'})
+
+        with _state_lock:
+            process = active_processes.get('dragonblood')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['dragonblood']['running'] = False
+            tool_status['dragonblood']['pid'] = None
+            tool_status['dragonblood']['interface'] = None
+
+        emit_log('dragonblood', 'Dragonblood stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- KRACK Detection ---
+
+@app.route('/api/krack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_krack_start():
+    """Start KRACK detection"""
+    try:
+        with _state_lock:
+            if tool_status['krack']['running']:
+                return jsonify({'success': False, 'error': 'KRACK detection already running'})
+
+        data = request.json or {}
+        interface = data.get('interface', '')
+
+        if not validate_interface(interface):
+            return jsonify({'success': False, 'error': 'Invalid interface name'}), 400
+
+        cmd = ['sudo', 'python3', 'krack.py', '-i', interface]
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1
+        )
+
+        with _state_lock:
+            active_processes['krack'] = process
+            tool_status['krack']['running'] = True
+            tool_status['krack']['pid'] = process.pid
+            tool_status['krack']['interface'] = interface
+
+        monitor = ProcessMonitor('krack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('krack', f'KRACK detection started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/krack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_krack_stop():
+    """Stop KRACK detection"""
+    try:
+        with _state_lock:
+            if not tool_status['krack']['running']:
+                return jsonify({'success': False, 'error': 'KRACK detection not running'})
+
+        with _state_lock:
+            process = active_processes.get('krack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['krack']['running'] = False
+            tool_status['krack']['pid'] = None
+            tool_status['krack']['interface'] = None
+
+        emit_log('krack', 'KRACK detection stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- FragAttacks Testing ---
+
+@app.route('/api/fragattacks/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_fragattacks_start():
+    """Start FragAttacks testing"""
+    try:
+        with _state_lock:
+            if tool_status['fragattacks']['running']:
+                return jsonify({'success': False, 'error': 'FragAttacks already running'})
+
+        data = request.json or {}
+        interface = data.get('interface', '')
+        bssid = data.get('bssid', '')
+
+        if not validate_interface(interface):
+            return jsonify({'success': False, 'error': 'Invalid interface name'}), 400
+        if not _RE_MAC.match(bssid):
+            return jsonify({'success': False, 'error': 'Invalid BSSID format'}), 400
+
+        cmd = ['sudo', 'python3', 'fragattacks.py', '-i', interface, '-b', bssid]
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1
+        )
+
+        with _state_lock:
+            active_processes['fragattacks'] = process
+            tool_status['fragattacks']['running'] = True
+            tool_status['fragattacks']['pid'] = process.pid
+            tool_status['fragattacks']['interface'] = interface
+
+        monitor = ProcessMonitor('fragattacks', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('fragattacks', f'FragAttacks started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/fragattacks/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_fragattacks_stop():
+    """Stop FragAttacks"""
+    try:
+        with _state_lock:
+            if not tool_status['fragattacks']['running']:
+                return jsonify({'success': False, 'error': 'FragAttacks not running'})
+
+        with _state_lock:
+            process = active_processes.get('fragattacks')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['fragattacks']['running'] = False
+            tool_status['fragattacks']['pid'] = None
+            tool_status['fragattacks']['interface'] = None
+
+        emit_log('fragattacks', 'FragAttacks stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- Wardriving ---
+
+@app.route('/api/wardriving/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wardriving_start():
+    """Start wardriving"""
+    try:
+        with _state_lock:
+            if tool_status['wardriving']['running']:
+                return jsonify({'success': False, 'error': 'Wardriving already running'})
+
+        data = request.json or {}
+        interface = data.get('interface', '')
+
+        if not validate_interface(interface):
+            return jsonify({'success': False, 'error': 'Invalid interface name'}), 400
+
+        cmd = ['sudo', 'python3', 'wardriving.py', '-i', interface]
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1
+        )
+
+        with _state_lock:
+            active_processes['wardriving'] = process
+            tool_status['wardriving']['running'] = True
+            tool_status['wardriving']['pid'] = process.pid
+            tool_status['wardriving']['interface'] = interface
+
+        monitor = ProcessMonitor('wardriving', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('wardriving', f'Wardriving started on {interface}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wardriving/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wardriving_stop():
+    """Stop wardriving"""
+    try:
+        with _state_lock:
+            if not tool_status['wardriving']['running']:
+                return jsonify({'success': False, 'error': 'Wardriving not running'})
+
+        with _state_lock:
+            process = active_processes.get('wardriving')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['wardriving']['running'] = False
+            tool_status['wardriving']['pid'] = None
+            tool_status['wardriving']['interface'] = None
+
+        emit_log('wardriving', 'Wardriving stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- Cloud C2 ---
+
+@app.route('/api/cloud_c2/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_cloud_c2_start():
+    """Start Cloud C2 server"""
+    try:
+        with _state_lock:
+            if tool_status['cloud_c2']['running']:
+                return jsonify({'success': False, 'error': 'Cloud C2 already running'})
+
+        cmd = ['sudo', 'python3', 'cloud_c2.py', '--port', '8443']
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1
+        )
+
+        with _state_lock:
+            active_processes['cloud_c2'] = process
+            tool_status['cloud_c2']['running'] = True
+            tool_status['cloud_c2']['pid'] = process.pid
+            tool_status['cloud_c2']['interface'] = 'c2-server'
+
+        monitor = ProcessMonitor('cloud_c2', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('cloud_c2', 'Cloud C2 server started on port 8443')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/cloud_c2/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_cloud_c2_stop():
+    """Stop Cloud C2 server"""
+    try:
+        with _state_lock:
+            if not tool_status['cloud_c2']['running']:
+                return jsonify({'success': False, 'error': 'Cloud C2 not running'})
+
+        with _state_lock:
+            process = active_processes.get('cloud_c2')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['cloud_c2']['running'] = False
+            tool_status['cloud_c2']['pid'] = None
+            tool_status['cloud_c2']['interface'] = None
+
+        emit_log('cloud_c2', 'Cloud C2 server stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- WEP Attack ---
+
+@app.route('/api/wep_attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wep_attack_start():
+    """Start WEP attack"""
+    try:
+        with _state_lock:
+            if tool_status['wep_attack']['running']:
+                return jsonify({'success': False, 'error': 'WEP attack already running'})
+
+        data = request.json or {}
+        interface = data.get('interface', '')
+        bssid = data.get('bssid', '')
+
+        if not validate_interface(interface):
+            return jsonify({'success': False, 'error': 'Invalid interface name'}), 400
+        if not _RE_MAC.match(bssid):
+            return jsonify({'success': False, 'error': 'Invalid BSSID format'}), 400
+
+        cmd = ['sudo', 'python3', 'wep_attack.py', '-i', interface, '-b', bssid]
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1
+        )
+
+        with _state_lock:
+            active_processes['wep_attack'] = process
+            tool_status['wep_attack']['running'] = True
+            tool_status['wep_attack']['pid'] = process.pid
+            tool_status['wep_attack']['interface'] = interface
+
+        monitor = ProcessMonitor('wep_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('wep_attack', f'WEP attack started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/wep_attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_wep_attack_stop():
+    """Stop WEP attack"""
+    try:
+        with _state_lock:
+            if not tool_status['wep_attack']['running']:
+                return jsonify({'success': False, 'error': 'WEP attack not running'})
+
+        with _state_lock:
+            process = active_processes.get('wep_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['wep_attack']['running'] = False
+            tool_status['wep_attack']['pid'] = None
+            tool_status['wep_attack']['interface'] = None
+
+        emit_log('wep_attack', 'WEP attack stopped')
         return jsonify({'success': True})
 
     except Exception as e:

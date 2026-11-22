@@ -15,8 +15,11 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap
-from scapy.sendrecv import sniff
+from scapy.layers.dot11 import (
+    Dot11, Dot11AssoReq, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeReq,
+    Dot11ProbeResp, Dot11ReassoReq, RadioTap,
+)
+from scapy.sendrecv import sendp, sniff
 
 from utils import validate_interface, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
@@ -30,7 +33,9 @@ class APScanner:
                  channel_hop: bool = True, hop_interval: float = 0.5,
                  fixed_channel: Optional[int] = None,
                  output_file: Optional[str] = None,
-                 bands: str = "2.4") -> None:
+                 bands: str = "2.4",
+                 reveal_hidden: bool = False,
+                 deauth_reveal: bool = False) -> None:
         self.interface: str = interface
         self.timeout: int = timeout
         self.channel_hop: bool = channel_hop
@@ -44,8 +49,16 @@ class APScanner:
         self._last_rsn_info: dict = {}
         self._last_owe: dict = {}
         self._hop_running: bool = False
+        self.reveal_hidden: bool = reveal_hidden
+        self.deauth_reveal: bool = deauth_reveal
+        self.hidden_aps: dict[str, dict] = {}
+        self.revealed_ssids: dict[str, str] = {}
 
     def packet_handler(self, packet) -> None:
+        if packet.haslayer(Dot11AssoReq) or packet.haslayer(Dot11ReassoReq):
+            self._handle_association_frame(packet)
+            return
+
         if not (packet.haslayer(Dot11Beacon) or packet.haslayer(Dot11ProbeResp)):
             return
 
@@ -118,8 +131,158 @@ class APScanner:
                     f"{signal}dBm" if signal is not None else "?", vendor,
                 )
 
+            if self._is_hidden_ssid(ssid):
+                if bssid not in self.hidden_aps:
+                    self.hidden_aps[bssid] = {"channel": channel, "revealed": False}
+                    self.logger.info("Hidden SSID detected at %s (channel %s)", bssid, channel or "?")
+                elif channel and not self.hidden_aps[bssid].get("channel"):
+                    self.hidden_aps[bssid]["channel"] = channel
+            elif bssid in self.hidden_aps and ssid:
+                self.hidden_aps[bssid]["revealed"] = True
+
         except Exception as e:
             self.logger.debug("Error processing packet: %s", e)
+
+    def _handle_association_frame(self, packet) -> None:
+        """Extract SSID from (Re)Association Request frames, which carry the
+        real SSID even when it was hidden in the AP's beacons."""
+        try:
+            bssid = packet[Dot11].addr1
+            if not bssid or bssid == "ff:ff:ff:ff:ff:ff":
+                return
+            bssid = bssid.upper()
+
+            ssid = ""
+            elt = packet.getlayer(Dot11Elt)
+            while elt:
+                if elt.ID == 0 and elt.info:
+                    try:
+                        ssid = elt.info.decode("utf-8", errors="replace")
+                    except Exception:
+                        ssid = ""
+                    break
+                elt = elt.payload.getlayer(Dot11Elt)
+
+            if not ssid or self._is_hidden_ssid(ssid):
+                return
+
+            self.revealed_ssids[bssid] = ssid
+            if bssid in self.hidden_aps:
+                self.hidden_aps[bssid]["revealed"] = True
+            if bssid in self.access_points:
+                self.access_points[bssid]["ssid"] = ssid
+            self.logger.info("Revealed hidden SSID for %s via association frame: %s", bssid, ssid)
+        except Exception as e:
+            self.logger.debug("Error processing association frame: %s", e)
+
+    @staticmethod
+    def _is_hidden_ssid(ssid: str) -> bool:
+        """Return True if the given SSID string indicates a hidden network."""
+        if ssid is None or ssid == "":
+            return True
+        if all(ch == "\x00" for ch in ssid):
+            return True
+        return False
+
+    def _send_directed_probe(self, bssid: str, channel: int) -> None:
+        """Send a wildcard-SSID probe request directly to a specific BSSID."""
+        try:
+            if channel:
+                self._set_channel(channel)
+            src_mac = "02:00:00:00:00:01"
+            frame = (
+                RadioTap()
+                / Dot11(addr1=bssid, addr2=src_mac, addr3=bssid)
+                / Dot11ProbeReq()
+                / Dot11Elt(ID=0, info=b"")
+            )
+            sendp(frame, iface=self.interface, verbose=False)
+            self.logger.debug("Sent directed probe request to %s", bssid)
+        except Exception as e:
+            self.logger.debug("Error sending directed probe to %s: %s", bssid, e)
+
+    def _send_deauth_for_reveal(self, bssid: str, count: int = 5) -> None:
+        """Send deauth frames to force reassociation and leak the SSID."""
+        try:
+            src_mac = "02:00:00:00:00:01"
+            frame = (
+                RadioTap()
+                / Dot11(addr1="ff:ff:ff:ff:ff:ff", addr2=bssid, addr3=bssid)
+                / Dot11Deauth(reason=7)
+            )
+            for _ in range(count):
+                sendp(frame, iface=self.interface, verbose=False)
+            self.logger.debug("Sent %d deauth frame(s) to reveal SSID for %s", count, bssid)
+        except Exception as e:
+            self.logger.debug("Error sending deauth for %s: %s", bssid, e)
+
+    def _probe_response_handler(self, packet) -> None:
+        """Sniff callback for the active reveal phase."""
+        try:
+            if packet.haslayer(Dot11AssoReq) or packet.haslayer(Dot11ReassoReq):
+                self._handle_association_frame(packet)
+                return
+
+            if not packet.haslayer(Dot11ProbeResp):
+                return
+
+            bssid = packet[Dot11].addr3
+            if not bssid:
+                return
+            bssid = bssid.upper()
+
+            ssid = ""
+            elt = packet.getlayer(Dot11Elt)
+            while elt:
+                if elt.ID == 0 and elt.info:
+                    try:
+                        ssid = elt.info.decode("utf-8", errors="replace")
+                    except Exception:
+                        ssid = ""
+                    break
+                elt = elt.payload.getlayer(Dot11Elt)
+
+            if not ssid or self._is_hidden_ssid(ssid):
+                return
+
+            self.revealed_ssids[bssid] = ssid
+            if bssid in self.hidden_aps:
+                self.hidden_aps[bssid]["revealed"] = True
+            if bssid in self.access_points:
+                self.access_points[bssid]["ssid"] = ssid
+            self.logger.info("Revealed hidden SSID for %s via probe response: %s", bssid, ssid)
+        except Exception as e:
+            self.logger.debug("Error processing probe response: %s", e)
+
+    def reveal_hidden_ssids(self, timeout: int = 10) -> dict[str, str]:
+        """Actively attempt to reveal SSIDs of APs found with hidden SSIDs."""
+        targets = [bssid for bssid, info in self.hidden_aps.items()
+                   if not info.get("revealed")]
+        if not targets:
+            self.logger.info("No hidden APs to reveal")
+            return dict(self.revealed_ssids)
+
+        self.logger.info("Attempting to reveal SSIDs for %d hidden AP(s)", len(targets))
+
+        for bssid in targets:
+            channel = self.hidden_aps[bssid].get("channel")
+            self._send_directed_probe(bssid, channel)
+            if self.deauth_reveal:
+                self._send_deauth_for_reveal(bssid, count=5)
+
+        try:
+            sniff(iface=self.interface, prn=self._probe_response_handler,
+                  timeout=timeout, store=0)
+        except KeyboardInterrupt:
+            self.logger.info("Reveal scan interrupted by user")
+        except Exception as e:
+            self.logger.debug("Error during reveal sniff: %s", e)
+
+        for bssid, ssid in self.revealed_ssids.items():
+            if bssid in self.access_points:
+                self.access_points[bssid]["ssid"] = ssid
+
+        return dict(self.revealed_ssids)
 
     def _determine_encryption(self, packet) -> str:
         if not packet.haslayer(Dot11Beacon) and not packet.haslayer(Dot11ProbeResp):
@@ -425,6 +588,12 @@ Note: Interface must be in monitor mode
                         help="Output file path (.csv or .json)")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Verbose output")
+    parser.add_argument("--reveal-hidden", action="store_true",
+                        help="Actively probe hidden networks to reveal their SSIDs "
+                             "(requires authorization on the target network)")
+    parser.add_argument("--deauth-reveal", action="store_true",
+                        help="Use deauth to force client reassociation when revealing "
+                             "hidden SSIDs (more aggressive; requires authorization)")
 
     args = parser.parse_args()
     require_root()
@@ -445,9 +614,15 @@ Note: Interface must be in monitor mode
         fixed_channel=args.channel,
         output_file=args.output,
         bands=args.bands,
+        reveal_hidden=args.reveal_hidden,
+        deauth_reveal=args.deauth_reveal,
     )
 
     scanner.start()
+
+    if (args.reveal_hidden or args.deauth_reveal) and scanner.hidden_aps:
+        scanner.reveal_hidden_ssids(timeout=10)
+
     scanner.print_results()
     scanner.save_results()
 

@@ -33,7 +33,6 @@ dependencies = [
     "python-socketio>=5.9.0",
     "eventlet>=0.33.0",
     "psutil>=5.9.0",
-    "bleak>=0.21.0",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +40,26 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.4.0",
+]
+ble = [
+    "bleak>=0.21.0",
+]
+pdf = [
+    "reportlab>=4.0.0",
+]
+gps = [
+    "gpsd-py3>=0.3.0",
+]
+c2 = [
+    "flask>=2.3.0",
+    "flask-socketio>=5.3.0",
+    "cryptography>=41.0.0",
+]
+crypto = [
+    "cryptography>=41.0.0",
+]
+all = [
+    "python-hoover[ble,pdf,gps,c2,crypto]",
 ]
 
 [project.scripts]
@@ -62,6 +81,16 @@ pentest-workflow = "pentest_workflow:main"
 eap-attack = "eap_attack:main"
 pmkid-capture = "pmkid_capture:main"
 mitm-attack = "mitm_attack:main"
+ble-attack = "ble_attack:main"
+hoover-api = "rest_api:main"
+dragonblood = "dragonblood:main"
+krack-detect = "krack:main"
+fragattacks = "fragattacks:main"
+multi-adapter = "multi_adapter:main"
+hoover-report = "reporting:main"
+wardriving = "wardriving:main"
+cloud-c2 = "cloud_c2:main"
+wep-attack = "wep_attack:main"
 
 [tool.setuptools]
 py-modules = [
@@ -85,6 +114,17 @@ py-modules = [
     "eap_attack",
     "pmkid_capture",
     "mitm_attack",
+    "ble_attack",
+    "rest_api",
+    "dragonblood",
+    "krack",
+    "fragattacks",
+    "multi_adapter",
+    "reporting",
+    "plugin_system",
+    "wardriving",
+    "cloud_c2",
+    "wep_attack",
 ]
 
 [tool.ruff]
