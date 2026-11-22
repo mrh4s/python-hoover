@@ -69,6 +69,23 @@ def get_channels(bands: str = "2.4") -> list[int]:
     return channels
 
 
+def validate_ip(ip: str) -> bool:
+    """Validate IPv4 address format.
+
+    Args:
+        ip: IPv4 address string to validate.
+
+    Returns:
+        True if the IP address is valid, False otherwise.
+    """
+    if not ip or not isinstance(ip, str):
+        return False
+    pattern = re.compile(
+        r'^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$'
+    )
+    return bool(pattern.match(ip))
+
+
 def validate_mac(mac: str) -> bool:
     """Validate MAC address format (XX:XX:XX:XX:XX:XX).
 

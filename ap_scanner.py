@@ -37,6 +37,7 @@ class APScanner:
         self.bands: str = bands
         self.logger = setup_logging("ap_scanner")
         self.access_points: dict[str, dict] = {}
+        self._last_akm_suites: list = []
         self._hop_running: bool = False
 
     def packet_handler(self, packet) -> None:

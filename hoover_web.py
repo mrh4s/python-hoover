@@ -156,6 +156,9 @@ tool_status = {
     'network_mapper': {'running': False, 'pid': None, 'interface': None},
     'ble_scanner': {'running': False, 'pid': None, 'interface': None},
     'pentest_workflow': {'running': False, 'pid': None, 'interface': None},
+    'eap_attack': {'running': False, 'pid': None, 'interface': None},
+    'pmkid_capture': {'running': False, 'pid': None, 'interface': None},
+    'mitm_attack': {'running': False, 'pid': None, 'interface': None},
 }
 
 # --- Probe Request Buffer ---
@@ -1716,6 +1719,291 @@ def api_pentest_workflow_stop():
             tool_status['pentest_workflow']['interface'] = None
 
         emit_log('pentest_workflow', 'Pentest workflow stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- EAP Attack ---
+
+@app.route('/api/eap-attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_eap_attack_start():
+    """Start WPA-Enterprise EAP attack"""
+    with _state_lock:
+        if tool_status['eap_attack']['running']:
+            return jsonify({'success': False, 'error': 'EAP attack already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    ssid = data.get('ssid', 'Enterprise')
+    channel = data.get('channel', 6)
+    method = data.get('method', 'peap')
+    timeout = data.get('timeout', 300)
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_channel(channel)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    if method not in ('peap', 'ttls', 'md5'):
+        return jsonify({'success': False, 'error': 'Invalid EAP method'}), 400
+
+    if not ssid or len(ssid) > 32 or any(ord(c) < 32 for c in ssid):
+        return jsonify({'success': False, 'error': 'Invalid SSID'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['python3', 'eap_attack.py', '-i', interface, '-s', ssid,
+               '-ch', str(channel), '-m', method, '-t', str(timeout)]
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['eap_attack']['running'] = True
+            tool_status['eap_attack']['pid'] = process.pid
+            tool_status['eap_attack']['interface'] = interface
+            active_processes['eap_attack'] = process
+
+        monitor = ProcessMonitor('eap_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('eap_attack', f'EAP attack started on {interface} (SSID: {ssid})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/eap-attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_eap_attack_stop():
+    """Stop EAP attack"""
+    with _state_lock:
+        if not tool_status['eap_attack']['running']:
+            return jsonify({'success': False, 'error': 'EAP attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('eap_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        subprocess.run(['killall', 'hostapd'], capture_output=True)
+
+        with _state_lock:
+            tool_status['eap_attack']['running'] = False
+            tool_status['eap_attack']['pid'] = None
+            tool_status['eap_attack']['interface'] = None
+
+        emit_log('eap_attack', 'EAP attack stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- PMKID Capture ---
+
+@app.route('/api/pmkid-capture/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_pmkid_capture_start():
+    """Start PMKID capture"""
+    with _state_lock:
+        if tool_status['pmkid_capture']['running']:
+            return jsonify({'success': False, 'error': 'PMKID capture already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    bssid = data.get('bssid')
+    channel = data.get('channel')
+    timeout = data.get('timeout', 60)
+    client_mac = data.get('client_mac')
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    ok, err = validate_mac(bssid)
+    if not ok:
+        return jsonify({'success': False, 'error': f'BSSID: {err}'}), 400
+
+    if client_mac:
+        ok, err = validate_mac(client_mac)
+        if not ok:
+            return jsonify({'success': False, 'error': f'Client MAC: {err}'}), 400
+
+    ok, err = validate_positive_number(timeout, 'Timeout')
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    if channel:
+        ok, err = validate_channel(channel)
+        if not ok:
+            return jsonify({'success': False, 'error': err}), 400
+
+    try:
+        cmd = ['python3', 'pmkid_capture.py', '-i', interface, '-b', bssid,
+               '-t', str(timeout)]
+        if channel:
+            cmd.extend(['-ch', str(channel)])
+        if client_mac:
+            cmd.extend(['--client-mac', client_mac])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['pmkid_capture']['running'] = True
+            tool_status['pmkid_capture']['pid'] = process.pid
+            tool_status['pmkid_capture']['interface'] = interface
+            active_processes['pmkid_capture'] = process
+
+        monitor = ProcessMonitor('pmkid_capture', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('pmkid_capture', f'PMKID capture started on {interface} targeting {bssid}')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/pmkid-capture/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_pmkid_capture_stop():
+    """Stop PMKID capture"""
+    with _state_lock:
+        if not tool_status['pmkid_capture']['running']:
+            return jsonify({'success': False, 'error': 'PMKID capture not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('pmkid_capture')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['pmkid_capture']['running'] = False
+            tool_status['pmkid_capture']['pid'] = None
+            tool_status['pmkid_capture']['interface'] = None
+
+        emit_log('pmkid_capture', 'PMKID capture stopped')
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- MitM Attack ---
+
+@app.route('/api/mitm-attack/start', methods=['POST'])
+@login_required
+@csrf_protect
+def api_mitm_attack_start():
+    """Start MitM/ARP spoofing attack"""
+    with _state_lock:
+        if tool_status['mitm_attack']['running']:
+            return jsonify({'success': False, 'error': 'MitM attack already running'})
+
+    data = request.json
+    interface = data.get('interface')
+    target = data.get('target')
+    gateway = data.get('gateway')
+    timeout = data.get('timeout', 300)
+    no_forward = data.get('no_forward', False)
+    ports = data.get('ports')
+
+    ok, err = validate_interface(interface)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+
+    _RE_IP = re.compile(r'^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$')
+    if not target or not _RE_IP.match(target):
+        return jsonify({'success': False, 'error': 'Invalid target IP address'}), 400
+    if not gateway or not _RE_IP.match(gateway):
+        return jsonify({'success': False, 'error': 'Invalid gateway IP address'}), 400
+
+    try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
+        cmd = ['python3', 'mitm_attack.py', '-i', interface,
+               '--target', target, '--gateway', gateway,
+               '-t', str(timeout)]
+        if no_forward:
+            cmd.append('--no-forward')
+        if ports:
+            if isinstance(ports, str) and re.match(r'^[\d, ]+$', ports):
+                cmd.extend(['-p', ports])
+
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        with _state_lock:
+            tool_status['mitm_attack']['running'] = True
+            tool_status['mitm_attack']['pid'] = process.pid
+            tool_status['mitm_attack']['interface'] = interface
+            active_processes['mitm_attack'] = process
+
+        monitor = ProcessMonitor('mitm_attack', process, emit_log)
+        monitor.start_monitoring()
+
+        emit_log('mitm_attack', f'MitM attack started on {interface} (target: {target})')
+        return jsonify({'success': True, 'pid': process.pid})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/mitm-attack/stop', methods=['POST'])
+@login_required
+@csrf_protect
+def api_mitm_attack_stop():
+    """Stop MitM attack"""
+    with _state_lock:
+        if not tool_status['mitm_attack']['running']:
+            return jsonify({'success': False, 'error': 'MitM attack not running'})
+
+    try:
+        with _state_lock:
+            process = active_processes.get('mitm_attack')
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+
+        with _state_lock:
+            tool_status['mitm_attack']['running'] = False
+            tool_status['mitm_attack']['pid'] = None
+            tool_status['mitm_attack']['interface'] = None
+
+        emit_log('mitm_attack', 'MitM attack stopped')
         return jsonify({'success': True})
 
     except Exception as e:

