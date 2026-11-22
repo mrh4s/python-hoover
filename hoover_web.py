@@ -1656,6 +1656,11 @@ def api_pentest_workflow_start():
         return jsonify({'success': False, 'error': err}), 400
 
     try:
+        timeout = max(1, min(int(timeout), 3600))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid timeout'}), 400
+
+    try:
         cmd = ['python3', 'pentest_workflow.py', '-i', interface, '-t', str(timeout)]
         if bssid:
             ok, err = validate_mac(bssid)
