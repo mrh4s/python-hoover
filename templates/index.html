@@ -832,6 +832,589 @@
                     </div>
                 </div>
             </div>
+            <!-- BLE Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>BLE Attack</h2>
+                    <span class="status-badge" id="ble-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">Bluetooth Low Energy attack toolkit - scan, enumerate, replay, spoof, fuzz</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="ble-attack-mode">Mode:</label>
+                        <select id="ble-attack-mode">
+                            <option value="scan">Scan</option>
+                            <option value="enumerate">Enumerate</option>
+                            <option value="replay">Replay</option>
+                            <option value="spoof">Spoof</option>
+                            <option value="fuzz">Fuzz</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ble-attack-target">Target MAC (optional for scan):</label>
+                        <input type="text" id="ble-attack-target" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ble-attack-scan-time">Scan Time (s):</label>
+                            <input type="number" id="ble-attack-scan-time" value="10" min="1" max="120">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ble-attack-timeout">Timeout (s):</label>
+                            <input type="number" id="ble-attack-timeout" value="120" min="1" max="3600">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ble-attack-uuid">UUID (for replay/fuzz):</label>
+                        <input type="text" id="ble-attack-uuid" placeholder="e.g. 00002a00-0000-1000-8000-00805f9b34fb">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ble-attack-write-data">Write Data (hex):</label>
+                        <input type="text" id="ble-attack-write-data" placeholder="e.g. 0100">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ble-attack-replay-count">Replay Count:</label>
+                            <input type="number" id="ble-attack-replay-count" value="10" min="1" max="1000">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ble-attack-replay-interval">Replay Interval (s):</label>
+                            <input type="number" id="ble-attack-replay-interval" value="0.5" step="0.1" min="0.1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ble-attack-spoof-name">Spoof Name:</label>
+                        <input type="text" id="ble-attack-spoof-name" placeholder="Device name to spoof">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="ble-attack-start">Start BLE Attack</button>
+                        <button class="btn btn-stop" id="ble-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dragonblood WPA3 -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Dragonblood (WPA3)</h2>
+                    <span class="status-badge" id="dragonblood-status">Stopped</span>
+                </div>
+                <p class="tool-description">WPA3 SAE/Dragonfly handshake vulnerability testing</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="dragonblood-interface">Interface:</label>
+                        <select id="dragonblood-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dragonblood-bssid">Target BSSID:</label>
+                        <input type="text" id="dragonblood-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="dragonblood-start">Start Dragonblood</button>
+                        <button class="btn btn-stop" id="dragonblood-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KRACK Detection -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>KRACK Detection</h2>
+                    <span class="status-badge" id="krack-status">Stopped</span>
+                </div>
+                <p class="tool-description">Detect WPA2 key reinstallation attacks (KRACK)</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="krack-interface">Interface:</label>
+                        <select id="krack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="krack-start">Start KRACK Detection</button>
+                        <button class="btn btn-stop" id="krack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FragAttacks -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>FragAttacks</h2>
+                    <span class="status-badge" id="fragattacks-status">Stopped</span>
+                </div>
+                <p class="tool-description">WiFi fragmentation and aggregation attack testing</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="fragattacks-interface">Interface:</label>
+                        <select id="fragattacks-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fragattacks-bssid">Target BSSID:</label>
+                        <input type="text" id="fragattacks-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="fragattacks-start">Start FragAttacks</button>
+                        <button class="btn btn-stop" id="fragattacks-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wardriving -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Wardriving</h2>
+                    <span class="status-badge" id="wardriving-status">Stopped</span>
+                </div>
+                <p class="tool-description">GPS-enabled WiFi network mapping and logging</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="wardriving-interface">Interface:</label>
+                        <select id="wardriving-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="wardriving-start">Start Wardriving</button>
+                        <button class="btn btn-stop" id="wardriving-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cloud C2 -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Cloud C2</h2>
+                    <span class="status-badge" id="cloud-c2-status">Stopped</span>
+                </div>
+                <p class="tool-description">Cloud-based command and control server for remote agent management</p>
+
+                <div class="tool-controls">
+                    <div class="button-group">
+                        <button class="btn btn-start" id="cloud-c2-start">Start C2 Server</button>
+                        <button class="btn btn-stop" id="cloud-c2-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WEP Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>WEP Attack</h2>
+                    <span class="status-badge" id="wep-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">WEP key cracking via statistical analysis of IV collisions</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="wep-attack-interface">Interface:</label>
+                        <select id="wep-attack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wep-attack-bssid">Target BSSID:</label>
+                        <input type="text" id="wep-attack-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="wep-attack-start">Start WEP Attack</button>
+                        <button class="btn btn-stop" id="wep-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FT Attack (802.11r) -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>FT Attack (802.11r)</h2>
+                    <span class="status-badge" id="ft-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">802.11r Fast Transition key reinstallation detection</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="ft-attack-interface">Interface:</label>
+                        <select id="ft-attack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ft-attack-bssid">Target BSSID:</label>
+                        <input type="text" id="ft-attack-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ft-attack-client">Client MAC (optional):</label>
+                        <input type="text" id="ft-attack-client" placeholder="Leave empty for any">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ft-attack-mode">Test Mode:</label>
+                            <select id="ft-attack-mode">
+                                <option value="reassoc">Reassociation</option>
+                                <option value="pmk-r1">PMK-R1</option>
+                                <option value="over-ds">Over-DS</option>
+                                <option value="all">All Tests</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ft-attack-timeout">Timeout (s):</label>
+                            <input type="number" id="ft-attack-timeout" value="180" min="1" max="3600">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="ft-attack-start">Start FT Attack</button>
+                        <button class="btn btn-stop" id="ft-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Crack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Password Cracker</h2>
+                    <span class="status-badge" id="password-crack-status">Stopped</span>
+                </div>
+                <p class="tool-description">Crack captured WPA handshakes using hashcat or aircrack-ng</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="password-crack-file">Capture File:</label>
+                        <input type="text" id="password-crack-file" placeholder="captures/handshake.pcap">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password-crack-wordlist">Wordlist:</label>
+                        <input type="text" id="password-crack-wordlist" value="/usr/share/wordlists/rockyou.txt" placeholder="Path to wordlist">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="password-crack-tool">Tool:</label>
+                            <select id="password-crack-tool">
+                                <option value="auto">Auto-detect</option>
+                                <option value="hashcat">Hashcat</option>
+                                <option value="aircrack">Aircrack-ng</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password-crack-timeout">Timeout (s):</label>
+                            <input type="number" id="password-crack-timeout" value="3600" min="1" max="86400">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="password-crack-start">Start Cracking</button>
+                        <button class="btn btn-stop" id="password-crack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Channel MitM -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Channel MitM</h2>
+                    <span class="status-badge" id="channel-mitm-status">Stopped</span>
+                </div>
+                <p class="tool-description">Channel-based WiFi MitM using rogue AP on a different channel</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="channel-mitm-monitor-interface">Monitor Interface:</label>
+                        <select id="channel-mitm-monitor-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channel-mitm-inject-interface">Rogue/Inject Interface:</label>
+                        <select id="channel-mitm-inject-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channel-mitm-bssid">Target BSSID:</label>
+                        <input type="text" id="channel-mitm-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="channel-mitm-channel">Target Channel:</label>
+                            <input type="number" id="channel-mitm-channel" value="6" min="1" max="196">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="channel-mitm-rogue-channel">Rogue Channel (optional):</label>
+                            <input type="number" id="channel-mitm-rogue-channel" placeholder="Auto" min="1" max="196">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channel-mitm-ssid">SSID (optional):</label>
+                        <input type="text" id="channel-mitm-ssid" placeholder="Clone target SSID">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channel-mitm-timeout">Timeout (s):</label>
+                        <input type="number" id="channel-mitm-timeout" value="600" min="1" max="7200">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="channel-mitm-start">Start Channel MitM</button>
+                        <button class="btn btn-stop" id="channel-mitm-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WiFi Direct -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>WiFi Direct</h2>
+                    <span class="status-badge" id="wifi-direct-status">Stopped</span>
+                </div>
+                <p class="tool-description">WiFi Direct P2P discovery, analysis, and WPS testing</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="wifi-direct-interface">Interface:</label>
+                        <select id="wifi-direct-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wifi-direct-mode">Mode:</label>
+                        <select id="wifi-direct-mode">
+                            <option value="discover">Discover</option>
+                            <option value="analyze">Analyze</option>
+                            <option value="wps-test">WPS Test</option>
+                            <option value="detect-groups">Detect Groups</option>
+                            <option value="all">All Tests</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wifi-direct-target">Target MAC (optional):</label>
+                        <input type="text" id="wifi-direct-target" placeholder="AA:BB:CC:DD:EE:FF">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wifi-direct-timeout">Timeout (s):</label>
+                        <input type="number" id="wifi-direct-timeout" value="120" min="1" max="3600">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="wifi-direct-start">Start WiFi Direct</button>
+                        <button class="btn btn-stop" id="wifi-direct-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jamming Detection -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Jamming Detection</h2>
+                    <span class="status-badge" id="jamming-detect-status">Stopped</span>
+                </div>
+                <p class="tool-description">RF jamming and interference detection across WiFi channels</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="jamming-detect-interface">Interface:</label>
+                        <select id="jamming-detect-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jamming-detect-channels">Channels (optional):</label>
+                        <input type="text" id="jamming-detect-channels" placeholder="1, 6, 11 (empty for all)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jamming-detect-timeout">Timeout (s, 0=continuous):</label>
+                        <input type="number" id="jamming-detect-timeout" value="0" min="0" max="86400">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="jamming-detect-start">Start Detection</button>
+                        <button class="btn btn-stop" id="jamming-detect-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DHCP/DNS Attack -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>DHCP/DNS Attack</h2>
+                    <span class="status-badge" id="dhcp-dns-attack-status">Stopped</span>
+                </div>
+                <p class="tool-description">DHCP starvation, DHCP spoofing, and DNS spoofing attacks</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="dhcp-dns-attack-interface">Interface:</label>
+                        <select id="dhcp-dns-attack-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dhcp-dns-attack-mode">Attack Mode:</label>
+                        <select id="dhcp-dns-attack-mode">
+                            <option value="dhcp-starvation">DHCP Starvation</option>
+                            <option value="dhcp-spoof">DHCP Spoof</option>
+                            <option value="dns-spoof">DNS Spoof</option>
+                            <option value="all">All Attacks</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dhcp-dns-attack-target-ip">Target IP (optional):</label>
+                        <input type="text" id="dhcp-dns-attack-target-ip" placeholder="192.168.1.100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dhcp-dns-attack-spoof-domain">Spoof Domain (for DNS):</label>
+                        <input type="text" id="dhcp-dns-attack-spoof-domain" placeholder="example.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dhcp-dns-attack-spoof-ip">Spoof IP (for DNS):</label>
+                        <input type="text" id="dhcp-dns-attack-spoof-ip" placeholder="192.168.1.1">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dhcp-dns-attack-timeout">Timeout (s):</label>
+                        <input type="number" id="dhcp-dns-attack-timeout" value="300" min="1" max="3600">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="dhcp-dns-attack-start">Start Attack</button>
+                        <button class="btn btn-stop" id="dhcp-dns-attack-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portal Bypass -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Portal Bypass</h2>
+                    <span class="status-badge" id="portal-bypass-status">Stopped</span>
+                </div>
+                <p class="tool-description">Captive portal bypass via DNS tunneling, ICMP tunneling, MAC cloning</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="portal-bypass-interface">Interface:</label>
+                        <select id="portal-bypass-interface">
+                            <option value="">Select interface...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="portal-bypass-mode">Bypass Mode:</label>
+                        <select id="portal-bypass-mode">
+                            <option value="probe">Probe (detect portal)</option>
+                            <option value="dns-tunnel">DNS Tunneling</option>
+                            <option value="icmp-tunnel">ICMP Tunneling</option>
+                            <option value="mac-clone">MAC Cloning</option>
+                            <option value="direct-ip">Direct IP</option>
+                            <option value="all">Try All Methods</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="portal-bypass-dns-domain">DNS Domain (for tunneling):</label>
+                        <input type="text" id="portal-bypass-dns-domain" placeholder="tunnel.example.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="portal-bypass-target-ip">Target IP (optional):</label>
+                        <input type="text" id="portal-bypass-target-ip" placeholder="8.8.8.8">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="portal-bypass-timeout">Timeout (s):</label>
+                        <input type="number" id="portal-bypass-timeout" value="120" min="1" max="3600">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="portal-bypass-start">Start Bypass</button>
+                        <button class="btn btn-stop" id="portal-bypass-stop" disabled>Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Adapter Manager -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Multi-Adapter Manager</h2>
+                </div>
+                <p class="tool-description">Discover and manage multiple WiFi adapters for parallel operations</p>
+
+                <div class="tool-controls">
+                    <div class="button-group">
+                        <button class="btn btn-start" id="multi-adapter-discover">Discover Adapters</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report Generator -->
+            <div class="tool-card">
+                <div class="tool-header">
+                    <h2>Report Generator</h2>
+                </div>
+                <p class="tool-description">Generate pentest reports from captured data in various formats</p>
+
+                <div class="tool-controls">
+                    <div class="form-group">
+                        <label for="report-format">Output Format:</label>
+                        <select id="report-format">
+                            <option value="html">HTML</option>
+                            <option value="pdf">PDF</option>
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-start" id="report-generate">Generate Report</button>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Logs Section -->
