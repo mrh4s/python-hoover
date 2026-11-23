@@ -238,10 +238,7 @@ class TestExtractPMKID:
     def test_wrong_data_type(self, capturer):
         """Should return None when data type is not 04."""
         bad_kde = (
-            b"\xdd"
-            b"\x14"
-            b"\x00\x0f\xac"
-            b"\x03" + b"\xaa" * 16  # Wrong data type
+            b"\xdd\x14\x00\x0f\xac\x03" + b"\xaa" * 16  # Wrong data type
         )
         result = capturer._extract_pmkid(bad_kde)
         assert result is None
