@@ -103,15 +103,19 @@ class TestGetServices:
         mock_char.properties = ["read"]
         mock_service.characteristics = [mock_char]
 
-        mock_asyncio.return_value = [{
-            "uuid": str(mock_service.uuid),
-            "description": mock_service.description,
-            "characteristics": [{
-                "uuid": str(mock_char.uuid),
-                "description": mock_char.description,
-                "properties": list(mock_char.properties),
-            }],
-        }]
+        mock_asyncio.return_value = [
+            {
+                "uuid": str(mock_service.uuid),
+                "description": mock_service.description,
+                "characteristics": [
+                    {
+                        "uuid": str(mock_char.uuid),
+                        "description": mock_char.description,
+                        "properties": list(mock_char.properties),
+                    }
+                ],
+            }
+        ]
 
         services = scanner.get_services("AA:BB:CC:DD:EE:FF")
         assert len(services) == 1

@@ -77,8 +77,10 @@ class TestCheckTools:
         mock_which.return_value = "/usr/bin/tool"
         result = cracker.check_tools()
         assert result == {
-            "hashcat": True, "aircrack": True,
-            "hcxpcapngtool": True, "cap2hccapx": True,
+            "hashcat": True,
+            "aircrack": True,
+            "hcxpcapngtool": True,
+            "cap2hccapx": True,
         }
 
     @patch("shutil.which")
@@ -86,8 +88,10 @@ class TestCheckTools:
         mock_which.return_value = None
         result = cracker.check_tools()
         assert result == {
-            "hashcat": False, "aircrack": False,
-            "hcxpcapngtool": False, "cap2hccapx": False,
+            "hashcat": False,
+            "aircrack": False,
+            "hcxpcapngtool": False,
+            "cap2hccapx": False,
         }
 
     @patch("shutil.which")
@@ -244,10 +248,7 @@ class TestParseHashcatOutput:
         assert result["recovered"] == "1/1 (100.00%)"
 
     def test_not_cracked(self, cracker):
-        output = (
-            "Status...........: Exhausted\n"
-            "Recovered........: 0/1 (0.00%)\n"
-        )
+        output = "Status...........: Exhausted\nRecovered........: 0/1 (0.00%)\n"
         result = cracker._parse_hashcat_output(output)
         assert result["cracked"] is False
         assert result["password"] is None
@@ -364,8 +365,9 @@ class TestRunHashcat:
     def test_explicit_mode_used(self, mock_which, mock_popen, tmp_path):
         f = tmp_path / "x.hccapx"
         f.write_bytes(b"\x00")
-        c = PasswordCracker(capture_file=str(f), hashcat_mode=9999,
-                             output_dir=str(tmp_path / "out"))
+        c = PasswordCracker(
+            capture_file=str(f), hashcat_mode=9999, output_dir=str(tmp_path / "out")
+        )
 
         mock_proc = MagicMock()
         mock_proc.stdout.readline.side_effect = [b""]
@@ -382,8 +384,9 @@ class TestRunHashcat:
     def test_rules_file_included(self, mock_which, mock_popen, tmp_path):
         f = tmp_path / "x.22000"
         f.write_text("hash")
-        c = PasswordCracker(capture_file=str(f), rules_file="best64.rule",
-                             output_dir=str(tmp_path / "out"))
+        c = PasswordCracker(
+            capture_file=str(f), rules_file="best64.rule", output_dir=str(tmp_path / "out")
+        )
 
         mock_proc = MagicMock()
         mock_proc.stdout.readline.side_effect = [b""]
@@ -456,8 +459,11 @@ class TestRunAircrack:
     @patch("subprocess.Popen")
     @patch("shutil.which", return_value="/usr/bin/aircrack-ng")
     def test_bssid_passed(self, mock_which, mock_popen, capture_file, tmp_path):
-        c = PasswordCracker(capture_file=capture_file, target_bssid="AA:BB:CC:DD:EE:FF",
-                             output_dir=str(tmp_path / "out"))
+        c = PasswordCracker(
+            capture_file=capture_file,
+            target_bssid="AA:BB:CC:DD:EE:FF",
+            output_dir=str(tmp_path / "out"),
+        )
         mock_proc = MagicMock()
         mock_proc.stdout.readline.side_effect = [b""]
         mock_proc.stdout.read.return_value = b""
@@ -490,20 +496,25 @@ class TestRunAircrack:
 class TestAutoToolSelection:
     @patch("shutil.which")
     def test_gpu_prefers_hashcat(self, mock_which, cracker):
-        mock_which.side_effect = lambda t: f"/usr/bin/{t}" if t in ("hashcat", "aircrack-ng") else None
+        mock_which.side_effect = lambda t: (
+            f"/usr/bin/{t}" if t in ("hashcat", "aircrack-ng") else None
+        )
         cracker.gpu = True
         assert cracker._select_tool() == "hashcat"
 
     @patch("shutil.which")
     def test_no_gpu_prefers_aircrack(self, mock_which, cracker):
-        mock_which.side_effect = lambda t: f"/usr/bin/{t}" if t in ("hashcat", "aircrack-ng") else None
+        mock_which.side_effect = lambda t: (
+            f"/usr/bin/{t}" if t in ("hashcat", "aircrack-ng") else None
+        )
         cracker.gpu = False
         assert cracker._select_tool() == "aircrack"
 
     @patch("shutil.which")
     def test_explicit_tool_overrides_auto(self, mock_which, capture_file, tmp_path):
-        c = PasswordCracker(capture_file=capture_file, tool="aircrack",
-                             output_dir=str(tmp_path / "out"))
+        c = PasswordCracker(
+            capture_file=capture_file, tool="aircrack", output_dir=str(tmp_path / "out")
+        )
         mock_which.return_value = "/usr/bin/hashcat"
         assert c._select_tool() == "aircrack"
 
@@ -529,6 +540,7 @@ class TestStop:
 
     def test_stop_kills_on_terminate_timeout(self, cracker):
         import subprocess
+
         mock_proc = MagicMock()
         mock_proc.poll.return_value = None
         mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="x", timeout=5)
@@ -547,8 +559,9 @@ class TestGetStatus:
 
 class TestStart:
     def test_missing_capture_file(self, tmp_path):
-        c = PasswordCracker(capture_file=str(tmp_path / "missing.pcap"),
-                             output_dir=str(tmp_path / "out"))
+        c = PasswordCracker(
+            capture_file=str(tmp_path / "missing.pcap"), output_dir=str(tmp_path / "out")
+        )
         result = c.start()
         assert result["status"] == "error"
         assert result["error"] == "file_not_found"
@@ -568,7 +581,9 @@ class TestStart:
 
     @patch.object(PasswordCracker, "run_aircrack")
     @patch.object(PasswordCracker, "_select_tool", return_value="aircrack")
-    def test_start_uses_aircrack_for_pcap(self, mock_select, mock_run_aircrack, capture_file, tmp_path):
+    def test_start_uses_aircrack_for_pcap(
+        self, mock_select, mock_run_aircrack, capture_file, tmp_path
+    ):
         c = PasswordCracker(capture_file=capture_file, output_dir=str(tmp_path / "out"))
         mock_run_aircrack.return_value = {"cracked": False, "password": None, "tool": "aircrack"}
 
@@ -579,8 +594,9 @@ class TestStart:
     @patch.object(PasswordCracker, "run_hashcat")
     @patch.object(PasswordCracker, "convert_to_hashcat")
     @patch.object(PasswordCracker, "_select_tool", return_value="hashcat")
-    def test_start_converts_pcap_before_hashcat(self, mock_select, mock_convert, mock_run_hashcat,
-                                                 capture_file, tmp_path):
+    def test_start_converts_pcap_before_hashcat(
+        self, mock_select, mock_convert, mock_run_hashcat, capture_file, tmp_path
+    ):
         converted = str(tmp_path / "converted.22000")
         mock_convert.return_value = converted
         mock_run_hashcat.return_value = {"cracked": False, "password": None, "tool": "hashcat"}
@@ -593,8 +609,11 @@ class TestStart:
     def test_saves_results_json(self, tmp_path, capture_file):
         out_dir = tmp_path / "out"
         c = PasswordCracker(capture_file=capture_file, output_dir=str(out_dir), tool="aircrack")
-        with patch.object(PasswordCracker, "run_aircrack",
-                           return_value={"cracked": True, "password": "pw", "tool": "aircrack"}):
+        with patch.object(
+            PasswordCracker,
+            "run_aircrack",
+            return_value={"cracked": True, "password": "pw", "tool": "aircrack"},
+        ):
             c.start()
 
         json_files = list(out_dir.glob("crack_result_*.json"))
@@ -607,9 +626,16 @@ class TestStart:
 
 class TestCLI:
     def test_cli_invalid_bssid_exits(self, capture_file, monkeypatch, capsys):
-        monkeypatch.setattr(sys, "argv", [
-            "password_crack.py", capture_file, "-b", "not-a-mac",
-        ])
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "password_crack.py",
+                capture_file,
+                "-b",
+                "not-a-mac",
+            ],
+        )
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 1
@@ -624,10 +650,18 @@ class TestCLI:
     @patch.object(PasswordCracker, "start")
     @patch.object(PasswordCracker, "check_tools")
     def test_cli_success_exit_code(self, mock_check_tools, mock_start, capture_file, monkeypatch):
-        mock_check_tools.return_value = {"hashcat": True, "aircrack": False,
-                                          "hcxpcapngtool": False, "cap2hccapx": False}
-        mock_start.return_value = {"status": "cracked", "tool": "hashcat",
-                                    "cracked": True, "password": "pw"}
+        mock_check_tools.return_value = {
+            "hashcat": True,
+            "aircrack": False,
+            "hcxpcapngtool": False,
+            "cap2hccapx": False,
+        }
+        mock_start.return_value = {
+            "status": "cracked",
+            "tool": "hashcat",
+            "cracked": True,
+            "password": "pw",
+        }
         monkeypatch.setattr(sys, "argv", ["password_crack.py", capture_file])
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -636,32 +670,67 @@ class TestCLI:
     @patch.object(PasswordCracker, "start")
     @patch.object(PasswordCracker, "check_tools")
     def test_cli_failure_exit_code(self, mock_check_tools, mock_start, capture_file, monkeypatch):
-        mock_check_tools.return_value = {"hashcat": True, "aircrack": False,
-                                          "hcxpcapngtool": False, "cap2hccapx": False}
-        mock_start.return_value = {"status": "not_cracked", "tool": "hashcat",
-                                    "cracked": False, "password": None}
+        mock_check_tools.return_value = {
+            "hashcat": True,
+            "aircrack": False,
+            "hcxpcapngtool": False,
+            "cap2hccapx": False,
+        }
+        mock_start.return_value = {
+            "status": "not_cracked",
+            "tool": "hashcat",
+            "cracked": False,
+            "password": None,
+        }
         monkeypatch.setattr(sys, "argv", ["password_crack.py", capture_file])
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 1
 
     def test_cli_parses_args(self, capture_file, monkeypatch):
-        monkeypatch.setattr(sys, "argv", [
-            "password_crack.py", capture_file,
-            "-b", "AA:BB:CC:DD:EE:FF",
-            "-w", "/tmp/words.txt",
-            "--tool", "hashcat",
-            "--rules", "best64.rule",
-            "--no-gpu",
-            "-t", "120",
-            "-o", "out_dir",
-        ])
-        with patch.object(PasswordCracker, "check_tools",
-                           return_value={"hashcat": True, "aircrack": False,
-                                         "hcxpcapngtool": False, "cap2hccapx": False}), \
-             patch.object(PasswordCracker, "start",
-                          return_value={"status": "not_cracked", "cracked": False,
-                                        "tool": "hashcat", "password": None}) as mock_start:
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "password_crack.py",
+                capture_file,
+                "-b",
+                "AA:BB:CC:DD:EE:FF",
+                "-w",
+                "/tmp/words.txt",
+                "--tool",
+                "hashcat",
+                "--rules",
+                "best64.rule",
+                "--no-gpu",
+                "-t",
+                "120",
+                "-o",
+                "out_dir",
+            ],
+        )
+        with (
+            patch.object(
+                PasswordCracker,
+                "check_tools",
+                return_value={
+                    "hashcat": True,
+                    "aircrack": False,
+                    "hcxpcapngtool": False,
+                    "cap2hccapx": False,
+                },
+            ),
+            patch.object(
+                PasswordCracker,
+                "start",
+                return_value={
+                    "status": "not_cracked",
+                    "cracked": False,
+                    "tool": "hashcat",
+                    "password": None,
+                },
+            ) as mock_start,
+        ):
             with pytest.raises(SystemExit):
                 main()
             # verify construction happened with parsed args by checking start was called

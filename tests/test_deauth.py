@@ -17,6 +17,7 @@ from deauth import DeauthAttacker  # noqa: E402
 # create_deauth_packet
 # ---------------------------------------------------------------------------
 
+
 class TestCreateDeauthPacket:
     """Tests for DeauthAttacker.create_deauth_packet."""
 
@@ -55,6 +56,7 @@ class TestCreateDeauthPacket:
 # ---------------------------------------------------------------------------
 # validate_mac integration
 # ---------------------------------------------------------------------------
+
 
 class TestValidateMacIntegration:
     """Test that DeauthAttacker uses the shared validate_mac correctly."""

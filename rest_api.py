@@ -122,9 +122,13 @@ _STATUS_TO_CODE = {
 class HooverAPI:
     """Flask-based REST API wrapping the Hoover toolkit's tool classes."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 8080,
-                 auth_token: Optional[str] = None,
-                 enable_cors: bool = False) -> None:
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 8080,
+        auth_token: Optional[str] = None,
+        enable_cors: bool = False,
+    ) -> None:
         self.host: str = host
         self.port: int = port
         self.auth_token: str = auth_token or self._generate_token()
@@ -186,7 +190,7 @@ class HooverAPI:
                     return self._handle_error(
                         AuthError("Missing or malformed Authorization header"), 401
                     )
-                token = header[len("Bearer "):].strip()
+                token = header[len("Bearer ") :].strip()
                 if not token or not hmac.compare_digest(token, self.auth_token):
                     return self._handle_error(AuthError("Invalid API token"), 401)
 
@@ -281,11 +285,13 @@ class HooverAPI:
             if p.is_file():
                 try:
                     stat = p.stat()
-                    files.append({
-                        "filename": p.name,
-                        "size": stat.st_size,
-                        "modified": stat.st_mtime,
-                    })
+                    files.append(
+                        {
+                            "filename": p.name,
+                            "size": stat.st_size,
+                            "modified": stat.st_mtime,
+                        }
+                    )
                 except OSError:
                     continue
         return files
@@ -320,8 +326,10 @@ class HooverAPI:
         def api_list_tools():
             with self._lock:
                 active = {name: entry["status"] for name, entry in self._active_tools.items()}
-            data = [{"name": name, "status": active.get(name, "idle")}
-                    for name in sorted(TOOL_REGISTRY.keys())]
+            data = [
+                {"name": name, "status": active.get(name, "idle")}
+                for name in sorted(TOOL_REGISTRY.keys())
+            ]
             return jsonify({"success": True, "data": data})
 
         @bp.route("/tools/<tool>/start", methods=["POST"])
@@ -340,10 +348,12 @@ class HooverAPI:
                 return self._handle_error(exc, 400)
             except Exception as exc:
                 return self._handle_error(exc, 500)
-            return jsonify({
-                "success": True,
-                "data": {"task_id": task_id, "tool": tool, "status": "running"},
-            }), 202
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {"task_id": task_id, "tool": tool, "status": "running"},
+                }
+            ), 202
 
         @bp.route("/tools/<tool>/stop", methods=["POST"])
         @self._require_auth
@@ -351,9 +361,7 @@ class HooverAPI:
             with self._lock:
                 entry = self._active_tools.get(tool)
             if entry is None or entry["status"] != "running":
-                return self._handle_error(
-                    NotFoundError(f"Tool '{tool}' is not running"), 404
-                )
+                return self._handle_error(NotFoundError(f"Tool '{tool}' is not running"), 404)
             instance = entry["instance"]
             try:
                 if hasattr(instance, "stop"):
@@ -370,9 +378,7 @@ class HooverAPI:
             with self._lock:
                 entry = self._active_tools.get(tool)
             if entry is None:
-                return self._handle_error(
-                    NotFoundError(f"No task found for tool '{tool}'"), 404
-                )
+                return self._handle_error(NotFoundError(f"No task found for tool '{tool}'"), 404)
             instance = entry["instance"]
             data = {"tool": tool, "task_id": entry["task_id"], "status": entry["status"]}
             if entry.get("error"):
@@ -397,9 +403,7 @@ class HooverAPI:
                 return self._handle_error(BadRequestError("Invalid filename"), 400)
             file_path = CAPTURES_DIR / safe_name
             if not file_path.is_file():
-                return self._handle_error(
-                    NotFoundError(f"Capture not found: {safe_name}"), 404
-                )
+                return self._handle_error(NotFoundError(f"Capture not found: {safe_name}"), 404)
             return send_from_directory(str(CAPTURES_DIR.resolve()), safe_name, as_attachment=True)
 
         @bp.route("/results/<tool>", methods=["GET"])
@@ -442,10 +446,12 @@ class HooverAPI:
             entry["thread"].join(timeout=timeout + 5)
             instance = entry["instance"]
             access_points = getattr(instance, "access_points", {})
-            return jsonify({
-                "success": True,
-                "data": {"task_id": task_id, "access_points": access_points},
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {"task_id": task_id, "access_points": access_points},
+                }
+            )
 
         @bp.route("/scan/clients", methods=["POST"])
         @self._require_auth
@@ -461,7 +467,9 @@ class HooverAPI:
                 return self._handle_error(exc, 400)
             except Exception as exc:
                 return self._handle_error(exc, 500)
-            return jsonify({"success": True, "data": {"task_id": task_id, "status": "running"}}), 202
+            return jsonify(
+                {"success": True, "data": {"task_id": task_id, "status": "running"}}
+            ), 202
 
         @bp.route("/fingerprints", methods=["GET"])
         @self._require_auth
@@ -493,10 +501,12 @@ class HooverAPI:
                 return self._handle_error(exc, 400)
             except Exception as exc:
                 return self._handle_error(exc, 500)
-            return jsonify({
-                "success": True,
-                "data": {"task_id": task_id, "tool": "handshake", "status": "running"},
-            }), 202
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {"task_id": task_id, "tool": "handshake", "status": "running"},
+                }
+            ), 202
 
         @bp.route("/handshake/verify", methods=["POST"])
         @self._require_auth
@@ -510,23 +520,21 @@ class HooverAPI:
             safe_name = os.path.basename(filename)
             file_path = CAPTURES_DIR / safe_name
             if not file_path.is_file():
-                return self._handle_error(
-                    NotFoundError(f"Capture not found: {safe_name}"), 404
-                )
+                return self._handle_error(NotFoundError(f"Capture not found: {safe_name}"), 404)
             valid = file_path.stat().st_size > 0
-            return jsonify({
-                "success": True,
-                "data": {"filename": safe_name, "valid": valid},
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {"filename": safe_name, "valid": valid},
+                }
+            )
 
         @bp.route("/attack/<attack_type>", methods=["POST"])
         @self._require_auth
         def api_attack(attack_type):
             tool_name = ATTACK_TYPES.get(attack_type)
             if tool_name is None:
-                return self._handle_error(
-                    NotFoundError(f"Unknown attack type: {attack_type}"), 404
-                )
+                return self._handle_error(NotFoundError(f"Unknown attack type: {attack_type}"), 404)
             body = request.get_json(silent=True) or {}
             if "interface" not in body:
                 return self._handle_error(
@@ -538,10 +546,12 @@ class HooverAPI:
                 return self._handle_error(exc, 400)
             except Exception as exc:
                 return self._handle_error(exc, 500)
-            return jsonify({
-                "success": True,
-                "data": {"task_id": task_id, "attack": attack_type, "status": "running"},
-            }), 202
+            return jsonify(
+                {
+                    "success": True,
+                    "data": {"task_id": task_id, "attack": attack_type, "status": "running"},
+                }
+            ), 202
 
         @bp.route("/reports", methods=["GET"])
         @self._require_auth
@@ -555,9 +565,7 @@ class HooverAPI:
             try:
                 from reporting import ReportGenerator
             except ImportError as exc:
-                return self._handle_error(
-                    APIError(f"Reporting module not available: {exc}"), 500
-                )
+                return self._handle_error(APIError(f"Reporting module not available: {exc}"), 500)
             try:
                 generator = ReportGenerator(**body.get("options", {}))
                 for section in body.get("sections", []):
@@ -598,7 +606,11 @@ class HooverAPI:
         with self._lock:
             for entry in self._active_tools.values():
                 instance = entry.get("instance")
-                if entry.get("status") == "running" and instance is not None and hasattr(instance, "stop"):
+                if (
+                    entry.get("status") == "running"
+                    and instance is not None
+                    and hasattr(instance, "stop")
+                ):
                     try:
                         instance.stop()
                     except Exception:
@@ -616,13 +628,17 @@ def main() -> None:
     )
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8080, help="Bind port (default: 8080)")
-    parser.add_argument("--token", default=None, help="Pre-set API token (otherwise auto-generated)")
     parser.add_argument(
-        "--no-auth", action="store_true",
+        "--token", default=None, help="Pre-set API token (otherwise auto-generated)"
+    )
+    parser.add_argument(
+        "--no-auth",
+        action="store_true",
         help="DANGEROUS: disable authentication entirely",
     )
     parser.add_argument(
-        "--cors-origins", default=None,
+        "--cors-origins",
+        default=None,
         help="Comma-separated list of allowed CORS origins (enables CORS)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")

@@ -26,6 +26,7 @@ from fragattacks import TEST_MODES, FragAttacks  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def attacker(mock_interface, tmp_path):
     """Create a FragAttacks instance with safe defaults for testing."""
@@ -43,6 +44,7 @@ def attacker(mock_interface, tmp_path):
 # ---------------------------------------------------------------------------
 # 1. test_init_defaults
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     def test_init_defaults(self, mock_interface, tmp_path):
@@ -67,13 +69,16 @@ class TestInit:
 # 2-3. test_build_amsdu_*
 # ---------------------------------------------------------------------------
 
+
 class TestBuildAmsdu:
     def test_build_amsdu_single_subframe(self, attacker):
         """Verify A-MSDU structure with one subframe (DA+SA+Len+payload, padded)."""
         payload = b"\x08\x00TEST"
-        result = attacker._build_amsdu_frame([
-            ("aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66", payload),
-        ])
+        result = attacker._build_amsdu_frame(
+            [
+                ("aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66", payload),
+            ]
+        )
 
         # DA (6) + SA (6) + Length (2) + payload (6) = 20 bytes
         # Padded to next 4-byte boundary: 20 is already 4-aligned -> 20
@@ -85,17 +90,19 @@ class TestBuildAmsdu:
         # Check Length (big-endian)
         assert int.from_bytes(result[12:14], "big") == len(payload)
         # Check payload
-        assert result[14:14 + len(payload)] == payload
+        assert result[14 : 14 + len(payload)] == payload
 
     def test_build_amsdu_multiple_subframes(self, attacker):
         """Verify padding between subframes for 4-byte alignment."""
-        payload1 = b"A" * 5   # 6+6+2+5=19 bytes, pad to 20
-        payload2 = b"B" * 7   # 6+6+2+7=21 bytes, pad to 24
+        payload1 = b"A" * 5  # 6+6+2+5=19 bytes, pad to 20
+        payload2 = b"B" * 7  # 6+6+2+7=21 bytes, pad to 24
 
-        result = attacker._build_amsdu_frame([
-            ("aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66", payload1),
-            ("11:22:33:44:55:66", "aa:bb:cc:dd:ee:ff", payload2),
-        ])
+        result = attacker._build_amsdu_frame(
+            [
+                ("aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66", payload1),
+                ("11:22:33:44:55:66", "aa:bb:cc:dd:ee:ff", payload2),
+            ]
+        )
 
         # First subframe: 6+6+2+5 = 19, padded to 20
         # Second subframe: 6+6+2+7 = 21, padded to 24
@@ -104,12 +111,13 @@ class TestBuildAmsdu:
         # First subframe length field
         assert int.from_bytes(result[12:14], "big") == 5
         # Second subframe starts at offset 20
-        assert int.from_bytes(result[20 + 12:20 + 14], "big") == 7
+        assert int.from_bytes(result[20 + 12 : 20 + 14], "big") == 7
 
 
 # ---------------------------------------------------------------------------
 # 4-6. test_build_fragmented_frame_*
 # ---------------------------------------------------------------------------
+
 
 class _FakePacket:
     """Minimal packet stand-in that supports attribute setting and `/`."""
@@ -124,11 +132,9 @@ class _FakePacket:
 
 
 class TestBuildFragmentedFrame:
-
     @patch("fragattacks.Raw", side_effect=lambda **kw: _FakePacket(**kw))
     @patch("fragattacks.Dot11", side_effect=lambda **kw: _FakePacket(**kw))
-    def test_build_fragmented_frame_count(self, _mock_dot11, _mock_raw,
-                                           attacker):
+    def test_build_fragmented_frame_count(self, _mock_dot11, _mock_raw, attacker):
         """100-byte payload with 50-byte fragments -> 2 fragments."""
         payload = b"X" * 100
         fragments = attacker._build_fragmented_frame(payload, fragment_size=50)
@@ -136,8 +142,7 @@ class TestBuildFragmentedFrame:
 
     @patch("fragattacks.Raw", side_effect=lambda **kw: _FakePacket(**kw))
     @patch("fragattacks.Dot11", side_effect=lambda **kw: _FakePacket(**kw))
-    def test_build_fragmented_frame_sequence_numbers(self, _mock_dot11,
-                                                      _mock_raw, attacker):
+    def test_build_fragmented_frame_sequence_numbers(self, _mock_dot11, _mock_raw, attacker):
         """Verify SC field has correct fragment numbers."""
         attacker._sequence_number = 42
         payload = b"Z" * 100
@@ -150,8 +155,7 @@ class TestBuildFragmentedFrame:
 
     @patch("fragattacks.Raw", side_effect=lambda **kw: _FakePacket(**kw))
     @patch("fragattacks.Dot11", side_effect=lambda **kw: _FakePacket(**kw))
-    def test_build_fragmented_frame_more_fragments_bit(self, _mock_dot11,
-                                                        _mock_raw, attacker):
+    def test_build_fragmented_frame_more_fragments_bit(self, _mock_dot11, _mock_raw, attacker):
         """First fragment has MF set, last fragment does not."""
         payload = b"M" * 100
         fragments = attacker._build_fragmented_frame(payload, fragment_size=50)
@@ -165,6 +169,7 @@ class TestBuildFragmentedFrame:
 # ---------------------------------------------------------------------------
 # 7-8. test_set_fragment_number / test_set_sequence_number
 # ---------------------------------------------------------------------------
+
 
 class TestSCFieldManipulation:
     def test_set_fragment_number(self, attacker):
@@ -203,6 +208,7 @@ class TestSCFieldManipulation:
 # 9-10. test_packet_handler_*
 # ---------------------------------------------------------------------------
 
+
 class TestPacketHandler:
     def test_packet_handler_captures_response(self, attacker):
         """Mock ICMP reply from target BSSID, verify detection."""
@@ -218,13 +224,14 @@ class TestPacketHandler:
         mock_icmp_cls = MagicMock()
 
         # Patch the module-level Dot11 and ICMP references
-        with patch("fragattacks.Dot11", mock_dot11_cls), \
-             patch("fragattacks.ICMP", mock_icmp_cls):
+        with patch("fragattacks.Dot11", mock_dot11_cls), patch("fragattacks.ICMP", mock_icmp_cls):
             layers_present.add(mock_dot11_cls)
             layers_present.add(mock_icmp_cls)
 
             pkt.haslayer = lambda cls: cls in layers_present
-            pkt.__getitem__ = lambda self, cls: dot11_layer if cls is mock_dot11_cls else MagicMock()
+            pkt.__getitem__ = lambda self, cls: (
+                dot11_layer if cls is mock_dot11_cls else MagicMock()
+            )
 
             attacker.packet_handler(pkt)
 
@@ -242,11 +249,12 @@ class TestPacketHandler:
         mock_dot11_cls = MagicMock()
         mock_icmp_cls = MagicMock()
 
-        with patch("fragattacks.Dot11", mock_dot11_cls), \
-             patch("fragattacks.ICMP", mock_icmp_cls):
+        with patch("fragattacks.Dot11", mock_dot11_cls), patch("fragattacks.ICMP", mock_icmp_cls):
             layers_present = {mock_dot11_cls, mock_icmp_cls}
             pkt.haslayer = lambda cls: cls in layers_present
-            pkt.__getitem__ = lambda self, cls: dot11_layer if cls is mock_dot11_cls else MagicMock()
+            pkt.__getitem__ = lambda self, cls: (
+                dot11_layer if cls is mock_dot11_cls else MagicMock()
+            )
 
             attacker.packet_handler(pkt)
 
@@ -256,6 +264,7 @@ class TestPacketHandler:
 # ---------------------------------------------------------------------------
 # 11. test_save_results_creates_json
 # ---------------------------------------------------------------------------
+
 
 class TestSaveResults:
     def test_save_results_creates_json(self, attacker, tmp_path):
@@ -283,6 +292,7 @@ class TestSaveResults:
 # 12. test_get_status
 # ---------------------------------------------------------------------------
 
+
 class TestGetStatus:
     def test_get_status(self, attacker):
         """Verify status fields are present and correct."""
@@ -307,6 +317,7 @@ class TestGetStatus:
 # 13. test_cli_mode_choices
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     def test_cli_mode_choices(self):
         """Verify that all expected mode choices are defined."""
@@ -319,8 +330,7 @@ class TestCLI:
 
     @patch("fragattacks.sniff")
     @patch("fragattacks.sendp")
-    def test_cli_all_mode_runs_all_tests(self, mock_sendp, mock_sniff,
-                                          mock_interface, tmp_path):
+    def test_cli_all_mode_runs_all_tests(self, mock_sendp, mock_sniff, mock_interface, tmp_path):
         """Verify 'all' mode runs all four test methods."""
         fa = FragAttacks(
             interface=mock_interface,

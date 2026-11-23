@@ -11,6 +11,7 @@ from captive_portal import PORTAL_TEMPLATES, CaptivePortal  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def portal(mock_interface, tmp_path):
     return CaptivePortal(
@@ -32,6 +33,7 @@ def portal_app(portal):
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestCaptivePortalInit:
     def test_defaults(self, mock_interface):
         p = CaptivePortal(interface=mock_interface)
@@ -44,8 +46,10 @@ class TestCaptivePortalInit:
 
     def test_custom_params(self, mock_interface):
         p = CaptivePortal(
-            interface=mock_interface, ssid="Hotel",
-            channel=11, portal_template="hotel",
+            interface=mock_interface,
+            ssid="Hotel",
+            channel=11,
+            portal_template="hotel",
         )
         assert p.ssid == "Hotel"
         assert p.channel == 11
@@ -104,10 +108,13 @@ class TestPortalApp:
         assert b"WiFi Login" in resp.data
 
     def test_login_captures_creds(self, portal, portal_app):
-        resp = portal_app.post("/login", data={
-            "email": "test@example.com",
-            "password": "secret123",
-        })
+        resp = portal_app.post(
+            "/login",
+            data={
+                "email": "test@example.com",
+                "password": "secret123",
+            },
+        )
         assert resp.status_code == 200
         assert b"Connected" in resp.data
         assert len(portal.captured_creds) == 1
@@ -125,11 +132,13 @@ class TestPortalApp:
 
 class TestLogCredentials:
     def test_log_writes_file(self, portal, tmp_path):
-        portal._log_credentials({
-            "timestamp": "2024-01-01 12:00:00",
-            "source_ip": "192.168.100.10",
-            "email": "test@example.com",
-        })
+        portal._log_credentials(
+            {
+                "timestamp": "2024-01-01 12:00:00",
+                "source_ip": "192.168.100.10",
+                "email": "test@example.com",
+            }
+        )
         assert os.path.exists(portal.log_file)
         with open(portal.log_file) as f:
             content = f.read()

@@ -44,9 +44,9 @@ def capturer_with_client(mock_interface, tmp_path):
     )
 
 
-def _make_eapol_packet(addr1="11:22:33:44:55:66",
-                        addr2="AA:BB:CC:DD:EE:FF",
-                        addr3="AA:BB:CC:DD:EE:FF"):
+def _make_eapol_packet(
+    addr1="11:22:33:44:55:66", addr2="AA:BB:CC:DD:EE:FF", addr3="AA:BB:CC:DD:EE:FF"
+):
     """Create a mock EAPOL packet."""
     pkt = MagicMock()
 
@@ -62,6 +62,7 @@ def _make_eapol_packet(addr1="11:22:33:44:55:66",
         if cls is Dot11:
             return dot11
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     return pkt
@@ -84,7 +85,8 @@ class TestHandshakeCaptureInit:
 
     def test_client_uppercased(self, mock_interface):
         c = HandshakeCapture(
-            interface=mock_interface, target_bssid=TARGET_BSSID,
+            interface=mock_interface,
+            target_bssid=TARGET_BSSID,
             target_client="aa:bb:cc:dd:ee:ff",
         )
         assert c.target_client == "AA:BB:CC:DD:EE:FF"
@@ -97,9 +99,9 @@ class TestPacketHandler:
         assert len(capturer.eapol_frames) == 1
 
     def test_wrong_bssid_ignored(self, capturer):
-        pkt = _make_eapol_packet(addr1="99:99:99:99:99:99",
-                                  addr2="99:99:99:99:99:99",
-                                  addr3="99:99:99:99:99:99")
+        pkt = _make_eapol_packet(
+            addr1="99:99:99:99:99:99", addr2="99:99:99:99:99:99", addr3="99:99:99:99:99:99"
+        )
         capturer.packet_handler(pkt)
         assert len(capturer.eapol_frames) == 0
 
@@ -116,9 +118,9 @@ class TestPacketHandler:
         assert len(capturer_with_client.eapol_frames) == 1
 
     def test_wrong_client_ignored(self, capturer_with_client):
-        pkt = _make_eapol_packet(addr1="99:99:99:99:99:99",
-                                  addr2="AA:BB:CC:DD:EE:FF",
-                                  addr3="AA:BB:CC:DD:EE:FF")
+        pkt = _make_eapol_packet(
+            addr1="99:99:99:99:99:99", addr2="AA:BB:CC:DD:EE:FF", addr3="AA:BB:CC:DD:EE:FF"
+        )
         capturer_with_client.packet_handler(pkt)
         assert len(capturer_with_client.eapol_frames) == 0
 
@@ -146,6 +148,7 @@ class TestSaveCapture:
 class TestGetStatus:
     def test_status_dict(self, capturer):
         import time
+
         capturer._start_time = time.time()
         status = capturer.get_status()
         assert status["target_bssid"] == TARGET_BSSID
@@ -159,6 +162,7 @@ class TestSendDeauth:
     def test_deauth_sends_frames(self, mock_sendp, capturer):
         def stop_after_first_call(*args, **kwargs):
             capturer._stop_event.set()
+
         mock_sendp.side_effect = stop_after_first_call
         capturer._send_deauth()
         assert mock_sendp.call_count >= 1
@@ -174,8 +178,10 @@ class TestStart:
     @patch("handshake_capture.sniff")
     def test_start_no_deauth(self, mock_sniff, mock_interface, tmp_path):
         c = HandshakeCapture(
-            interface=mock_interface, target_bssid=TARGET_BSSID,
-            output_dir=str(tmp_path), no_deauth=True,
+            interface=mock_interface,
+            target_bssid=TARGET_BSSID,
+            output_dir=str(tmp_path),
+            no_deauth=True,
         )
         c.start()
         mock_sniff.assert_called_once()
@@ -184,8 +190,10 @@ class TestStart:
     @patch("handshake_capture.subprocess.run")
     def test_start_sets_channel(self, mock_run, mock_sniff, mock_interface, tmp_path):
         c = HandshakeCapture(
-            interface=mock_interface, target_bssid=TARGET_BSSID,
-            channel=11, output_dir=str(tmp_path),
+            interface=mock_interface,
+            target_bssid=TARGET_BSSID,
+            channel=11,
+            output_dir=str(tmp_path),
         )
         c.start()
         mock_run.assert_called()

@@ -43,10 +43,13 @@ class ReportGenerator:
     scan/attack modules, then renders them as HTML, PDF, or JSON.
     """
 
-    def __init__(self, title: str = "WiFi Security Assessment",
-                 author: str = "Hoover Toolkit",
-                 output_dir: str = "reports",
-                 template: str = "default") -> None:
+    def __init__(
+        self,
+        title: str = "WiFi Security Assessment",
+        author: str = "Hoover Toolkit",
+        output_dir: str = "reports",
+        template: str = "default",
+    ) -> None:
         self.title = title
         self.author = author
         self.output_dir = output_dir
@@ -56,29 +59,32 @@ class ReportGenerator:
 
     # -- Section builders ----------------------------------------------
 
-    def add_section(self, title: str, content: str,
-                     data: Optional[dict] = None) -> None:
+    def add_section(self, title: str, content: str, data: Optional[dict] = None) -> None:
         """Add a report section with narrative text and optional data."""
-        self.sections.append({
-            "title": title,
-            "type": "generic",
-            "content": content,
-            "data": data or {},
-            "timestamp": _now_iso(),
-        })
+        self.sections.append(
+            {
+                "title": title,
+                "type": "generic",
+                "content": content,
+                "data": data or {},
+                "timestamp": _now_iso(),
+            }
+        )
 
     def add_scan_results(self, ap_data: dict) -> None:
         """Add AP scan results as a formatted table section."""
         aps = ap_data.get("access_points", ap_data.get("aps", []))
         if not isinstance(aps, list):
             aps = []
-        self.sections.append({
-            "title": "Access Point Scan Results",
-            "type": "scan_results",
-            "content": f"Discovered {len(aps)} access point(s) during the scan.",
-            "data": {"access_points": aps},
-            "timestamp": _now_iso(),
-        })
+        self.sections.append(
+            {
+                "title": "Access Point Scan Results",
+                "type": "scan_results",
+                "content": f"Discovered {len(aps)} access point(s) during the scan.",
+                "data": {"access_points": aps},
+                "timestamp": _now_iso(),
+            }
+        )
 
     def add_handshake_results(self, handshake_data: dict) -> None:
         """Add handshake capture results with verification status."""
@@ -86,29 +92,30 @@ class ReportGenerator:
         if not isinstance(handshakes, list):
             handshakes = []
         verified = sum(1 for h in handshakes if h.get("verified"))
-        self.sections.append({
-            "title": "Handshake Capture Results",
-            "type": "handshake_results",
-            "content": (
-                f"Captured {len(handshakes)} handshake(s); "
-                f"{verified} verified."
-            ),
-            "data": {"handshakes": handshakes},
-            "timestamp": _now_iso(),
-        })
+        self.sections.append(
+            {
+                "title": "Handshake Capture Results",
+                "type": "handshake_results",
+                "content": (f"Captured {len(handshakes)} handshake(s); {verified} verified."),
+                "data": {"handshakes": handshakes},
+                "timestamp": _now_iso(),
+            }
+        )
 
     def add_client_data(self, fingerprints: dict) -> None:
         """Add client fingerprint data section."""
         clients = fingerprints.get("clients", [])
         if not isinstance(clients, list):
             clients = []
-        self.sections.append({
-            "title": "Client Fingerprints",
-            "type": "client_data",
-            "content": f"Identified {len(clients)} client device(s).",
-            "data": {"clients": clients},
-            "timestamp": _now_iso(),
-        })
+        self.sections.append(
+            {
+                "title": "Client Fingerprints",
+                "type": "client_data",
+                "content": f"Identified {len(clients)} client device(s).",
+                "data": {"clients": clients},
+                "timestamp": _now_iso(),
+            }
+        )
 
     def add_vulnerability_findings(self, findings: list[dict]) -> None:
         """Add vulnerability findings with severity."""
@@ -118,23 +125,27 @@ class ReportGenerator:
         for finding in findings:
             severity = finding.get("severity", "Info")
             counts[severity] = counts.get(severity, 0) + 1
-        self.sections.append({
-            "title": "Vulnerability Findings",
-            "type": "vulnerability_findings",
-            "content": f"Identified {len(findings)} finding(s).",
-            "data": {"findings": findings, "severity_counts": counts},
-            "timestamp": _now_iso(),
-        })
+        self.sections.append(
+            {
+                "title": "Vulnerability Findings",
+                "type": "vulnerability_findings",
+                "content": f"Identified {len(findings)} finding(s).",
+                "data": {"findings": findings, "severity_counts": counts},
+                "timestamp": _now_iso(),
+            }
+        )
 
     def add_attack_results(self, attack_name: str, results: dict) -> None:
         """Add results from any attack module."""
-        self.sections.append({
-            "title": f"Attack Results: {attack_name}",
-            "type": "attack_results",
-            "content": f"Results from the '{attack_name}' module.",
-            "data": {"attack_name": attack_name, "results": results or {}},
-            "timestamp": _now_iso(),
-        })
+        self.sections.append(
+            {
+                "title": f"Attack Results: {attack_name}",
+                "type": "attack_results",
+                "content": f"Results from the '{attack_name}' module.",
+                "data": {"attack_name": attack_name, "results": results or {}},
+                "timestamp": _now_iso(),
+            }
+        )
 
     # -- Helpers ----------------------------------------------------
 
@@ -188,9 +199,11 @@ class ReportGenerator:
         out = []
 
         if section_type == "scan_results" and data.get("access_points"):
-            out.append('<table class="data-table"><thead><tr>'
-                        "<th>SSID</th><th>BSSID</th><th>Channel</th>"
-                        "<th>Signal</th><th>Encryption</th></tr></thead><tbody>")
+            out.append(
+                '<table class="data-table"><thead><tr>'
+                "<th>SSID</th><th>BSSID</th><th>Channel</th>"
+                "<th>Signal</th><th>Encryption</th></tr></thead><tbody>"
+            )
             for ap in data["access_points"]:
                 out.append(
                     "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
@@ -204,8 +217,10 @@ class ReportGenerator:
             out.append("</tbody></table>")
 
         elif section_type == "handshake_results" and data.get("handshakes"):
-            out.append('<table class="data-table"><thead><tr>'
-                        "<th>SSID</th><th>BSSID</th><th>Verified</th></tr></thead><tbody>")
+            out.append(
+                '<table class="data-table"><thead><tr>'
+                "<th>SSID</th><th>BSSID</th><th>Verified</th></tr></thead><tbody>"
+            )
             for hs in data["handshakes"]:
                 verified = "Yes" if hs.get("verified") else "No"
                 out.append(
@@ -218,8 +233,10 @@ class ReportGenerator:
             out.append("</tbody></table>")
 
         elif section_type == "client_data" and data.get("clients"):
-            out.append('<table class="data-table"><thead><tr>'
-                        "<th>MAC</th><th>Vendor</th><th>Device</th></tr></thead><tbody>")
+            out.append(
+                '<table class="data-table"><thead><tr>'
+                "<th>MAC</th><th>Vendor</th><th>Device</th></tr></thead><tbody>"
+            )
             for client in data["clients"]:
                 out.append(
                     "<tr><td>{}</td><td>{}</td><td>{}</td></tr>".format(
@@ -231,9 +248,11 @@ class ReportGenerator:
             out.append("</tbody></table>")
 
         elif section_type == "vulnerability_findings" and data.get("findings"):
-            out.append('<table class="data-table"><thead><tr>'
-                        "<th>ID</th><th>Name</th><th>Severity</th>"
-                        "<th>Target</th><th>Description</th></tr></thead><tbody>")
+            out.append(
+                '<table class="data-table"><thead><tr>'
+                "<th>ID</th><th>Name</th><th>Severity</th>"
+                "<th>Target</th><th>Description</th></tr></thead><tbody>"
+            )
             for finding in data["findings"]:
                 severity = finding.get("severity", "Info")
                 color = SEVERITY_COLORS.get(severity, "#6b7280")
@@ -253,9 +272,7 @@ class ReportGenerator:
 
         elif section_type == "attack_results":
             results = data.get("results", {})
-            out.append(
-                f"<pre>{html.escape(json.dumps(results, indent=2, default=str))}</pre>"
-            )
+            out.append(f"<pre>{html.escape(json.dumps(results, indent=2, default=str))}</pre>")
 
         return "\n".join(out)
 
@@ -301,8 +318,8 @@ class ReportGenerator:
 
         return (
             "<!DOCTYPE html>\n"
-            "<html lang=\"en\">\n<head>\n"
-            f"<meta charset=\"utf-8\">\n<title>{html.escape(self.title)}</title>\n"
+            '<html lang="en">\n<head>\n'
+            f'<meta charset="utf-8">\n<title>{html.escape(self.title)}</title>\n'
             f"<style>{css}</style>\n</head>\n<body>\n"
             + "\n".join(body_parts)
             + "\n</body>\n</html>\n"
@@ -336,6 +353,7 @@ class ReportGenerator:
 
         try:
             import weasyprint  # type: ignore
+
             weasyprint.HTML(string=html_content).write_pdf(path)
             self.logger.info("PDF report written to %s (weasyprint)", path)
             return path
@@ -346,6 +364,7 @@ class ReportGenerator:
 
         try:
             import pdfkit  # type: ignore
+
             pdfkit.from_string(html_content, path)
             self.logger.info("PDF report written to %s (pdfkit)", path)
             return path
@@ -410,9 +429,7 @@ class ReportGenerator:
             elif "findings" in data:
                 self.add_vulnerability_findings(data["findings"])
             else:
-                self.add_attack_results(
-                    data.get("attack_name", os.path.basename(filepath)), data
-                )
+                self.add_attack_results(data.get("attack_name", os.path.basename(filepath)), data)
 
     def get_summary(self) -> dict:
         """Return summary statistics."""
@@ -438,25 +455,27 @@ def main() -> None:
             "For authorized security testing and research only."
         )
     )
-    parser.add_argument("--title", default="WiFi Security Assessment",
-                         help="Report title")
+    parser.add_argument("--title", default="WiFi Security Assessment", help="Report title")
     parser.add_argument("--author", default="Hoover Toolkit", help="Author name")
-    parser.add_argument("-o", "--output-dir", default="reports",
-                         help="Output directory for generated reports")
-    parser.add_argument("-f", "--format", choices=SUPPORTED_FORMATS,
-                         default="html", help="Report output format")
-    parser.add_argument("--template", choices=SUPPORTED_TEMPLATES,
-                         default="default", help="Report template")
-    parser.add_argument("--load", nargs="*", default=[],
-                         help="Paths to result files to include (glob patterns supported)")
-    parser.add_argument("--scan-results", default=None,
-                         help="Path to AP scan JSON")
-    parser.add_argument("--handshake-data", default=None,
-                         help="Path to handshake capture data")
-    parser.add_argument("--client-data", default=None,
-                         help="Path to client fingerprint JSON")
-    parser.add_argument("--findings", default=None,
-                         help="Path to vulnerability findings JSON")
+    parser.add_argument(
+        "-o", "--output-dir", default="reports", help="Output directory for generated reports"
+    )
+    parser.add_argument(
+        "-f", "--format", choices=SUPPORTED_FORMATS, default="html", help="Report output format"
+    )
+    parser.add_argument(
+        "--template", choices=SUPPORTED_TEMPLATES, default="default", help="Report template"
+    )
+    parser.add_argument(
+        "--load",
+        nargs="*",
+        default=[],
+        help="Paths to result files to include (glob patterns supported)",
+    )
+    parser.add_argument("--scan-results", default=None, help="Path to AP scan JSON")
+    parser.add_argument("--handshake-data", default=None, help="Path to handshake capture data")
+    parser.add_argument("--client-data", default=None, help="Path to client fingerprint JSON")
+    parser.add_argument("--findings", default=None, help="Path to vulnerability findings JSON")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
@@ -489,8 +508,7 @@ def main() -> None:
         with open(args.findings, encoding="utf-8") as f:
             findings_data = json.load(f)
         findings_list = (
-            findings_data.get("findings", [])
-            if isinstance(findings_data, dict) else findings_data
+            findings_data.get("findings", []) if isinstance(findings_data, dict) else findings_data
         )
         generator.add_vulnerability_findings(findings_list)
 

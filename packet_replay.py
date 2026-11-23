@@ -28,10 +28,16 @@ FILTER_TYPES = {
 
 
 class PacketReplay:
-    def __init__(self, interface: str, pcap_file: Optional[str] = None,
-                 capture_timeout: int = 30, replay_count: int = 1,
-                 replay_delay: float = 0.1, filter_type: Optional[str] = None,
-                 filter_mac: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        pcap_file: Optional[str] = None,
+        capture_timeout: int = 30,
+        replay_count: int = 1,
+        replay_delay: float = 0.1,
+        filter_type: Optional[str] = None,
+        filter_mac: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.pcap_file: Optional[str] = pcap_file
         self.capture_timeout: int = capture_timeout
@@ -51,7 +57,9 @@ class PacketReplay:
         }
 
     def capture(self) -> list:
-        self.logger.info("Capturing packets on %s (timeout: %ds)", self.interface, self.capture_timeout)
+        self.logger.info(
+            "Capturing packets on %s (timeout: %ds)", self.interface, self.capture_timeout
+        )
         start = time.time()
         try:
             packets = sniff(
@@ -62,8 +70,11 @@ class PacketReplay:
             self.captured_packets = list(packets)
             self._stats["packets_captured"] = len(self.captured_packets)
             self._stats["capture_time"] = round(time.time() - start, 2)
-            self.logger.info("Captured %d packets in %.1fs",
-                             len(self.captured_packets), self._stats["capture_time"])
+            self.logger.info(
+                "Captured %d packets in %.1fs",
+                len(self.captured_packets),
+                self._stats["capture_time"],
+            )
             return self.captured_packets
         except KeyboardInterrupt:
             self.logger.info("Capture interrupted")
@@ -96,6 +107,7 @@ class PacketReplay:
 
         if self.filter_mac:
             mac_upper = self.filter_mac.upper()
+
             def mac_match(pkt):
                 if not pkt.haslayer(Dot11):
                     return False
@@ -105,6 +117,7 @@ class PacketReplay:
                     if addr == mac_upper:
                         return True
                 return False
+
             filtered = [p for p in filtered if mac_match(p)]
 
         self._stats["packets_filtered"] = len(filtered)
@@ -117,8 +130,12 @@ class PacketReplay:
             return 0
 
         total_sent = 0
-        self.logger.info("Replaying %d packets (count: %d, delay: %.2fs)",
-                         len(packets), self.replay_count, self.replay_delay)
+        self.logger.info(
+            "Replaying %d packets (count: %d, delay: %.2fs)",
+            len(packets),
+            self.replay_count,
+            self.replay_delay,
+        )
 
         for iteration in range(self.replay_count):
             if self._stop_event.is_set():
@@ -134,8 +151,12 @@ class PacketReplay:
                 if self.replay_delay > 0:
                     time.sleep(self.replay_delay)
 
-            self.logger.info("Replay iteration %d/%d complete (%d packets sent)",
-                             iteration + 1, self.replay_count, total_sent)
+            self.logger.info(
+                "Replay iteration %d/%d complete (%d packets sent)",
+                iteration + 1,
+                self.replay_count,
+                total_sent,
+            )
 
         self.packets_sent = total_sent
         self._stats["packets_replayed"] = total_sent
@@ -163,9 +184,9 @@ class PacketReplay:
 
     def print_summary(self) -> None:
         stats = self.get_stats()
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Packet Replay Summary")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Packets captured/loaded: {stats['packets_captured']}")
         print(f"Packets after filter:    {stats['packets_filtered']}")
         print(f"Packets replayed:        {stats['packets_replayed']}")
@@ -196,24 +217,29 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-r", "--read",
-                        help="PCAP file to replay")
-    parser.add_argument("-w", "--write",
-                        help="Save captured packets to PCAP file")
-    parser.add_argument("-c", "--count", type=int, default=1,
-                        help="Number of replay iterations (default: 1)")
-    parser.add_argument("-d", "--delay", type=float, default=0.1,
-                        help="Delay between packets in seconds (default: 0.1)")
-    parser.add_argument("--filter", choices=list(FILTER_TYPES.keys()),
-                        help="Filter packets by type")
-    parser.add_argument("--filter-mac",
-                        help="Filter packets by MAC address")
-    parser.add_argument("-t", "--timeout", type=int, default=30,
-                        help="Capture timeout in seconds (default: 30)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-r", "--read", help="PCAP file to replay")
+    parser.add_argument("-w", "--write", help="Save captured packets to PCAP file")
+    parser.add_argument(
+        "-c", "--count", type=int, default=1, help="Number of replay iterations (default: 1)"
+    )
+    parser.add_argument(
+        "-d",
+        "--delay",
+        type=float,
+        default=0.1,
+        help="Delay between packets in seconds (default: 0.1)",
+    )
+    parser.add_argument(
+        "--filter", choices=list(FILTER_TYPES.keys()), help="Filter packets by type"
+    )
+    parser.add_argument("--filter-mac", help="Filter packets by MAC address")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=30, help="Capture timeout in seconds (default: 30)"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

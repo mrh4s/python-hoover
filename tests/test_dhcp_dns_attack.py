@@ -34,6 +34,7 @@ from dhcp_dns_attack import (  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def attack(mock_interface, tmp_path):
     return DHCPDNSAttack(
@@ -122,6 +123,7 @@ def _make_dns_query_packet(qname="example.com.", qr=0, src_mac="aa:bb:cc:dd:ee:f
 # Init
 # ---------------------------------------------------------------------------
 
+
 class TestInit:
     def test_default_init(self, mock_interface):
         a = DHCPDNSAttack(interface=mock_interface)
@@ -154,13 +156,17 @@ class TestInit:
 
     def test_attack_modes_contains_expected(self):
         assert set(ATTACK_MODES) == {
-            "dhcp-starvation", "dhcp-spoof", "dns-spoof", "all",
+            "dhcp-starvation",
+            "dhcp-spoof",
+            "dns-spoof",
+            "all",
         }
 
 
 # ---------------------------------------------------------------------------
 # Packet builders
 # ---------------------------------------------------------------------------
+
 
 class TestPacketBuilders:
     def test_build_dhcp_discover_returns_layered_packet(self, attack):
@@ -194,8 +200,7 @@ class TestPacketBuilders:
 
     def test_build_dns_response_uses_spoof_ip(self, attack):
         query_pkt = _make_dns_query_packet(qname="evil.example.com.")
-        with patch("dhcp_dns_attack.DNSRR") as mock_rr, \
-                patch("dhcp_dns_attack.DNS") as mock_dns:
+        with patch("dhcp_dns_attack.DNSRR") as mock_rr, patch("dhcp_dns_attack.DNS") as mock_dns:
             attack._build_dns_response(query_pkt, "10.0.0.9")
             _, rr_kwargs = mock_rr.call_args
             assert rr_kwargs["rdata"] == "10.0.0.9"
@@ -206,6 +211,7 @@ class TestPacketBuilders:
 # ---------------------------------------------------------------------------
 # Random MAC generation
 # ---------------------------------------------------------------------------
+
 
 class TestRandomMac:
     def test_generate_random_mac_returns_string(self, attack):
@@ -224,6 +230,7 @@ class TestRandomMac:
 # DHCP starvation
 # ---------------------------------------------------------------------------
 
+
 class TestDHCPStarvation:
     def test_starvation_sends_discovers_and_stops_on_timeout(self, mock_interface, tmp_path):
         a = DHCPDNSAttack(
@@ -232,8 +239,7 @@ class TestDHCPStarvation:
             timeout=1,
             output_dir=str(tmp_path),
         )
-        with patch("dhcp_dns_attack.sendp") as mock_sendp, \
-                patch.object(a, "_safe_sniff"):
+        with patch("dhcp_dns_attack.sendp") as mock_sendp, patch.object(a, "_safe_sniff"):
             result = a._dhcp_starvation()
 
         assert mock_sendp.called
@@ -249,8 +255,7 @@ class TestDHCPStarvation:
             output_dir=str(tmp_path),
         )
         a._stop_event.set()
-        with patch("dhcp_dns_attack.sendp") as mock_sendp, \
-                patch.object(a, "_safe_sniff"):
+        with patch("dhcp_dns_attack.sendp") as mock_sendp, patch.object(a, "_safe_sniff"):
             result = a._dhcp_starvation()
         mock_sendp.assert_not_called()
         assert result["leases_requested"] == 0
@@ -269,6 +274,7 @@ class TestDHCPStarvation:
 # DHCP spoof (rogue DHCP server)
 # ---------------------------------------------------------------------------
 
+
 class TestDHCPSpoof:
     def test_dhcp_spoof_responds_to_discover(self, mock_interface, tmp_path):
         a = DHCPDNSAttack(
@@ -283,9 +289,11 @@ class TestDHCPSpoof:
         def fake_sniff(filter_bpf, handler, timeout):
             handler(discover_pkt)
 
-        with patch.object(a, "_safe_sniff", side_effect=fake_sniff), \
-                patch("dhcp_dns_attack.sendp") as mock_sendp, \
-                patch.object(a, "_build_dhcp_offer", return_value=MagicMock()):
+        with (
+            patch.object(a, "_safe_sniff", side_effect=fake_sniff),
+            patch("dhcp_dns_attack.sendp") as mock_sendp,
+            patch.object(a, "_build_dhcp_offer", return_value=MagicMock()),
+        ):
             result = a._dhcp_spoof()
 
         assert mock_sendp.called
@@ -304,17 +312,20 @@ class TestDHCPSpoof:
         def fake_sniff(filter_bpf, handler, timeout):
             handler(request_pkt)
 
-        with patch.object(a, "_safe_sniff", side_effect=fake_sniff), \
-                patch("dhcp_dns_attack.sendp") as mock_sendp, \
-                patch.object(a, "_build_dhcp_offer", return_value=MagicMock()):
+        with (
+            patch.object(a, "_safe_sniff", side_effect=fake_sniff),
+            patch("dhcp_dns_attack.sendp") as mock_sendp,
+            patch.object(a, "_build_dhcp_offer", return_value=MagicMock()),
+        ):
             result = a._dhcp_spoof()
 
         assert mock_sendp.called
         assert result["acks_sent"] == 1
 
     def test_dhcp_spoof_defaults_gateway_when_unset(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="dhcp-spoof",
-                           output_dir=str(tmp_path))
+        a = DHCPDNSAttack(
+            interface=mock_interface, attack_mode="dhcp-spoof", output_dir=str(tmp_path)
+        )
         with patch.object(a, "_safe_sniff"):
             result = a._dhcp_spoof()
         assert result["rogue_gateway"] == "10.0.0.1"
@@ -324,10 +335,12 @@ class TestDHCPSpoof:
 # DNS spoof
 # ---------------------------------------------------------------------------
 
+
 class TestDNSSpoof:
     def test_dns_spoof_requires_domain_and_ip(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="dns-spoof",
-                           output_dir=str(tmp_path))
+        a = DHCPDNSAttack(
+            interface=mock_interface, attack_mode="dns-spoof", output_dir=str(tmp_path)
+        )
         result = a._dns_spoof()
         assert "error" in result
 
@@ -344,9 +357,11 @@ class TestDNSSpoof:
         def fake_sniff(filter_bpf, handler, timeout):
             handler(query_pkt)
 
-        with patch.object(a, "_safe_sniff", side_effect=fake_sniff), \
-                patch("dhcp_dns_attack.sendp") as mock_sendp, \
-                patch.object(a, "_build_dns_response", return_value=MagicMock()):
+        with (
+            patch.object(a, "_safe_sniff", side_effect=fake_sniff),
+            patch("dhcp_dns_attack.sendp") as mock_sendp,
+            patch.object(a, "_build_dns_response", return_value=MagicMock()),
+        ):
             result = a._dns_spoof()
 
         assert mock_sendp.called
@@ -366,8 +381,10 @@ class TestDNSSpoof:
         def fake_sniff(filter_bpf, handler, timeout):
             handler(query_pkt)
 
-        with patch.object(a, "_safe_sniff", side_effect=fake_sniff), \
-                patch("dhcp_dns_attack.sendp") as mock_sendp:
+        with (
+            patch.object(a, "_safe_sniff", side_effect=fake_sniff),
+            patch("dhcp_dns_attack.sendp") as mock_sendp,
+        ):
             result = a._dns_spoof()
 
         mock_sendp.assert_not_called()
@@ -387,8 +404,10 @@ class TestDNSSpoof:
         def fake_sniff(filter_bpf, handler, timeout):
             handler(response_pkt)
 
-        with patch.object(a, "_safe_sniff", side_effect=fake_sniff), \
-                patch("dhcp_dns_attack.sendp") as mock_sendp:
+        with (
+            patch.object(a, "_safe_sniff", side_effect=fake_sniff),
+            patch("dhcp_dns_attack.sendp") as mock_sendp,
+        ):
             a._dns_spoof()
 
         mock_sendp.assert_not_called()
@@ -398,6 +417,7 @@ class TestDNSSpoof:
 # start() / stop() / get_status() / save_results()
 # ---------------------------------------------------------------------------
 
+
 class TestStartStop:
     def test_start_invalid_interface(self, tmp_path):
         a = DHCPDNSAttack(interface="bad iface!", output_dir=str(tmp_path))
@@ -405,45 +425,54 @@ class TestStartStop:
         assert "error" in result
 
     def test_start_invalid_mode(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="bogus",
-                           output_dir=str(tmp_path))
+        a = DHCPDNSAttack(interface=mock_interface, attack_mode="bogus", output_dir=str(tmp_path))
         result = a.start()
         assert "error" in result
 
     def test_start_dispatches_to_dhcp_starvation(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="dhcp-starvation",
-                           output_dir=str(tmp_path))
-        with patch.object(a, "_dhcp_starvation", return_value={"ok": True}) as m, \
-                patch.object(a, "save_results"):
+        a = DHCPDNSAttack(
+            interface=mock_interface, attack_mode="dhcp-starvation", output_dir=str(tmp_path)
+        )
+        with (
+            patch.object(a, "_dhcp_starvation", return_value={"ok": True}) as m,
+            patch.object(a, "save_results"),
+        ):
             result = a.start()
         m.assert_called_once()
         assert result["dhcp_starvation"] == {"ok": True}
         assert a._running is False
 
     def test_start_dispatches_to_dhcp_spoof(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="dhcp-spoof",
-                           output_dir=str(tmp_path))
-        with patch.object(a, "_dhcp_spoof", return_value={"ok": True}) as m, \
-                patch.object(a, "save_results"):
+        a = DHCPDNSAttack(
+            interface=mock_interface, attack_mode="dhcp-spoof", output_dir=str(tmp_path)
+        )
+        with (
+            patch.object(a, "_dhcp_spoof", return_value={"ok": True}) as m,
+            patch.object(a, "save_results"),
+        ):
             result = a.start()
         m.assert_called_once()
         assert result["dhcp_spoof"] == {"ok": True}
 
     def test_start_dispatches_to_dns_spoof(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="dns-spoof",
-                           output_dir=str(tmp_path))
-        with patch.object(a, "_dns_spoof", return_value={"ok": True}) as m, \
-                patch.object(a, "save_results"):
+        a = DHCPDNSAttack(
+            interface=mock_interface, attack_mode="dns-spoof", output_dir=str(tmp_path)
+        )
+        with (
+            patch.object(a, "_dns_spoof", return_value={"ok": True}) as m,
+            patch.object(a, "save_results"),
+        ):
             result = a.start()
         m.assert_called_once()
         assert result["dns_spoof"] == {"ok": True}
 
     def test_start_all_runs_starvation_then_spoof(self, mock_interface, tmp_path):
-        a = DHCPDNSAttack(interface=mock_interface, attack_mode="all",
-                           output_dir=str(tmp_path))
-        with patch.object(a, "_dhcp_starvation", return_value={"ok": 1}) as m1, \
-                patch.object(a, "_dhcp_spoof", return_value={"ok": 2}) as m2, \
-                patch.object(a, "save_results"):
+        a = DHCPDNSAttack(interface=mock_interface, attack_mode="all", output_dir=str(tmp_path))
+        with (
+            patch.object(a, "_dhcp_starvation", return_value={"ok": 1}) as m1,
+            patch.object(a, "_dhcp_spoof", return_value={"ok": 2}) as m2,
+            patch.object(a, "save_results"),
+        ):
             result = a.start()
         m1.assert_called_once()
         m2.assert_called_once()
@@ -495,24 +524,48 @@ class TestSaveResults:
 # CLI parsing
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     def test_cli_runs_starvation_mode(self, monkeypatch, tmp_path):
         monkeypatch.setattr(
-            sys, "argv",
-            ["dhcp_dns_attack.py", "-i", "wlan0", "-m", "dhcp-starvation",
-             "-t", "1", "-o", str(tmp_path)],
+            sys,
+            "argv",
+            [
+                "dhcp_dns_attack.py",
+                "-i",
+                "wlan0",
+                "-m",
+                "dhcp-starvation",
+                "-t",
+                "1",
+                "-o",
+                str(tmp_path),
+            ],
         )
-        with patch("dhcp_dns_attack.require_root"), \
-                patch.object(DHCPDNSAttack, "start", return_value={"ok": True}) as mock_start:
+        with (
+            patch("dhcp_dns_attack.require_root"),
+            patch.object(DHCPDNSAttack, "start", return_value={"ok": True}) as mock_start,
+        ):
             main()
         mock_start.assert_called_once()
 
     def test_cli_rejects_invalid_spoof_ip(self, monkeypatch, tmp_path):
         monkeypatch.setattr(
-            sys, "argv",
-            ["dhcp_dns_attack.py", "-i", "wlan0", "-m", "dns-spoof",
-             "--spoof-domain", "example.com", "--spoof-ip", "not-an-ip",
-             "-o", str(tmp_path)],
+            sys,
+            "argv",
+            [
+                "dhcp_dns_attack.py",
+                "-i",
+                "wlan0",
+                "-m",
+                "dns-spoof",
+                "--spoof-domain",
+                "example.com",
+                "--spoof-ip",
+                "not-an-ip",
+                "-o",
+                str(tmp_path),
+            ],
         )
         with patch("dhcp_dns_attack.require_root"):
             with pytest.raises(SystemExit):
@@ -520,9 +573,19 @@ class TestCLI:
 
     def test_cli_rejects_invalid_rogue_gateway(self, monkeypatch, tmp_path):
         monkeypatch.setattr(
-            sys, "argv",
-            ["dhcp_dns_attack.py", "-i", "wlan0", "-m", "dhcp-spoof",
-             "--rogue-gateway", "999.999.999.999", "-o", str(tmp_path)],
+            sys,
+            "argv",
+            [
+                "dhcp_dns_attack.py",
+                "-i",
+                "wlan0",
+                "-m",
+                "dhcp-spoof",
+                "--rogue-gateway",
+                "999.999.999.999",
+                "-o",
+                str(tmp_path),
+            ],
         )
         with patch("dhcp_dns_attack.require_root"):
             with pytest.raises(SystemExit):
@@ -530,21 +593,34 @@ class TestCLI:
 
     def test_cli_rejects_invalid_mode(self, monkeypatch, tmp_path):
         monkeypatch.setattr(
-            sys, "argv",
-            ["dhcp_dns_attack.py", "-i", "wlan0", "-m", "not-a-real-mode",
-             "-o", str(tmp_path)],
+            sys,
+            "argv",
+            ["dhcp_dns_attack.py", "-i", "wlan0", "-m", "not-a-real-mode", "-o", str(tmp_path)],
         )
         with pytest.raises(SystemExit):
             main()
 
     def test_cli_accepts_rogue_dns_and_gateway(self, monkeypatch, tmp_path):
         monkeypatch.setattr(
-            sys, "argv",
-            ["dhcp_dns_attack.py", "-i", "wlan0", "-m", "dhcp-spoof",
-             "--rogue-gateway", "10.0.0.1", "--rogue-dns", "10.0.0.1",
-             "-o", str(tmp_path)],
+            sys,
+            "argv",
+            [
+                "dhcp_dns_attack.py",
+                "-i",
+                "wlan0",
+                "-m",
+                "dhcp-spoof",
+                "--rogue-gateway",
+                "10.0.0.1",
+                "--rogue-dns",
+                "10.0.0.1",
+                "-o",
+                str(tmp_path),
+            ],
         )
-        with patch("dhcp_dns_attack.require_root"), \
-                patch.object(DHCPDNSAttack, "start", return_value={"ok": True}) as mock_start:
+        with (
+            patch("dhcp_dns_attack.require_root"),
+            patch.object(DHCPDNSAttack, "start", return_value={"ok": True}) as mock_start,
+        ):
             main()
         mock_start.assert_called_once()

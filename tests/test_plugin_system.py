@@ -55,6 +55,7 @@ def _write_plugin(tmp_path, filename="simple_plugin.py", src=SIMPLE_PLUGIN_SRC):
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def empty_manager(tmp_path):
     """A PluginManager pointed at an empty, existing plugin directory."""
@@ -66,6 +67,7 @@ def empty_manager(tmp_path):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestPluginManagerInit:
     def test_init_defaults(self):
@@ -132,9 +134,7 @@ class TestLoadPlugin:
 
     def test_load_plugin_no_subclass(self, tmp_path):
         """A Python file with no HooverPlugin subclass should raise ValueError."""
-        _, plugin_path = _write_plugin(
-            tmp_path, filename="no_subclass.py", src=NO_SUBCLASS_SRC
-        )
+        _, plugin_path = _write_plugin(tmp_path, filename="no_subclass.py", src=NO_SUBCLASS_SRC)
         manager = PluginManager(plugin_dirs=[], auto_discover=False)
 
         with pytest.raises(ValueError):
@@ -236,11 +236,10 @@ class TestReload:
         manager = PluginManager(plugin_dirs=[], auto_discover=False)
         first_instance = manager.load_plugin(plugin_path)
 
-        with patch.object(
-            manager, "unload_plugin", wraps=manager.unload_plugin
-        ) as mock_unload, patch.object(
-            manager, "load_plugin", wraps=manager.load_plugin
-        ) as mock_load:
+        with (
+            patch.object(manager, "unload_plugin", wraps=manager.unload_plugin) as mock_unload,
+            patch.object(manager, "load_plugin", wraps=manager.load_plugin) as mock_load,
+        ):
             reloaded = manager.reload_plugin("simple_plugin")
 
         mock_unload.assert_called_once_with("simple_plugin")
@@ -324,7 +323,8 @@ class TestCLI:
         plugin_dir, _ = _write_plugin(tmp_path)
 
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["plugin_system.py", "--plugin-dir", plugin_dir, "--list-plugins"],
         )
 
@@ -340,7 +340,8 @@ class TestCLI:
         empty_dir = tmp_path / "empty_plugins"
         empty_dir.mkdir()
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["plugin_system.py", "--plugin-dir", str(empty_dir), "--list-plugins"],
         )
 
@@ -355,10 +356,12 @@ class TestCLI:
         plugin_dir, _ = _write_plugin(tmp_path)
 
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             [
                 "plugin_system.py",
-                "--plugin-dir", plugin_dir,
+                "--plugin-dir",
+                plugin_dir,
                 "--list-plugins",
                 "--disable-plugins",
             ],

@@ -46,9 +46,9 @@ class TestLookupVendor:
     @pytest.mark.parametrize(
         "mac",
         [
-            "00:1b:63:aa:bb:cc",   # all lowercase
-            "00:1B:63:AA:BB:CC",   # all uppercase
-            "00:1b:63:AA:bb:CC",   # mixed case
+            "00:1b:63:aa:bb:cc",  # all lowercase
+            "00:1B:63:AA:BB:CC",  # all uppercase
+            "00:1b:63:AA:bb:CC",  # mixed case
         ],
     )
     def test_lookup_case_insensitive(self, mac):

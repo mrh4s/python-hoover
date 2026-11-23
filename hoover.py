@@ -59,7 +59,9 @@ class OutputWriter:
         elif ext in (".db", ".sqlite"):
             self._init_sqlite()
         else:
-            self.logger.error("Unsupported output format: %s (use .csv, .json, .db, or .sqlite)", ext)
+            self.logger.error(
+                "Unsupported output format: %s (use .csv, .json, .db, or .sqlite)", ext
+            )
             sys.exit(1)
 
     def _init_csv(self) -> None:
@@ -93,8 +95,9 @@ class OutputWriter:
         """)
         self._db_conn.commit()
 
-    def write(self, timestamp: str, client_mac: str, vendor: str,
-              ssid: str, signal_dbm: Optional[int]) -> None:
+    def write(
+        self, timestamp: str, client_mac: str, vendor: str, ssid: str, signal_dbm: Optional[int]
+    ) -> None:
         """Write a probe record to the output file."""
         if self._csv_writer and self._csv_file:
             self._csv_writer.writerow([timestamp, client_mac, vendor, ssid, signal_dbm])
@@ -176,14 +179,20 @@ class ClientFingerprint:
 
 
 class ProbeMonitor:
-    def __init__(self, interface: str, verbose: bool = False,
-                 json_output: bool = False, use_color: bool = True,
-                 output_writer: Optional[OutputWriter] = None,
-                 channel_hop: bool = True, hop_interval: float = 0.25,
-                 fixed_channel: Optional[int] = None,
-                 bands: str = "2.4",
-                 fingerprint_mode: bool = False,
-                 fp_output: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        verbose: bool = False,
+        json_output: bool = False,
+        use_color: bool = True,
+        output_writer: Optional[OutputWriter] = None,
+        channel_hop: bool = True,
+        hop_interval: float = 0.25,
+        fixed_channel: Optional[int] = None,
+        bands: str = "2.4",
+        fingerprint_mode: bool = False,
+        fp_output: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.verbose: bool = verbose
         self.json_output: bool = json_output
@@ -305,9 +314,9 @@ class ProbeMonitor:
         data = bytes(elt_info[4:])
         idx = 0
         while idx + 4 <= len(data):
-            attr_type = int.from_bytes(data[idx:idx + 2], "big")
-            attr_len = int.from_bytes(data[idx + 2:idx + 4], "big")
-            value = data[idx + 4:idx + 4 + attr_len]
+            attr_type = int.from_bytes(data[idx : idx + 2], "big")
+            attr_len = int.from_bytes(data[idx + 2 : idx + 4], "big")
+            value = data[idx + 4 : idx + 4 + attr_len]
             if attr_type in attr_map:
                 try:
                     result[attr_map[attr_type]] = value.decode("utf-8", errors="ignore")
@@ -334,8 +343,14 @@ class ProbeMonitor:
             return "iOS/macOS"
 
         android_vendors = {
-            "Samsung", "Google", "Xiaomi", "OnePlus", "Huawei",
-            "LG", "Motorola", "Sony",
+            "Samsung",
+            "Google",
+            "Xiaomi",
+            "OnePlus",
+            "Huawei",
+            "LG",
+            "Motorola",
+            "Sony",
         }
         if vendor in android_vendors:
             return "Android"
@@ -354,8 +369,15 @@ class ProbeMonitor:
 
         iot_vendors = {"Espressif", "Raspberry Pi"}
         phone_vendors = {
-            "Apple", "Samsung", "Google", "Xiaomi", "OnePlus", "Huawei",
-            "LG", "Motorola", "Sony",
+            "Apple",
+            "Samsung",
+            "Google",
+            "Xiaomi",
+            "OnePlus",
+            "Huawei",
+            "LG",
+            "Motorola",
+            "Sony",
         }
         laptop_vendors = {"Intel", "Dell", "HP", "Broadcom", "Realtek", "Qualcomm"}
 
@@ -368,7 +390,11 @@ class ProbeMonitor:
         if vendor in laptop_vendors:
             return "Laptop"
 
-        if not fingerprint.ht_capable and not fingerprint.vht_capable and not fingerprint.he_capable:
+        if (
+            not fingerprint.ht_capable
+            and not fingerprint.vht_capable
+            and not fingerprint.he_capable
+        ):
             return "IoT"
 
         return "Unknown"
@@ -508,18 +534,37 @@ class ProbeMonitor:
             elif ext == ".csv":
                 with open(filepath, "w", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
-                    writer.writerow([
-                        "mac", "vendor", "os_guess", "device_type", "probe_count",
-                        "ht_capable", "vht_capable", "he_capable", "wps_enabled",
-                        "wps_device_name", "probed_ssids",
-                    ])
+                    writer.writerow(
+                        [
+                            "mac",
+                            "vendor",
+                            "os_guess",
+                            "device_type",
+                            "probe_count",
+                            "ht_capable",
+                            "vht_capable",
+                            "he_capable",
+                            "wps_enabled",
+                            "wps_device_name",
+                            "probed_ssids",
+                        ]
+                    )
                     for mac, fp in fingerprints.items():
-                        writer.writerow([
-                            mac, fp["vendor"], fp["os_guess"], fp["device_type"],
-                            fp["probe_count"], fp["ht_capable"], fp["vht_capable"],
-                            fp["he_capable"], fp["wps_enabled"], fp["wps_device_name"],
-                            ";".join(fp["probed_ssids"]),
-                        ])
+                        writer.writerow(
+                            [
+                                mac,
+                                fp["vendor"],
+                                fp["os_guess"],
+                                fp["device_type"],
+                                fp["probe_count"],
+                                fp["ht_capable"],
+                                fp["vht_capable"],
+                                fp["he_capable"],
+                                fp["wps_enabled"],
+                                fp["wps_device_name"],
+                                ";".join(fp["probed_ssids"]),
+                            ]
+                        )
             else:
                 self.logger.error("Unsupported fingerprint output format: %s", ext)
         except OSError as e:
@@ -599,7 +644,9 @@ class ProbeMonitor:
                 _color("cyan", f"Starting Hoover on interface {self.interface}", self.use_color)
             )
             self.logger.info(
-                _color("cyan", "Monitoring probe requests... (Press Ctrl+C to stop)", self.use_color)
+                _color(
+                    "cyan", "Monitoring probe requests... (Press Ctrl+C to stop)", self.use_color
+                )
             )
             print(f"\n{'Time':<10} {'Client MAC':<36} {'SSID'}")
             print("-" * 70)
@@ -611,7 +658,11 @@ class ProbeMonitor:
             hop_thread.start()
             if not self.json_output:
                 self.logger.info(
-                    _color("cyan", f"Channel hopping enabled (interval: {self.hop_interval}s)", self.use_color)
+                    _color(
+                        "cyan",
+                        f"Channel hopping enabled (interval: {self.hop_interval}s)",
+                        self.use_color,
+                    )
                 )
         elif self.fixed_channel is not None:
             self._set_channel(self.fixed_channel)
@@ -674,35 +725,60 @@ Examples:
   sudo python3 hoover.py -i wlan0mon --no-color
 
 Note: Interface must be in monitor mode
-        """
+        """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Enable verbose output")
-    parser.add_argument("--output", metavar="FILE",
-                        help="Output file (.csv, .json, .db, or .sqlite)")
-    parser.add_argument("--json", dest="json_output", action="store_true",
-                        help="Machine-readable JSON output on stdout")
-    parser.add_argument("--no-color", dest="no_color", action="store_true",
-                        help="Disable colored terminal output")
-    parser.add_argument("-hop", "--channel-hop", dest="channel_hop",
-                        action="store_true", default=True,
-                        help="Enable channel hopping (default: on)")
-    parser.add_argument("--no-hop", dest="channel_hop", action="store_false",
-                        help="Disable channel hopping")
-    parser.add_argument("--hop-interval", type=float, default=0.25,
-                        help="Channel hop dwell time in seconds (default: 0.25)")
-    parser.add_argument("--channel", type=int, default=None,
-                        help="Fixed WiFi channel (disables channel hopping)")
-    parser.add_argument("--bands", default="2.4,5",
-                        choices=["2.4", "5", "2.4,5", "all"],
-                        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)")
-    parser.add_argument("--fingerprint", action="store_true",
-                        help="Enable detailed client fingerprinting")
-    parser.add_argument("--fp-output", metavar="FILE", dest="fp_output",
-                        help="Output fingerprint data to file (.json or .csv)")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "--output", metavar="FILE", help="Output file (.csv, .json, .db, or .sqlite)"
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Machine-readable JSON output on stdout",
+    )
+    parser.add_argument(
+        "--no-color", dest="no_color", action="store_true", help="Disable colored terminal output"
+    )
+    parser.add_argument(
+        "-hop",
+        "--channel-hop",
+        dest="channel_hop",
+        action="store_true",
+        default=True,
+        help="Enable channel hopping (default: on)",
+    )
+    parser.add_argument(
+        "--no-hop", dest="channel_hop", action="store_false", help="Disable channel hopping"
+    )
+    parser.add_argument(
+        "--hop-interval",
+        type=float,
+        default=0.25,
+        help="Channel hop dwell time in seconds (default: 0.25)",
+    )
+    parser.add_argument(
+        "--channel", type=int, default=None, help="Fixed WiFi channel (disables channel hopping)"
+    )
+    parser.add_argument(
+        "--bands",
+        default="2.4,5",
+        choices=["2.4", "5", "2.4,5", "all"],
+        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)",
+    )
+    parser.add_argument(
+        "--fingerprint", action="store_true", help="Enable detailed client fingerprinting"
+    )
+    parser.add_argument(
+        "--fp-output",
+        metavar="FILE",
+        dest="fp_output",
+        help="Output fingerprint data to file (.json or .csv)",
+    )
 
     args = parser.parse_args()
 
@@ -716,11 +792,11 @@ Note: Interface must be in monitor mode
 
     # Validate interface
     if not check_monitor_mode(args.interface):
+        logger.warning(_color("yellow", f"{args.interface} may not be in monitor mode", use_color))
         logger.warning(
-            _color("yellow", f"{args.interface} may not be in monitor mode", use_color)
-        )
-        logger.warning(
-            _color("yellow", "Enable monitor mode with: sudo airmon-ng start <interface>", use_color)
+            _color(
+                "yellow", "Enable monitor mode with: sudo airmon-ng start <interface>", use_color
+            )
         )
 
     # Setup output writer

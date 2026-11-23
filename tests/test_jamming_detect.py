@@ -98,6 +98,7 @@ def test_beacon_loss_none_when_healthy(det):
 
 def test_beacon_loss_high(det):
     from collections import deque
+
     now = time.time()
     b = "AA:BB:CC:DD:EE:FF"
     det._beacon_first_seen[b] = now - 20
@@ -129,6 +130,7 @@ def test_noise_normal(det):
 
 def _seed_signals(det, bssid, old, new):
     from collections import deque
+
     now = time.time()
     dq = deque((now - 40 + i, old) for i in range(5))
     dq.extend((now - 5 + i * 0.5, new) for i in range(5))
@@ -173,8 +175,9 @@ def test_generate_alert_format_and_cooldown(det):
 
 
 def test_channel_hop(mock_interface, tmp_path):
-    d = JammingDetector(mock_interface, channels=[1, 6, 11], scan_interval=0.01,
-                        output_dir=str(tmp_path))
+    d = JammingDetector(
+        mock_interface, channels=[1, 6, 11], scan_interval=0.01, output_dir=str(tmp_path)
+    )
     calls = []
     d._set_channel = lambda ch: (calls.append(ch), len(calls) >= 4 and d.stop())
     d._channel_hop_thread()
@@ -184,6 +187,7 @@ def test_channel_hop(mock_interface, tmp_path):
 
 def test_channel_dead_alert(mock_interface, tmp_path):
     from collections import deque
+
     d = JammingDetector(mock_interface, channels=[1, 6], output_dir=str(tmp_path))
     now = time.time()
     d._channel_ever_active.add(6)
@@ -218,9 +222,25 @@ def test_get_status_and_stop(det):
 
 def test_cli_parsing():
     args = jamming_detect.build_parser().parse_args(
-        ["-i", "wlan0mon", "-c", "1,6,11", "--beacon-threshold", "0.7",
-         "--noise-threshold", "-60", "--deauth-threshold", "20",
-         "--scan-interval", "2", "-t", "30", "-o", "out"])
+        [
+            "-i",
+            "wlan0mon",
+            "-c",
+            "1,6,11",
+            "--beacon-threshold",
+            "0.7",
+            "--noise-threshold",
+            "-60",
+            "--deauth-threshold",
+            "20",
+            "--scan-interval",
+            "2",
+            "-t",
+            "30",
+            "-o",
+            "out",
+        ]
+    )
     assert args.interface == "wlan0mon" and args.channels == "1,6,11"
     assert args.beacon_threshold == 0.7 and args.noise_threshold == -60
     assert args.deauth_threshold == 20 and args.scan_interval == 2.0
@@ -228,8 +248,7 @@ def test_cli_parsing():
 
 
 def test_main_invokes_detector():
-    with patch("jamming_detect.require_root"), \
-         patch("jamming_detect.JammingDetector") as cls:
+    with patch("jamming_detect.require_root"), patch("jamming_detect.JammingDetector") as cls:
         jamming_detect.main(["-i", "wlan0mon", "-c", "1,6"])
         assert cls.call_args.kwargs["channels"] == [1, 6]
         cls.return_value.start.assert_called_once()

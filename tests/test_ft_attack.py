@@ -44,9 +44,13 @@ def _build_mdie(mdid: int = 0x1234, ft_cap_policy: int = 0x01) -> bytes:
     return mdid.to_bytes(2, "little") + bytes([ft_cap_policy])
 
 
-def _build_ftie(mic: bytes = b"\x00" * 16, anonce: bytes = b"\xAA" * 32,
-                snonce: bytes = b"\xBB" * 32,
-                r0kh_id: bytes = b"", r1kh_id: bytes = b"") -> bytes:
+def _build_ftie(
+    mic: bytes = b"\x00" * 16,
+    anonce: bytes = b"\xaa" * 32,
+    snonce: bytes = b"\xbb" * 32,
+    r0kh_id: bytes = b"",
+    r1kh_id: bytes = b"",
+) -> bytes:
     """Build a raw FTIE body: MIC Control(2) + MIC(16) + ANonce(32) + SNonce(32)
     + optional sub-elements."""
     body = bytearray()
@@ -76,9 +80,7 @@ class _FakeElt:
         return self._next
 
 
-def _make_beacon_packet(bssid: str = BSSID,
-                        mdie_data: bytes = None,
-                        ftie_data: bytes = None):
+def _make_beacon_packet(bssid: str = BSSID, mdie_data: bytes = None, ftie_data: bytes = None):
     """Create a mock Beacon packet with optional MDIE and FTIE."""
     pkt = MagicMock()
 
@@ -110,6 +112,7 @@ def _make_beacon_packet(bssid: str = BSSID,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     pkt.getlayer = lambda cls: first_elt if cls is Dot11Elt else None
@@ -117,8 +120,7 @@ def _make_beacon_packet(bssid: str = BSSID,
     return pkt
 
 
-def _make_reassoc_resp_packet(bssid: str = BSSID, client: str = CLIENT,
-                               ftie_data: bytes = None):
+def _make_reassoc_resp_packet(bssid: str = BSSID, client: str = CLIENT, ftie_data: bytes = None):
     """Create a mock FT Reassociation Response packet."""
     pkt = MagicMock()
 
@@ -141,6 +143,7 @@ def _make_reassoc_resp_packet(bssid: str = BSSID, client: str = CLIENT,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     pkt.getlayer = lambda cls: first_elt if cls is Dot11Elt else None
@@ -148,8 +151,7 @@ def _make_reassoc_resp_packet(bssid: str = BSSID, client: str = CLIENT,
     return pkt
 
 
-def _make_reassoc_req_packet(bssid: str = BSSID, client: str = CLIENT,
-                              ftie_data: bytes = None):
+def _make_reassoc_req_packet(bssid: str = BSSID, client: str = CLIENT, ftie_data: bytes = None):
     """Create a mock FT Reassociation Request packet."""
     pkt = MagicMock()
 
@@ -172,6 +174,7 @@ def _make_reassoc_req_packet(bssid: str = BSSID, client: str = CLIENT,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     pkt.getlayer = lambda cls: first_elt if cls is Dot11Elt else None
@@ -192,9 +195,12 @@ class _FakePayload:
         return bool(self._data)
 
 
-def _make_action_packet(bssid: str = BSSID, client: str = CLIENT,
-                         category: int = FT_ACTION_CATEGORY,
-                         action_code: int = FT_ACTION_REQUEST):
+def _make_action_packet(
+    bssid: str = BSSID,
+    client: str = CLIENT,
+    category: int = FT_ACTION_CATEGORY,
+    action_code: int = FT_ACTION_REQUEST,
+):
     """Create a mock FT Action frame."""
     pkt = MagicMock()
 
@@ -216,6 +222,7 @@ def _make_action_packet(bssid: str = BSSID, client: str = CLIENT,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     pkt.getlayer = lambda cls: None
@@ -284,8 +291,9 @@ class TestInit:
         assert a.target_bssid == "AA:BB:CC:DD:EE:FF"
 
     def test_client_uppercased(self, mock_interface):
-        a = FTAttack(interface=mock_interface, target_bssid=BSSID,
-                     target_client="11:22:33:44:55:66")
+        a = FTAttack(
+            interface=mock_interface, target_bssid=BSSID, target_client="11:22:33:44:55:66"
+        )
         assert a.target_client == "11:22:33:44:55:66".upper()
 
 
@@ -319,8 +327,8 @@ class TestParseMDIE:
 class TestParseFTIE:
     def test_parse_ftie_valid(self, attacker):
         mic = b"\x11" * 16
-        anonce = b"\xAA" * 32
-        snonce = b"\xBB" * 32
+        anonce = b"\xaa" * 32
+        snonce = b"\xbb" * 32
         data = _build_ftie(mic=mic, anonce=anonce, snonce=snonce)
         result = attacker._parse_ftie(data)
         assert result["mic"] == mic
@@ -329,7 +337,7 @@ class TestParseFTIE:
 
     def test_parse_ftie_with_subelements(self, attacker):
         r0kh = b"r0kh.example.com"
-        r1kh = b"\xCC" * 6
+        r1kh = b"\xcc" * 6
         data = _build_ftie(r0kh_id=r0kh, r1kh_id=r1kh)
         result = attacker._parse_ftie(data)
         assert result["r0kh_id"] == r0kh
@@ -369,7 +377,7 @@ class TestDetectFTSupport:
 
     def test_detect_ft_support_with_ftie(self, attacker):
         mdie = _build_mdie()
-        ftie = _build_ftie(anonce=b"\xDD" * 32)
+        ftie = _build_ftie(anonce=b"\xdd" * 32)
         pkt = _make_beacon_packet(bssid=BSSID, mdie_data=mdie, ftie_data=ftie)
         attacker._detect_ft_support(pkt)
         assert "ftie" in attacker.ft_capable_aps[BSSID]
@@ -380,7 +388,7 @@ class TestDetectFTSupport:
 # ---------------------------------------------------------------------------
 class TestTrackFTReassociation:
     def test_track_reassoc_response_anonce(self, attacker):
-        anonce = b"\xAA" * 32
+        anonce = b"\xaa" * 32
         ftie = _build_ftie(anonce=anonce)
         pkt = _make_reassoc_resp_packet(ftie_data=ftie)
         attacker._track_ft_reassociation(pkt)
@@ -390,7 +398,7 @@ class TestTrackFTReassociation:
         assert attacker._reassoc_anonces[key][0] == anonce
 
     def test_track_reassoc_request_does_not_add_anonce(self, attacker):
-        ftie = _build_ftie(anonce=b"\xBB" * 32)
+        ftie = _build_ftie(anonce=b"\xbb" * 32)
         pkt = _make_reassoc_req_packet(ftie_data=ftie)
         attacker._track_ft_reassociation(pkt)
         # Requests do not contribute ANonces for replay detection
@@ -408,7 +416,7 @@ class TestTrackFTReassociation:
 # ---------------------------------------------------------------------------
 class TestDetectKeyReinstallation:
     def test_detect_reinstallation_with_replayed_anonce(self, attacker):
-        anonce = b"\xAA" * 32
+        anonce = b"\xaa" * 32
         ftie = _build_ftie(anonce=anonce)
         # Two reassoc responses with same ANonce
         pkt1 = _make_reassoc_resp_packet(ftie_data=ftie)
@@ -422,8 +430,8 @@ class TestDetectKeyReinstallation:
         assert attacker.findings[0]["cve"] == "CVE-2017-13082"
 
     def test_no_false_positive_on_different_anonces(self, attacker):
-        ftie1 = _build_ftie(anonce=b"\xAA" * 32)
-        ftie2 = _build_ftie(anonce=b"\xBB" * 32)
+        ftie1 = _build_ftie(anonce=b"\xaa" * 32)
+        ftie2 = _build_ftie(anonce=b"\xbb" * 32)
         pkt1 = _make_reassoc_resp_packet(ftie_data=ftie1)
         pkt2 = _make_reassoc_resp_packet(ftie_data=ftie2)
         attacker._track_ft_reassociation(pkt1)
@@ -434,7 +442,7 @@ class TestDetectKeyReinstallation:
         assert attacker.findings == []
 
     def test_no_reinstallation_with_single_response(self, attacker):
-        ftie = _build_ftie(anonce=b"\xAA" * 32)
+        ftie = _build_ftie(anonce=b"\xaa" * 32)
         pkt = _make_reassoc_resp_packet(ftie_data=ftie)
         attacker._track_ft_reassociation(pkt)
 
@@ -568,25 +576,42 @@ class TestConstants:
 class TestCLI:
     def test_cli_detect_only_flag(self, tmp_path):
         test_args = [
-            "ft_attack.py", "-i", "wlan0mon", "-b", BSSID,
-            "--detect-only", "-t", "1",
+            "ft_attack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            BSSID,
+            "--detect-only",
+            "-t",
+            "1",
         ]
         fake_results = {
-            "vulnerable": False, "findings": [],
-            "ft_capable_aps": {}, "frames_captured": 0, "mode": "reassoc",
+            "vulnerable": False,
+            "findings": [],
+            "ft_capable_aps": {},
+            "frames_captured": 0,
+            "mode": "reassoc",
         }
-        with patch.object(sys, "argv", test_args), \
-             patch("ft_attack.require_root"), \
-             patch("ft_attack.FTAttack.start", return_value=fake_results) as mock_start, \
-             patch("ft_attack.FTAttack.save_results", return_value=None), \
-             patch("ft_attack.sys.exit"):
+        with (
+            patch.object(sys, "argv", test_args),
+            patch("ft_attack.require_root"),
+            patch("ft_attack.FTAttack.start", return_value=fake_results) as mock_start,
+            patch("ft_attack.FTAttack.save_results", return_value=None),
+            patch("ft_attack.sys.exit"),
+        ):
             main()
 
         mock_start.assert_called_once()
 
     def test_cli_mode_choices(self):
         test_args = [
-            "ft_attack.py", "-i", "wlan0mon", "-b", BSSID, "-m", "invalid_mode",
+            "ft_attack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            BSSID,
+            "-m",
+            "invalid_mode",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit):
@@ -600,32 +625,56 @@ class TestCLI:
 
     def test_cli_over_ds_mode(self, tmp_path):
         test_args = [
-            "ft_attack.py", "-i", "wlan0mon", "-b", BSSID,
-            "-m", "over-ds", "-t", "1",
+            "ft_attack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            BSSID,
+            "-m",
+            "over-ds",
+            "-t",
+            "1",
         ]
         fake_results = {
-            "vulnerable": False, "findings": [],
-            "ft_capable_aps": {}, "frames_captured": 0, "mode": "over-ds",
+            "vulnerable": False,
+            "findings": [],
+            "ft_capable_aps": {},
+            "frames_captured": 0,
+            "mode": "over-ds",
         }
-        with patch.object(sys, "argv", test_args), \
-             patch("ft_attack.require_root"), \
-             patch("ft_attack.FTAttack.start", return_value=fake_results), \
-             patch("ft_attack.FTAttack.save_results", return_value=None), \
-             patch("ft_attack.sys.exit"):
+        with (
+            patch.object(sys, "argv", test_args),
+            patch("ft_attack.require_root"),
+            patch("ft_attack.FTAttack.start", return_value=fake_results),
+            patch("ft_attack.FTAttack.save_results", return_value=None),
+            patch("ft_attack.sys.exit"),
+        ):
             main()
 
     def test_cli_all_mode(self, tmp_path):
         test_args = [
-            "ft_attack.py", "-i", "wlan0mon", "-b", BSSID,
-            "-m", "all", "-t", "1",
+            "ft_attack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            BSSID,
+            "-m",
+            "all",
+            "-t",
+            "1",
         ]
         fake_results = {
-            "vulnerable": False, "findings": [],
-            "ft_capable_aps": {}, "frames_captured": 0, "mode": "all",
+            "vulnerable": False,
+            "findings": [],
+            "ft_capable_aps": {},
+            "frames_captured": 0,
+            "mode": "all",
         }
-        with patch.object(sys, "argv", test_args), \
-             patch("ft_attack.require_root"), \
-             patch("ft_attack.FTAttack.start", return_value=fake_results), \
-             patch("ft_attack.FTAttack.save_results", return_value=None), \
-             patch("ft_attack.sys.exit"):
+        with (
+            patch.object(sys, "argv", test_args),
+            patch("ft_attack.require_root"),
+            patch("ft_attack.FTAttack.start", return_value=fake_results),
+            patch("ft_attack.FTAttack.save_results", return_value=None),
+            patch("ft_attack.sys.exit"),
+        ):
             main()

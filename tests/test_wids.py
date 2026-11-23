@@ -101,9 +101,13 @@ class TestWIDSMonitorInit:
 class TestKnownAPs:
     def test_load_known_aps(self, monitor, tmp_path):
         aps_file = tmp_path / "known_aps.json"
-        aps_file.write_text(json.dumps({
-            "AA:BB:CC:DD:EE:FF": {"ssid": "HomeNet", "channel": 6},
-        }))
+        aps_file.write_text(
+            json.dumps(
+                {
+                    "AA:BB:CC:DD:EE:FF": {"ssid": "HomeNet", "channel": 6},
+                }
+            )
+        )
         monitor.load_known_aps(str(aps_file))
         assert "AA:BB:CC:DD:EE:FF" in monitor.known_aps
 
@@ -260,9 +264,12 @@ class TestSaveAlerts:
 class TestAlertDataclass:
     def test_fields(self):
         a = Alert(
-            timestamp="2024-01-01", severity="HIGH",
-            alert_type="TEST", description="desc",
-            source_mac="AA:BB:CC:DD:EE:FF", details={"k": "v"},
+            timestamp="2024-01-01",
+            severity="HIGH",
+            alert_type="TEST",
+            description="desc",
+            source_mac="AA:BB:CC:DD:EE:FF",
+            details={"k": "v"},
         )
         assert a.timestamp == "2024-01-01"
         assert a.severity == "HIGH"

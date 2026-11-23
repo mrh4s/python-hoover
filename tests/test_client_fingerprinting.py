@@ -31,6 +31,7 @@ _Dot11ProbeReq = _hoover_module.Dot11ProbeReq
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_elt(eid, info):
     """Build a fake Dot11Elt-like mock with the given IE id and info bytes."""
     elt = MagicMock()
@@ -100,6 +101,7 @@ def _make_wps_ie(device_name=None, manufacturer=None, model_name=None, model_num
 # Rate parsing
 # ---------------------------------------------------------------------------
 
+
 class TestRateParsing:
     """Tests for _parse_supported_rates and _parse_extended_rates."""
 
@@ -122,6 +124,7 @@ class TestRateParsing:
 # ---------------------------------------------------------------------------
 # HT / VHT capabilities
 # ---------------------------------------------------------------------------
+
 
 class TestHTVHTCapabilities:
     """Tests for _parse_ht_capabilities and _parse_vht_capabilities."""
@@ -151,6 +154,7 @@ class TestHTVHTCapabilities:
 # WPS IE parsing
 # ---------------------------------------------------------------------------
 
+
 class TestWPSParsing:
     """Tests for _parse_wps_ie."""
 
@@ -166,6 +170,7 @@ class TestWPSParsing:
 # Power capability parsing
 # ---------------------------------------------------------------------------
 
+
 class TestPowerCapability:
     """Tests for _parse_power_capability."""
 
@@ -178,6 +183,7 @@ class TestPowerCapability:
 # ---------------------------------------------------------------------------
 # OS / device type guessing
 # ---------------------------------------------------------------------------
+
 
 class TestOSGuessing:
     """Tests for _guess_os."""
@@ -214,6 +220,7 @@ class TestDeviceTypeGuessing:
 # ---------------------------------------------------------------------------
 # fingerprint_client (full extraction)
 # ---------------------------------------------------------------------------
+
 
 class TestFingerprintClient:
     """Tests for fingerprint_client."""
@@ -270,6 +277,7 @@ class TestFingerprintClient:
 # get_fingerprints
 # ---------------------------------------------------------------------------
 
+
 class TestGetFingerprints:
     """Tests for get_fingerprints."""
 
@@ -288,12 +296,14 @@ class TestGetFingerprints:
         assert isinstance(entry["probed_ssids"], list)
         assert "SomeSSID" in entry["probed_ssids"]
         import json
+
         json.dumps(result)  # must be JSON-serializable
 
 
 # ---------------------------------------------------------------------------
 # CLI flag
 # ---------------------------------------------------------------------------
+
 
 class TestCLIFingerprintFlag:
     """Tests for the --fingerprint CLI flag."""
@@ -302,8 +312,9 @@ class TestCLIFingerprintFlag:
     @patch("hoover.OutputWriter")
     @patch("hoover.check_monitor_mode", return_value=True)
     @patch("hoover.require_root")
-    def test_cli_fingerprint_flag(self, mock_require_root, mock_check_mm,
-                                   mock_output_writer, mock_probe_monitor):
+    def test_cli_fingerprint_flag(
+        self, mock_require_root, mock_check_mm, mock_output_writer, mock_probe_monitor
+    ):
         test_args = ["hoover.py", "-i", "wlan0mon", "--fingerprint"]
         with patch.object(sys, "argv", test_args):
             _hoover_module.main()

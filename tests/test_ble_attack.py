@@ -21,6 +21,7 @@ from ble_attack import (  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def attack(tmp_path):
     return BLEAttack(
@@ -40,8 +41,7 @@ def _make_mock_device(address="AA:BB:CC:DD:EE:FF", name="TestDevice", rssi=-60):
     return device
 
 
-def _make_mock_adv(rssi=-60, local_name="TestDevice", service_uuids=None,
-                    manufacturer_data=None):
+def _make_mock_adv(rssi=-60, local_name="TestDevice", service_uuids=None, manufacturer_data=None):
     adv = MagicMock()
     adv.rssi = rssi
     adv.local_name = local_name
@@ -70,6 +70,7 @@ def _make_mock_service(uuid, description="", characteristics=None):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     def test_init_defaults(self):
@@ -208,7 +209,9 @@ class TestNotifications:
         attack._client = mock_client
 
         with patch("ble_attack.asyncio.sleep", new=AsyncMock(return_value=None)):
-            result = attack.capture_notifications("0000ffe2-0000-1000-8000-00805f9b34fb", duration=1.0)
+            result = attack.capture_notifications(
+                "0000ffe2-0000-1000-8000-00805f9b34fb", duration=1.0
+            )
 
         assert result == [b"\x01\x02", b"\x03\x04"]
         assert attack.notifications == [b"\x01\x02", b"\x03\x04"]
@@ -327,19 +330,34 @@ class TestCLI:
 
     def test_cli_uuid_required_for_replay(self, tmp_path):
         """Verify UUID required when mode=replay."""
-        with patch("sys.argv", [
-            "ble_attack.py", "-m", "replay", "--target", "AA:BB:CC:DD:EE:FF",
-            "-o", str(tmp_path),
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "ble_attack.py",
+                "-m",
+                "replay",
+                "--target",
+                "AA:BB:CC:DD:EE:FF",
+                "-o",
+                str(tmp_path),
+            ],
+        ):
             with pytest.raises(SystemExit):
                 main()
 
     def test_cli_target_required_for_replay(self, tmp_path):
         """Verify --target is required for replay mode too."""
-        with patch("sys.argv", [
-            "ble_attack.py", "-m", "replay",
-            "--uuid", "0000ffe1-0000-1000-8000-00805f9b34fb",
-            "-o", str(tmp_path),
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "ble_attack.py",
+                "-m",
+                "replay",
+                "--uuid",
+                "0000ffe1-0000-1000-8000-00805f9b34fb",
+                "-o",
+                str(tmp_path),
+            ],
+        ):
             with pytest.raises(SystemExit):
                 main()

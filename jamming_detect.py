@@ -47,14 +47,17 @@ ALERT_TYPES = ("beacon_loss", "noise_floor", "deauth_storm", "signal_drop", "cha
 
 
 class JammingDetector:
-    def __init__(self, interface: str,
-                 channels: Optional[list[int]] = None,
-                 beacon_threshold: float = 0.5,
-                 noise_threshold: int = -50,
-                 deauth_threshold: int = 50,
-                 scan_interval: float = 1.0,
-                 timeout: int = 0,
-                 output_dir: str = "captures") -> None:
+    def __init__(
+        self,
+        interface: str,
+        channels: Optional[list[int]] = None,
+        beacon_threshold: float = 0.5,
+        noise_threshold: int = -50,
+        deauth_threshold: int = 50,
+        scan_interval: float = 1.0,
+        timeout: int = 0,
+        output_dir: str = "captures",
+    ) -> None:
         self.interface: str = interface
         self.channels: list[int] = list(channels) if channels else get_channels("2.4")
         self.hopping: bool = len(self.channels) > 1
@@ -70,14 +73,14 @@ class JammingDetector:
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
 
-        self._beacons: dict[str, deque] = {}          # bssid -> deque[ts]
+        self._beacons: dict[str, deque] = {}  # bssid -> deque[ts]
         self._beacon_channel: dict[str, Optional[int]] = {}
         self._beacon_first_seen: dict[str, float] = {}
-        self._signals: dict[str, deque] = {}          # bssid -> deque[(ts, dbm)]
-        self._noise: deque = deque()                  # (ts, dbm)
-        self._deauths: deque = deque()                # ts
-        self._dwell: dict[int, deque] = {}            # channel -> deque[(start, end)]
-        self._channel_frames: dict[int, deque] = {}   # channel -> deque[ts]
+        self._signals: dict[str, deque] = {}  # bssid -> deque[(ts, dbm)]
+        self._noise: deque = deque()  # (ts, dbm)
+        self._deauths: deque = deque()  # ts
+        self._dwell: dict[int, deque] = {}  # channel -> deque[(start, end)]
+        self._channel_frames: dict[int, deque] = {}  # channel -> deque[ts]
         self._channel_ever_active: set[int] = set()
         self._channel_dead: set[int] = set()
         self._dwell_start: Optional[float] = None
@@ -272,7 +275,9 @@ class JammingDetector:
                 "details": {k: v for k, v in details.items() if k not in ("severity", "channel")},
             }
             self.alerts.append(alert)
-        self.logger.warning("ALERT [%s/%s] ch=%s %s", alert_type, severity, channel, alert["details"])
+        self.logger.warning(
+            "ALERT [%s/%s] ch=%s %s", alert_type, severity, channel, alert["details"]
+        )
 
     def _run_checks(self) -> None:
         """Evaluate all detectors once."""
@@ -281,29 +286,45 @@ class JammingDetector:
         for bssid in bssids:
             loss = self._calculate_beacon_loss(bssid)
             if loss >= self.beacon_threshold:
-                self._generate_alert("beacon_loss", {
-                    "severity": "high" if loss >= 0.8 else "medium",
-                    "channel": self._beacon_channel.get(bssid),
-                    "bssid": bssid, "loss_ratio": round(loss, 3),
-                    "threshold": self.beacon_threshold,
-                })
+                self._generate_alert(
+                    "beacon_loss",
+                    {
+                        "severity": "high" if loss >= 0.8 else "medium",
+                        "channel": self._beacon_channel.get(bssid),
+                        "bssid": bssid,
+                        "loss_ratio": round(loss, 3),
+                        "threshold": self.beacon_threshold,
+                    },
+                )
         if self._detect_noise_anomaly():
-            self._generate_alert("noise_floor", {
-                "severity": "high", "noise_threshold": self.noise_threshold,
-            })
+            self._generate_alert(
+                "noise_floor",
+                {
+                    "severity": "high",
+                    "noise_threshold": self.noise_threshold,
+                },
+            )
         if self._detect_deauth_storm():
             with self._lock:
                 count = len(self._deauths)
-            self._generate_alert("deauth_storm", {
-                "severity": "high", "frames_per_min": count,
-                "threshold": self.deauth_threshold,
-            })
+            self._generate_alert(
+                "deauth_storm",
+                {
+                    "severity": "high",
+                    "frames_per_min": count,
+                    "threshold": self.deauth_threshold,
+                },
+            )
         dropped = self._dropped_aps()
         if len(dropped) >= MIN_APS_FOR_DROP:
-            self._generate_alert("signal_drop", {
-                "severity": "high", "affected_aps": dropped,
-                "drop_db_threshold": SIGNAL_DROP_DB,
-            })
+            self._generate_alert(
+                "signal_drop",
+                {
+                    "severity": "high",
+                    "affected_aps": dropped,
+                    "drop_db_threshold": SIGNAL_DROP_DB,
+                },
+            )
         self._check_dead_channels()
 
     def _check_dead_channels(self) -> None:
@@ -325,8 +346,11 @@ class JammingDetector:
     # ------------------------------------------------------------ channel hop
     def _set_channel(self, channel: int) -> None:
         try:
-            subprocess.run(["iwconfig", self.interface, "channel", str(channel)],
-                           capture_output=True, timeout=5)
+            subprocess.run(
+                ["iwconfig", self.interface, "channel", str(channel)],
+                capture_output=True,
+                timeout=5,
+            )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
 
@@ -341,7 +365,8 @@ class JammingDetector:
             with self._lock:
                 if self._current_channel is not None and self._dwell_start is not None:
                     self._dwell.setdefault(self._current_channel, deque()).append(
-                        (self._dwell_start, now))
+                        (self._dwell_start, now)
+                    )
                 self._current_channel = ch
                 self._dwell_start = now
             self._set_channel(ch)
@@ -368,9 +393,13 @@ class JammingDetector:
                 if self.timeout and self._now() - self._start_time >= self.timeout:
                     break
                 try:
-                    sniff(iface=self.interface, prn=self.packet_handler, store=False,
-                          timeout=min(self.scan_interval, 1.0),
-                          stop_filter=lambda _p: self._stop_event.is_set())
+                    sniff(
+                        iface=self.interface,
+                        prn=self.packet_handler,
+                        store=False,
+                        timeout=min(self.scan_interval, 1.0),
+                        stop_filter=lambda _p: self._stop_event.is_set(),
+                    )
                 except Exception as e:  # noqa: BLE001
                     self.logger.error("Sniff error: %s", e)
                     break
@@ -415,7 +444,8 @@ class JammingDetector:
         try:
             os.makedirs(self.output_dir, exist_ok=True)
             path = os.path.join(
-                self.output_dir, f"jamming_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                self.output_dir, f"jamming_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            )
             data = {
                 "status": self.get_status(),
                 "settings": {
@@ -442,18 +472,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-i", "--interface", required=True, help="Monitor-mode interface")
     parser.add_argument("-c", "--channels", help="Comma-separated channels, e.g. 1,6,11")
-    parser.add_argument("--beacon-threshold", type=float, default=0.5,
-                        help="Beacon loss ratio to alert (default: 0.5)")
-    parser.add_argument("--noise-threshold", type=int, default=-50,
-                        help="Noise floor dBm threshold (default: -50)")
-    parser.add_argument("--deauth-threshold", type=int, default=50,
-                        help="Deauth frames/min for storm (default: 50)")
-    parser.add_argument("--scan-interval", type=float, default=1.0,
-                        help="Check/hop interval in seconds (default: 1.0)")
-    parser.add_argument("-t", "--timeout", type=int, default=0,
-                        help="Run time in seconds, 0 = unlimited (default: 0)")
-    parser.add_argument("-o", "--output", default="captures",
-                        help="Output directory (default: captures)")
+    parser.add_argument(
+        "--beacon-threshold",
+        type=float,
+        default=0.5,
+        help="Beacon loss ratio to alert (default: 0.5)",
+    )
+    parser.add_argument(
+        "--noise-threshold", type=int, default=-50, help="Noise floor dBm threshold (default: -50)"
+    )
+    parser.add_argument(
+        "--deauth-threshold", type=int, default=50, help="Deauth frames/min for storm (default: 50)"
+    )
+    parser.add_argument(
+        "--scan-interval",
+        type=float,
+        default=1.0,
+        help="Check/hop interval in seconds (default: 1.0)",
+    )
+    parser.add_argument(
+        "-t",
+        "--timeout",
+        type=int,
+        default=0,
+        help="Run time in seconds, 0 = unlimited (default: 0)",
+    )
+    parser.add_argument(
+        "-o", "--output", default="captures", help="Output directory (default: captures)"
+    )
     return parser
 
 

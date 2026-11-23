@@ -54,12 +54,15 @@ class PortalBypass:
     well as active attempts at each individual technique.
     """
 
-    def __init__(self, interface: str,
-                 bypass_mode: str = "probe",
-                 dns_tunnel_domain: Optional[str] = None,
-                 target_ip: Optional[str] = None,
-                 timeout: int = 120,
-                 output_dir: str = "captures") -> None:
+    def __init__(
+        self,
+        interface: str,
+        bypass_mode: str = "probe",
+        dns_tunnel_domain: Optional[str] = None,
+        target_ip: Optional[str] = None,
+        timeout: int = 120,
+        output_dir: str = "captures",
+    ) -> None:
         self.interface: str = interface
         self.bypass_mode: str = bypass_mode
         self.dns_tunnel_domain: str = dns_tunnel_domain or DEFAULT_DNS_DOMAIN
@@ -225,8 +228,10 @@ class PortalBypass:
             result["response"] = resolved
             self.logger.info("DNS tunnel query for %s resolved to %s", query_name, resolved)
         except (socket.gaierror, socket.timeout, OSError) as e:
-            self.logger.info("DNS tunnel query failed (expected without a "
-                              "controlled authoritative server): %s", e)
+            self.logger.info(
+                "DNS tunnel query failed (expected without a controlled authoritative server): %s",
+                e,
+            )
             result["response"] = str(e)
 
         return result
@@ -296,29 +301,33 @@ class PortalBypass:
             True if all three `ip link` commands succeeded, False otherwise.
         """
         if not validate_interface(interface) or not validate_mac(new_mac):
-            self.logger.error("Invalid interface or MAC for change: %s / %s",
-                               interface, new_mac)
+            self.logger.error("Invalid interface or MAC for change: %s / %s", interface, new_mac)
             return False
 
         try:
             down = subprocess.run(
                 ["ip", "link", "set", interface, "down"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             set_mac = subprocess.run(
                 ["ip", "link", "set", interface, "address", new_mac],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             up = subprocess.run(
                 ["ip", "link", "set", interface, "up"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             success = down.returncode == 0 and set_mac.returncode == 0 and up.returncode == 0
             if success:
                 self.logger.info("Changed MAC of %s to %s", interface, new_mac)
             else:
-                self.logger.warning("Failed to fully change MAC of %s to %s",
-                                     interface, new_mac)
+                self.logger.warning("Failed to fully change MAC of %s to %s", interface, new_mac)
             return success
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
             self.logger.error("Error changing MAC: %s", e)
@@ -376,18 +385,19 @@ class PortalBypass:
         probe_results: dict = {
             "dns_tunnel": {
                 "viable": not dns_ok,
-                "detail": "DNS resolves normally" if dns_ok else
-                          "DNS appears hijacked/blocked, raw DNS may tunnel through",
+                "detail": "DNS resolves normally"
+                if dns_ok
+                else "DNS appears hijacked/blocked, raw DNS may tunnel through",
             },
             "direct_ip": {
                 "viable": direct_ip_ok,
-                "detail": "Direct IP connection succeeded" if direct_ip_ok else
-                          "Direct IP connection blocked or filtered by portal",
+                "detail": "Direct IP connection succeeded"
+                if direct_ip_ok
+                else "Direct IP connection blocked or filtered by portal",
             },
             "icmp_tunnel": {
                 "viable": icmp_ok,
-                "detail": "ICMP echo reachable" if icmp_ok else
-                          "ICMP appears blocked by portal",
+                "detail": "ICMP echo reachable" if icmp_ok else "ICMP appears blocked by portal",
             },
             "mac_clone": {
                 "viable": len(clients) > 0,
@@ -396,9 +406,7 @@ class PortalBypass:
             },
         }
 
-        self.logger.info("Probe complete: %s", {
-            k: v["viable"] for k, v in probe_results.items()
-        })
+        self.logger.info("Probe complete: %s", {k: v["viable"] for k, v in probe_results.items()})
         return probe_results
 
     # -----------------------------------------------------------------
@@ -411,8 +419,9 @@ class PortalBypass:
         Returns:
             Dict with the bypass mode and mode-specific findings.
         """
-        self.logger.info("Starting Portal Bypass testing (mode=%s) on %s",
-                          self.bypass_mode, self.interface)
+        self.logger.info(
+            "Starting Portal Bypass testing (mode=%s) on %s", self.bypass_mode, self.interface
+        )
         self._running = True
         self._start_time = time.time()
 
@@ -427,8 +436,7 @@ class PortalBypass:
             elif self.bypass_mode == "mac-clone":
                 data = self._mac_clone_test()
             elif self.bypass_mode == "direct-ip":
-                data = {"direct_ip_success": self._test_direct_ip(),
-                        "target_ip": self.target_ip}
+                data = {"direct_ip_success": self._test_direct_ip(), "target_ip": self.target_ip}
             elif self.bypass_mode == "all":
                 data = {
                     "probe": self._probe_bypasses(),
@@ -529,21 +537,32 @@ For authorized security testing only.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Network interface to use")
-    parser.add_argument("-m", "--mode", default="probe",
-                        choices=list(BYPASS_MODES),
-                        help="Bypass mode (default: probe)")
-    parser.add_argument("--dns-domain", default=DEFAULT_DNS_DOMAIN,
-                        help="Controlled domain for DNS tunneling tests")
-    parser.add_argument("--target-ip", default=DEFAULT_TARGET_IP,
-                        help="Target IP for ICMP/direct-IP tests (default: 1.1.1.1)")
-    parser.add_argument("-t", "--timeout", type=int, default=120,
-                        help="Timeout in seconds (default: 120)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for results (default: captures)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument("-i", "--interface", required=True, help="Network interface to use")
+    parser.add_argument(
+        "-m",
+        "--mode",
+        default="probe",
+        choices=list(BYPASS_MODES),
+        help="Bypass mode (default: probe)",
+    )
+    parser.add_argument(
+        "--dns-domain", default=DEFAULT_DNS_DOMAIN, help="Controlled domain for DNS tunneling tests"
+    )
+    parser.add_argument(
+        "--target-ip",
+        default=DEFAULT_TARGET_IP,
+        help="Target IP for ICMP/direct-IP tests (default: 1.1.1.1)",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=120, help="Timeout in seconds (default: 120)"
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

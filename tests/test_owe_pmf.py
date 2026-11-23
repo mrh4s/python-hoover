@@ -36,8 +36,12 @@ def _make_rsn(*akm_types, caps=None, pairwise=(4,), group=4):
 
 
 def _owe_ie(bssid="11:22:33:44:55:66", ssid="OpenNet"):
-    return (b"\x50\x6f\x9a\x1c" + bytes.fromhex(bssid.replace(":", ""))
-            + bytes([len(ssid)]) + ssid.encode())
+    return (
+        b"\x50\x6f\x9a\x1c"
+        + bytes.fromhex(bssid.replace(":", ""))
+        + bytes([len(ssid)])
+        + ssid.encode()
+    )
 
 
 def _make_packet(elts, has_privacy=True, ssid="TestNet", channel=6):
@@ -155,9 +159,14 @@ class TestPrintPMF:
     def test_print_results_shows_pmf(self, scanner, capsys):
         scanner.access_points = {
             BSSID: {
-                "ssid": "TestNet", "channel": 6, "signal": -50,
-                "encryption": "WPA3", "vendor": "V", "beacon_count": 1,
-                "pmf_capable": True, "pmf_required": True,
+                "ssid": "TestNet",
+                "channel": 6,
+                "signal": -50,
+                "encryption": "WPA3",
+                "vendor": "V",
+                "beacon_count": 1,
+                "pmf_capable": True,
+                "pmf_required": True,
                 "owe_mode": None,
             },
         }

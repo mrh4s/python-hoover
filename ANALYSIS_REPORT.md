@@ -103,7 +103,7 @@ os.system(f"iwconfig {self.interface} channel {self.channel} 2>/dev/null")
 - **Severity**: CRITICAL (for production use)
 - **Issue**: 
 ```python
-app.config['SECRET_KEY'] = 'hoover-secret-key-change-in-production'
+app.config["SECRET_KEY"] = "hoover-secret-key-change-in-production"
 ```
 - **Risk**: Session tokens/CSRF tokens are predictable; Flask warns this must be changed
 - **Impact**: Any attacker can forge session tokens if deployed
@@ -125,9 +125,9 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 - **Severity**: HIGH
 - **Issue**: Opens files directly from user-provided filename without validation
 ```python
-@app.route('/api/ssid-file/<filename>')
+@app.route("/api/ssid-file/<filename>")
 def api_ssid_file(filename):
-    with open(filename, 'r') as f:  # No path validation!
+    with open(filename, "r") as f:  # No path validation!
         content = f.read()
 ```
 - **Risk**: Attacker can access arbitrary files: `api_ssid_file/../../../../etc/passwd`
@@ -138,7 +138,7 @@ def api_ssid_file(filename):
 - **Severity**: MEDIUM
 - **Issue**: User input goes directly into subprocess command
 ```python
-cmd = ['python3', 'hoover.py', '-i', interface]  # interface is user input
+cmd = ["python3", "hoover.py", "-i", interface]  # interface is user input
 process = subprocess.Popen(cmd, ...)
 ```
 - **Risk**: While using list args is safer, no validation that interface exists
@@ -151,7 +151,7 @@ process = subprocess.Popen(cmd, ...)
 - **Issue**: Auto-confirms authorization prompt without user confirmation
 ```python
 # Auto-confirm authorization (user already confirmed in web GUI)
-process.stdin.write(b'yes\n')
+process.stdin.write(b"yes\n")
 process.stdin.flush()
 ```
 - **Risk**: The "authorization confirmation" in the CLI is bypassed programmatically
@@ -175,9 +175,21 @@ process.stdin.flush()
 - **Severity**: MEDIUM-HIGH
 - **Issue**: `self.interface` and `self.upstream_interface` injected into iptables/ip commands
 ```python
-subprocess.run(['iptables', '-t', 'nat', '-A', 'POSTROUTING',
-              '-o', self.upstream_interface, '-j', 'MASQUERADE'],
-              check=True, capture_output=True)
+subprocess.run(
+    [
+        "iptables",
+        "-t",
+        "nat",
+        "-A",
+        "POSTROUTING",
+        "-o",
+        self.upstream_interface,
+        "-j",
+        "MASQUERADE",
+    ],
+    check=True,
+    capture_output=True,
+)
 ```
 - **Risk**: If interface names are user-controlled, could potentially inject iptables rules
 - **Fix**: Validate interface names against available interfaces before use
@@ -198,7 +210,7 @@ process.wait(timeout=5)  # What if this times out? No cleanup.
 - **Severity**: MEDIUM
 - **Issue**: Accessing shared mutable state without locks from multiple threads
 ```python
-tool_status['monitor']['running'] = True  # No lock!
+tool_status["monitor"]["running"] = True  # No lock!
 ```
 - **Risk**: In ProcessMonitor._monitor_output() thread, data races possible
 - **Fix**: Use threading.Lock() for synchronized access to tool_status
@@ -208,7 +220,7 @@ tool_status['monitor']['running'] = True  # No lock!
 - **Severity**: MEDIUM
 - **Issue**: Password passes through command-line arguments in plain text
 ```python
-cmd.extend(['-p', password])  # Password in process args list
+cmd.extend(["-p", password])  # Password in process args list
 ```
 - **Risk**: Password visible in `ps aux` output, logs, debug output
 - **Fix**: Pass via stdin or environment variable instead
@@ -218,9 +230,7 @@ cmd.extend(['-p', password])  # Password in process args list
 - **Severity**: LOW-MEDIUM
 - **Issue**:
 ```python
-hostapd_proc = subprocess.Popen(hostapd_cmd,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT)
+hostapd_proc = subprocess.Popen(hostapd_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 # But then output is never read!
 ```
 - **Risk**: Pipe buffers might fill; process might block/deadlock on large output
@@ -303,11 +313,13 @@ while self.running and self.process.poll() is None:
 - **Fix Applied**: Changed to use `stdout=subprocess.PIPE` with `stderr=subprocess.STDOUT`
 ```python
 # Before:
-result = subprocess.run(['iwconfig'], capture_output=True, text=True,
-                      stderr=subprocess.STDOUT, timeout=5)
+result = subprocess.run(
+    ["iwconfig"], capture_output=True, text=True, stderr=subprocess.STDOUT, timeout=5
+)
 # After:
-result = subprocess.run(['iwconfig'], stdout=subprocess.PIPE,
-                      stderr=subprocess.STDOUT, text=True, timeout=5)
+result = subprocess.run(
+    ["iwconfig"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=5
+)
 ```
 
 **Fixed Bug #2: Interface discovery failures (Commit 10c3672)**
@@ -571,24 +583,27 @@ tests/
 import pytest
 from hoover_web import get_network_interfaces
 
+
 def test_interface_discovery_returns_list():
     """Test that interface discovery returns a list"""
     ifaces = get_network_interfaces()
     assert isinstance(ifaces, list)
 
+
 def test_interface_has_required_fields():
     """Test that each interface has name and mode"""
     ifaces = get_network_interfaces()
     for iface in ifaces:
-        assert 'name' in iface
-        assert 'mode' in iface
-        assert iface['mode'] in ('Monitor', 'Managed')
+        assert "name" in iface
+        assert "mode" in iface
+        assert iface["mode"] in ("Monitor", "Managed")
+
 
 def test_loopback_filtered():
     """Test that loopback interface is filtered"""
     ifaces = get_network_interfaces()
-    names = [i['name'] for i in ifaces]
-    assert 'lo' not in names
+    names = [i["name"] for i in ifaces]
+    assert "lo" not in names
 ```
 
 ---
@@ -719,22 +734,21 @@ def test_loopback_filtered():
 1. **Fix command injection** (line 78, ssid_generator.py):
    ```python
    # Replace os.system() with subprocess
-   subprocess.run(['iwconfig', self.interface, 'channel', str(self.channel)],
-                 capture_output=True)
+   subprocess.run(["iwconfig", self.interface, "channel", str(self.channel)], capture_output=True)
    ```
 
 2. **Fix path traversal** (hoover_web.py, lines 439/452):
    ```python
    # Validate filename
    safe_name = os.path.basename(filename)
-   filepath = os.path.join('./ssid_files/', safe_name)
+   filepath = os.path.join("./ssid_files/", safe_name)
    if not os.path.exists(filepath):
        return error
    ```
 
 3. **Fix hardcoded secret key** (hoover_web.py, line 20):
    ```python
-   app.config['SECRET_KEY'] = os.urandom(32).hex()  # Or load from env
+   app.config["SECRET_KEY"] = os.urandom(32).hex()  # Or load from env
    ```
 
 4. **Fix CORS open to all** (hoover_web.py, line 21):

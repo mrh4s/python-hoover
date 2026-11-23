@@ -32,12 +32,13 @@ PAIRWISE = 0x0008
 
 ANONCE = bytes(range(32))
 SNONCE = bytes(range(32, 64))
-NONZERO_MIC = b"\xAB" * 16
+NONZERO_MIC = b"\xab" * 16
 ZERO_MIC = b"\x00" * 16
 
 
-def _build_eapol_body(key_info: int, replay_counter: int = 1,
-                       nonce: bytes = None, mic: bytes = None) -> bytes:
+def _build_eapol_body(
+    key_info: int, replay_counter: int = 1, nonce: bytes = None, mic: bytes = None
+) -> bytes:
     """Build a raw EAPOL-Key frame body matching the offsets in the spec."""
     if nonce is None:
         nonce = b"\x00" * 32
@@ -198,32 +199,38 @@ class TestVerifyHandshake:
 
 class TestCheckReplayCounters:
     def test_check_replay_counter_valid(self, capturer):
-        classified = capturer._classify_eapol_messages([
-            _msg1_frame(replay_counter=1),
-            _msg2_frame(replay_counter=1),
-            _msg3_frame(replay_counter=2),
-            _msg4_frame(replay_counter=2),
-        ])
+        classified = capturer._classify_eapol_messages(
+            [
+                _msg1_frame(replay_counter=1),
+                _msg2_frame(replay_counter=1),
+                _msg3_frame(replay_counter=2),
+                _msg4_frame(replay_counter=2),
+            ]
+        )
         assert capturer._check_replay_counters(classified) is True
 
     def test_check_replay_counter_invalid(self, capturer):
-        classified = capturer._classify_eapol_messages([
-            _msg1_frame(replay_counter=5),
-            _msg2_frame(replay_counter=3),
-            _msg3_frame(replay_counter=2),
-            _msg4_frame(replay_counter=1),
-        ])
+        classified = capturer._classify_eapol_messages(
+            [
+                _msg1_frame(replay_counter=5),
+                _msg2_frame(replay_counter=3),
+                _msg3_frame(replay_counter=2),
+                _msg4_frame(replay_counter=1),
+            ]
+        )
         assert capturer._check_replay_counters(classified) is False
 
 
 class TestExtractHandshakeParams:
     def test_extract_handshake_params(self, capturer):
-        classified = capturer._classify_eapol_messages([
-            _msg1_frame(replay_counter=1, anonce=ANONCE),
-            _msg2_frame(replay_counter=1, snonce=SNONCE),
-            _msg3_frame(replay_counter=2, anonce=ANONCE),
-            _msg4_frame(replay_counter=2),
-        ])
+        classified = capturer._classify_eapol_messages(
+            [
+                _msg1_frame(replay_counter=1, anonce=ANONCE),
+                _msg2_frame(replay_counter=1, snonce=SNONCE),
+                _msg3_frame(replay_counter=2, anonce=ANONCE),
+                _msg4_frame(replay_counter=2),
+            ]
+        )
         params = capturer._extract_handshake_params(classified)
         assert params["anonce"] == ANONCE.hex()
         assert params["snonce"] == SNONCE.hex()
@@ -250,12 +257,20 @@ class TestCLIVerifyFlags:
     @patch("handshake_capture.HandshakeCapture.verify_pcap_file")
     def test_cli_verify_flag(self, mock_verify, monkeypatch):
         mock_verify.return_value = {
-            "valid": True, "msg1_count": 1, "msg2_count": 1,
-            "msg3_count": 1, "msg4_count": 1,
-            "has_complete_handshake": True, "nonce_consistent": True,
-            "replay_counter_valid": True, "mic_present": True,
-            "ap_mac": TARGET_BSSID, "client_mac": CLIENT_MAC,
-            "anonce": "aa", "snonce": "bb", "errors": [],
+            "valid": True,
+            "msg1_count": 1,
+            "msg2_count": 1,
+            "msg3_count": 1,
+            "msg4_count": 1,
+            "has_complete_handshake": True,
+            "nonce_consistent": True,
+            "replay_counter_valid": True,
+            "mic_present": True,
+            "ap_mac": TARGET_BSSID,
+            "client_mac": CLIENT_MAC,
+            "anonce": "aa",
+            "snonce": "bb",
+            "errors": [],
         }
         monkeypatch.setattr(sys, "argv", ["handshake_capture.py", "--verify", "/tmp/fake.pcap"])
         with pytest.raises(SystemExit) as exc_info:
@@ -268,19 +283,26 @@ class TestCLIVerifyFlags:
     @patch("handshake_capture.HandshakeCapture.start")
     @patch("handshake_capture.check_monitor_mode")
     @patch("handshake_capture.require_root")
-    def test_cli_verify_captured_flag(self, mock_require_root, mock_check_mon,
-                                       mock_start, mock_verify, mock_save,
-                                       monkeypatch):
+    def test_cli_verify_captured_flag(
+        self, mock_require_root, mock_check_mon, mock_start, mock_verify, mock_save, monkeypatch
+    ):
         mock_check_mon.return_value = True
         mock_start.return_value = True
         mock_save.return_value = "/tmp/captures/handshake_x.pcap"
         mock_verify.return_value = {"valid": True, "errors": []}
 
-        monkeypatch.setattr(sys, "argv", [
-            "handshake_capture.py",
-            "-i", "wlan0mon", "-b", TARGET_BSSID,
-            "--verify-captured",
-        ])
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "handshake_capture.py",
+                "-i",
+                "wlan0mon",
+                "-b",
+                TARGET_BSSID,
+                "--verify-captured",
+            ],
+        )
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 0

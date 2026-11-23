@@ -36,8 +36,7 @@ class MultiAdapterManager:
     `ip` and `iw`.
     """
 
-    def __init__(self, adapters: Optional[list] = None,
-                 verbose: bool = False) -> None:
+    def __init__(self, adapters: Optional[list] = None, verbose: bool = False) -> None:
         self.logger = setup_logging("multi_adapter", verbose)
         self.verbose = verbose
         self.lock = threading.Lock()
@@ -54,8 +53,7 @@ class MultiAdapterManager:
     # ------------------------------------------------------------------
     # Registry management
     # ------------------------------------------------------------------
-    def add_adapter(self, interface: str, role: str,
-                     channel: Optional[int] = None) -> None:
+    def add_adapter(self, interface: str, role: str, channel: Optional[int] = None) -> None:
         """Register an adapter with a specific role.
 
         Args:
@@ -69,9 +67,7 @@ class MultiAdapterManager:
         if not validate_interface(interface):
             raise ValueError(f"Invalid interface name: {interface!r}")
         if role not in VALID_ROLES:
-            raise ValueError(
-                f"Invalid role: {role!r} (expected one of {VALID_ROLES})"
-            )
+            raise ValueError(f"Invalid role: {role!r} (expected one of {VALID_ROLES})")
 
         with self.lock:
             self.adapters[interface] = {
@@ -166,7 +162,9 @@ class MultiAdapterManager:
         try:
             result = subprocess.run(
                 ["iw", "phy", phy, "info"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             modes = []
             for line in result.stdout.splitlines():
@@ -196,14 +194,33 @@ class MultiAdapterManager:
         if not validate_interface(interface):
             return False
         try:
-            subprocess.run(["ip", "link", "set", interface, "down"],
-                            capture_output=True, text=True, timeout=5, check=True)
-            subprocess.run(["iw", "dev", interface, "set", "type", "monitor"],
-                            capture_output=True, text=True, timeout=5, check=True)
-            subprocess.run(["ip", "link", "set", interface, "up"],
-                            capture_output=True, text=True, timeout=5, check=True)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,
-                FileNotFoundError, OSError) as exc:
+            subprocess.run(
+                ["ip", "link", "set", interface, "down"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            subprocess.run(
+                ["iw", "dev", interface, "set", "type", "monitor"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            subprocess.run(
+                ["ip", "link", "set", interface, "up"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            OSError,
+        ) as exc:
             self.logger.error("Failed to set monitor mode on %s: %s", interface, exc)
             return False
 
@@ -225,14 +242,33 @@ class MultiAdapterManager:
         if not validate_interface(interface):
             return False
         try:
-            subprocess.run(["ip", "link", "set", interface, "down"],
-                            capture_output=True, text=True, timeout=5, check=True)
-            subprocess.run(["iw", "dev", interface, "set", "type", "managed"],
-                            capture_output=True, text=True, timeout=5, check=True)
-            subprocess.run(["ip", "link", "set", interface, "up"],
-                            capture_output=True, text=True, timeout=5, check=True)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,
-                FileNotFoundError, OSError) as exc:
+            subprocess.run(
+                ["ip", "link", "set", interface, "down"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            subprocess.run(
+                ["iw", "dev", interface, "set", "type", "managed"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            subprocess.run(
+                ["ip", "link", "set", interface, "up"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            OSError,
+        ) as exc:
             self.logger.error("Failed to set managed mode on %s: %s", interface, exc)
             return False
 
@@ -255,10 +291,19 @@ class MultiAdapterManager:
         if not validate_interface(interface):
             return False
         try:
-            subprocess.run(["iw", "dev", interface, "set", "channel", str(channel)],
-                            capture_output=True, text=True, timeout=5, check=True)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,
-                FileNotFoundError, OSError) as exc:
+            subprocess.run(
+                ["iw", "dev", interface, "set", "channel", str(channel)],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            OSError,
+        ) as exc:
             self.logger.error("Failed to set channel on %s: %s", interface, exc)
             return False
 
@@ -357,22 +402,27 @@ def _parse_adapters_arg(value: str) -> list:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Multi-Adapter Management for Hoover WiFi Security Toolkit. "
-                    "For authorized security testing and research only.",
+        "For authorized security testing and research only.",
     )
     parser.add_argument(
         "--adapters",
         help='Comma-separated interface:role pairs (e.g., "wlan0:monitor,wlan1:inject")',
     )
     parser.add_argument(
-        "--discover", action="store_true",
+        "--discover",
+        action="store_true",
         help="Auto-discover and list available wireless adapters",
     )
     parser.add_argument(
-        "--setup", action="store_true",
+        "--setup",
+        action="store_true",
         help="Automatically configure adapter modes based on roles",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable verbose logging",
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
     )
     args = parser.parse_args()
 

@@ -253,7 +253,6 @@ OUI_DATABASE: dict[str, str] = {
     "F8:62:14": "Apple",
     "FC:25:3F": "Apple",
     "FC:E9:98": "Apple",
-
     # Samsung
     "00:07:AB": "Samsung",
     "00:12:47": "Samsung",
@@ -450,7 +449,6 @@ OUI_DATABASE: dict[str, str] = {
     "F8:D0:BD": "Samsung",
     "FC:A1:3E": "Samsung",
     "FC:F1:36": "Samsung",
-
     # Intel
     "00:02:B3": "Intel",
     "00:03:47": "Intel",
@@ -573,7 +571,6 @@ OUI_DATABASE: dict[str, str] = {
     "F8:34:41": "Intel",
     "F8:63:3F": "Intel",
     "FC:44:82": "Intel",
-
     # Huawei / Honor
     "00:0F:E2": "Huawei",
     "00:18:82": "Huawei",
@@ -650,7 +647,6 @@ OUI_DATABASE: dict[str, str] = {
     "5C:7D:5E": "Huawei",
     "5C:B4:3E": "Huawei",
     "5C:E8:83": "Huawei",
-
     # Google
     "08:9E:08": "Google",
     "1C:F2:9A": "Google",
@@ -667,7 +663,6 @@ OUI_DATABASE: dict[str, str] = {
     "F0:EF:86": "Google",
     "F4:F5:D8": "Google",
     "F4:F5:E8": "Google",
-
     # Microsoft / Xbox
     "00:0D:3A": "Microsoft",
     "00:12:5A": "Microsoft",
@@ -687,7 +682,6 @@ OUI_DATABASE: dict[str, str] = {
     "B4:0E:DE": "Microsoft",
     "C8:3F:26": "Microsoft",
     "DC:B4:C4": "Microsoft",
-
     # Cisco
     "00:00:0C": "Cisco",
     "00:01:42": "Cisco",
@@ -706,7 +700,6 @@ OUI_DATABASE: dict[str, str] = {
     "00:02:BA": "Cisco",
     "00:02:FC": "Cisco",
     "00:02:FD": "Cisco",
-
     # Qualcomm / Atheros
     "00:03:7F": "Qualcomm",
     "00:0A:F5": "Qualcomm",
@@ -721,7 +714,6 @@ OUI_DATABASE: dict[str, str] = {
     "04:CE:14": "Qualcomm",
     "9C:65:F9": "Qualcomm",
     "B4:EE:B4": "Qualcomm",
-
     # TP-Link
     "00:27:19": "TP-Link",
     "10:FE:ED": "TP-Link",
@@ -751,7 +743,6 @@ OUI_DATABASE: dict[str, str] = {
     "EC:08:6B": "TP-Link",
     "F4:F2:6D": "TP-Link",
     "F8:1A:67": "TP-Link",
-
     # Netgear
     "00:09:5B": "Netgear",
     "00:0F:B5": "Netgear",
@@ -794,19 +785,16 @@ OUI_DATABASE: dict[str, str] = {
     "E4:F4:C6": "Netgear",
     "E8:FC:AF": "Netgear",
     "F8:73:94": "Netgear",
-
     # Realtek
     "00:0C:E7": "Realtek",
     "00:0A:E6": "Realtek",
     "00:E0:4C": "Realtek",
     "52:54:00": "Realtek",
-
     # Broadcom
     "00:10:18": "Broadcom",
     "00:0A:F7": "Broadcom",
     "00:16:E3": "Broadcom",
     "20:10:7A": "Broadcom",
-
     # Xiaomi
     "04:CF:8C": "Xiaomi",
     "0C:1D:AF": "Xiaomi",
@@ -845,7 +833,6 @@ OUI_DATABASE: dict[str, str] = {
     "F0:B4:29": "Xiaomi",
     "F8:A4:5F": "Xiaomi",
     "FC:64:BA": "Xiaomi",
-
     # Motorola / Lenovo
     "00:08:0E": "Motorola",
     "00:0A:28": "Motorola",
@@ -861,7 +848,6 @@ OUI_DATABASE: dict[str, str] = {
     "00:1E:46": "Motorola",
     "00:1F:7E": "Motorola",
     "14:A5:1A": "Motorola",
-
     # Sony
     "00:0A:D9": "Sony",
     "00:0E:07": "Sony",
@@ -886,7 +872,6 @@ OUI_DATABASE: dict[str, str] = {
     "B4:52:7D": "Sony",
     "B4:52:7E": "Sony",
     "FC:0F:E6": "Sony",
-
     # LG
     "00:05:C9": "LG",
     "00:0B:E9": "LG",
@@ -935,13 +920,11 @@ OUI_DATABASE: dict[str, str] = {
     "F0:1C:13": "LG",
     "F8:0C:F3": "LG",
     "FC:F1:52": "LG",
-
     # OnePlus / OPPO / BBK
     "2C:D0:5A": "OnePlus",
     "64:A2:F9": "OnePlus",
     "94:65:2D": "OnePlus",
     "C0:EE:FB": "OnePlus",
-
     # Amazon
     "00:FC:8B": "Amazon",
     "0C:47:C9": "Amazon",
@@ -971,7 +954,6 @@ OUI_DATABASE: dict[str, str] = {
     "F0:27:65": "Amazon",
     "F0:D2:F1": "Amazon",
     "FC:65:DE": "Amazon",
-
     # Espressif (ESP32/ESP8266 IoT)
     "08:3A:F2": "Espressif",
     "10:52:1C": "Espressif",
@@ -1017,12 +999,10 @@ OUI_DATABASE: dict[str, str] = {
     "EC:FA:BC": "Espressif",
     "F0:08:D1": "Espressif",
     "F4:CF:A2": "Espressif",
-
     # Raspberry Pi Foundation
     "B8:27:EB": "Raspberry Pi",
     "DC:A6:32": "Raspberry Pi",
     "E4:5F:01": "Raspberry Pi",
-
     # Dell
     "00:06:5B": "Dell",
     "00:08:74": "Dell",
@@ -1045,7 +1025,6 @@ OUI_DATABASE: dict[str, str] = {
     "00:24:E8": "Dell",
     "00:25:64": "Dell",
     "00:26:B9": "Dell",
-
     # HP
     "00:01:E6": "HP",
     "00:01:E7": "HP",
@@ -1077,7 +1056,6 @@ OUI_DATABASE: dict[str, str] = {
     "00:24:81": "HP",
     "00:25:B3": "HP",
     "00:26:55": "HP",
-
     # Ubiquiti
     "00:27:22": "Ubiquiti",
     "04:18:D6": "Ubiquiti",
@@ -1092,7 +1070,6 @@ OUI_DATABASE: dict[str, str] = {
     "DC:9F:DB": "Ubiquiti",
     "F0:9F:C2": "Ubiquiti",
     "FC:EC:DA": "Ubiquiti",
-
     # Aruba / HPE
     "00:0B:86": "Aruba",
     "00:1A:1E": "Aruba",
@@ -1107,7 +1084,6 @@ OUI_DATABASE: dict[str, str] = {
     "9C:1C:12": "Aruba",
     "AC:A3:1E": "Aruba",
     "D8:C7:C8": "Aruba",
-
     # Randomized / Private MAC (locally administered bit set)
     # These are common on modern devices with MAC randomization
 }
@@ -1135,13 +1111,13 @@ def lookup_vendor(mac: str) -> str:
     mac_upper = mac.upper().strip()
 
     # Extract the OUI prefix (first 3 octets)
-    parts = mac_upper.split(':')
+    parts = mac_upper.split(":")
     if len(parts) < 3:
         # Try dash-separated format
-        parts = mac_upper.split('-')
+        parts = mac_upper.split("-")
 
     if len(parts) >= 3:
-        oui = ':'.join(parts[:3])
+        oui = ":".join(parts[:3])
     else:
         return "Unknown"
 

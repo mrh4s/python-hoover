@@ -27,6 +27,7 @@ from cloud_c2 import (  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def server():
     """Create a CloudC2Server with defaults."""

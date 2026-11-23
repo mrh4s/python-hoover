@@ -41,15 +41,18 @@ class Alert:
 
 
 class WIDSMonitor:
-    def __init__(self, interface: str,
-                 known_aps_file: Optional[str] = None,
-                 alert_callback: Optional[object] = None,
-                 channel_hop: bool = True,
-                 hop_interval: float = 0.5,
-                 deauth_threshold: int = 10,
-                 deauth_window: int = 5,
-                 log_file: str = "captures/wids_alerts.json",
-                 bands: str = "2.4") -> None:
+    def __init__(
+        self,
+        interface: str,
+        known_aps_file: Optional[str] = None,
+        alert_callback: Optional[object] = None,
+        channel_hop: bool = True,
+        hop_interval: float = 0.5,
+        deauth_threshold: int = 10,
+        deauth_window: int = 5,
+        log_file: str = "captures/wids_alerts.json",
+        bands: str = "2.4",
+    ) -> None:
         self.interface: str = interface
         self.known_aps: dict[str, dict] = {}
         self.alert_callback = alert_callback
@@ -148,9 +151,11 @@ class WIDSMonitor:
             if bssid not in self.known_aps:
                 vendor = lookup_vendor(bssid)
                 self._raise_alert(
-                    "MEDIUM", "ROGUE_AP",
+                    "MEDIUM",
+                    "ROGUE_AP",
                     f"New unknown AP detected: {bssid} (SSID: '{ssid}', Vendor: {vendor})",
-                    bssid, {"ssid": ssid, "vendor": vendor},
+                    bssid,
+                    {"ssid": ssid, "vendor": vendor},
                 )
 
         if ssid and self.known_aps:
@@ -159,10 +164,12 @@ class WIDSMonitor:
             }
             if known_bssids_for_ssid and bssid not in known_bssids_for_ssid:
                 self._raise_alert(
-                    "HIGH", "EVIL_TWIN",
+                    "HIGH",
+                    "EVIL_TWIN",
                     f"Evil Twin detected: SSID '{ssid}' from unknown BSSID {bssid} "
                     f"(known BSSIDs: {', '.join(known_bssids_for_ssid)})",
-                    bssid, {"ssid": ssid, "known_bssids": list(known_bssids_for_ssid)},
+                    bssid,
+                    {"ssid": ssid, "known_bssids": list(known_bssids_for_ssid)},
                 )
 
         if len(self._ap_ssid_tracker.get(bssid, set())) > 3:
@@ -170,9 +177,11 @@ class WIDSMonitor:
             non_empty = {s for s in ssids if s}
             if len(non_empty) > 3:
                 self._raise_alert(
-                    "HIGH", "KARMA_ATTACK",
+                    "HIGH",
+                    "KARMA_ATTACK",
                     f"Possible Karma attack: BSSID {bssid} advertising {len(non_empty)} SSIDs",
-                    bssid, {"ssids": list(non_empty)},
+                    bssid,
+                    {"ssids": list(non_empty)},
                 )
 
     def _check_deauth(self, packet) -> None:
@@ -194,7 +203,8 @@ class WIDSMonitor:
         if len(timestamps) > self.deauth_threshold:
             target = str(packet[Dot11].addr1 or "").upper()
             self._raise_alert(
-                "CRITICAL", "DEAUTH_FLOOD",
+                "CRITICAL",
+                "DEAUTH_FLOOD",
                 f"Deauth flood detected from {source_mac} "
                 f"({len(timestamps)} frames in {self.deauth_window}s, target: {target})",
                 source_mac,
@@ -230,7 +240,8 @@ class WIDSMonitor:
 
         if len(self._eapol_tracker[bssid]) > 20:
             self._raise_alert(
-                "HIGH", "EAPOL_ANOMALY",
+                "HIGH",
+                "EAPOL_ANOMALY",
                 f"Unusual EAPOL activity near {bssid} "
                 f"({len(self._eapol_tracker[bssid])} frames in 10s)",
                 bssid,
@@ -238,8 +249,9 @@ class WIDSMonitor:
             )
             self._eapol_tracker[bssid] = []
 
-    def _raise_alert(self, severity: str, alert_type: str, description: str,
-                     source_mac: str, details: dict) -> None:
+    def _raise_alert(
+        self, severity: str, alert_type: str, description: str, source_mac: str, details: dict
+    ) -> None:
         alert = Alert(
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             severity=severity,
@@ -274,7 +286,9 @@ class WIDSMonitor:
                 if validate_interface(self.interface):
                     subprocess.run(
                         ["iwconfig", self.interface, "channel", str(ch)],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                     )
             except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                 pass
@@ -286,8 +300,9 @@ class WIDSMonitor:
         self.logger.info("Starting WIDS on %s", self.interface)
         self.logger.info("  Known APs: %d", len(self.known_aps))
         self.logger.info("  Channel hopping: %s", "Yes" if self.channel_hop else "No")
-        self.logger.info("  Deauth threshold: %d frames / %ds",
-                         self.deauth_threshold, self.deauth_window)
+        self.logger.info(
+            "  Deauth threshold: %d frames / %ds", self.deauth_threshold, self.deauth_window
+        )
         self.logger.info("  Press Ctrl+C to stop\n")
 
         if self.channel_hop:
@@ -328,9 +343,9 @@ class WIDSMonitor:
             "uptime_seconds": round(elapsed, 1),
         }
 
-    def get_alerts(self, severity: Optional[str] = None,
-                   alert_type: Optional[str] = None,
-                   limit: int = 100) -> list[Alert]:
+    def get_alerts(
+        self, severity: Optional[str] = None, alert_type: Optional[str] = None, limit: int = 100
+    ) -> list[Alert]:
         filtered = self.alerts
         if severity:
             filtered = [a for a in filtered if a.severity == severity]
@@ -347,7 +362,8 @@ class WIDSMonitor:
             with open(self.log_file, "w", encoding="utf-8") as f:
                 json.dump(
                     [dataclasses.asdict(a) for a in self.alerts],
-                    f, indent=2,
+                    f,
+                    indent=2,
                 )
             self.logger.info("Alerts saved to %s", self.log_file)
         except Exception as e:
@@ -355,9 +371,9 @@ class WIDSMonitor:
 
     def print_summary(self) -> None:
         stats = self.get_stats()
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("WIDS Summary")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"Packets processed:  {stats['packets_processed']}")
         print(f"Unique APs seen:    {stats['unique_aps_seen']}")
         print(f"Total alerts:       {stats['alerts_total']}")
@@ -399,25 +415,36 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("--known-aps",
-                        help="JSON file with known AP list")
-    parser.add_argument("--no-hop", action="store_true",
-                        help="Disable channel hopping")
-    parser.add_argument("--hop-interval", type=float, default=0.5,
-                        help="Channel hop interval (default: 0.5)")
-    parser.add_argument("--bands", default="2.4,5",
-                        choices=["2.4", "5", "2.4,5", "all"],
-                        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)")
-    parser.add_argument("--deauth-threshold", type=int, default=10,
-                        help="Deauth frames threshold (default: 10)")
-    parser.add_argument("--deauth-window", type=int, default=5,
-                        help="Deauth detection window in seconds (default: 5)")
-    parser.add_argument("-o", "--output", default="captures/wids_alerts.json",
-                        help="Alert log file (default: captures/wids_alerts.json)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("--known-aps", help="JSON file with known AP list")
+    parser.add_argument("--no-hop", action="store_true", help="Disable channel hopping")
+    parser.add_argument(
+        "--hop-interval", type=float, default=0.5, help="Channel hop interval (default: 0.5)"
+    )
+    parser.add_argument(
+        "--bands",
+        default="2.4,5",
+        choices=["2.4", "5", "2.4,5", "all"],
+        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)",
+    )
+    parser.add_argument(
+        "--deauth-threshold", type=int, default=10, help="Deauth frames threshold (default: 10)"
+    )
+    parser.add_argument(
+        "--deauth-window",
+        type=int,
+        default=5,
+        help="Deauth detection window in seconds (default: 5)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="captures/wids_alerts.json",
+        help="Alert log file (default: captures/wids_alerts.json)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

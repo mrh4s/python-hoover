@@ -64,8 +64,7 @@ class PluginManager:
     one or more plugin directories for ``*.py`` files.
     """
 
-    def __init__(self, plugin_dirs: Optional[list] = None,
-                 auto_discover: bool = True) -> None:
+    def __init__(self, plugin_dirs: Optional[list] = None, auto_discover: bool = True) -> None:
         """Initialize the plugin manager.
 
         Args:
@@ -121,10 +120,7 @@ class PluginManager:
                     try:
                         plugin_classes = self._find_plugin_classes(full_path)
                     except Exception as exc:
-                        self.logger.warning(
-                            "Failed to inspect plugin file %s: %s",
-                            full_path, exc
-                        )
+                        self.logger.warning("Failed to inspect plugin file %s: %s", full_path, exc)
                         continue
 
                     for plugin_cls in plugin_classes:
@@ -240,9 +236,7 @@ class PluginManager:
         if context:
             plugin_context.update(context)
 
-        self.logger.warning(
-            "Loading plugin %r from %s (executes arbitrary code)", name, path
-        )
+        self.logger.warning("Loading plugin %r from %s (executes arbitrary code)", name, path)
         instance.setup(plugin_context)
 
         with self._lock:
@@ -307,14 +301,17 @@ class PluginManager:
             except Exception as exc:
                 self.logger.warning(
                     "Plugin %r raised while getting web routes: %s",
-                    getattr(plugin, "name", plugin), exc
+                    getattr(plugin, "name", plugin),
+                    exc,
                 )
                 continue
 
             for method, path, handler in routes or []:
                 endpoint = f"plugin_{getattr(plugin, 'name', id(plugin))}_{path}"
                 app.add_url_rule(
-                    path, endpoint=endpoint, view_func=handler,
+                    path,
+                    endpoint=endpoint,
+                    view_func=handler,
                     methods=[method],
                 )
 

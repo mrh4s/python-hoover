@@ -20,10 +20,14 @@ from utils import setup_logging
 
 
 class BLEScanner:
-    def __init__(self, scan_time: float = 10.0, service_scan: bool = False,
-                 filter_name: Optional[str] = None,
-                 filter_rssi: Optional[int] = None,
-                 output_file: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        scan_time: float = 10.0,
+        service_scan: bool = False,
+        filter_name: Optional[str] = None,
+        filter_rssi: Optional[int] = None,
+        output_file: Optional[str] = None,
+    ) -> None:
         self.scan_time: float = scan_time
         self.service_scan: bool = service_scan
         self.filter_name: Optional[str] = filter_name
@@ -64,7 +68,8 @@ class BLEScanner:
             }
             if hasattr(device, "metadata") and device.metadata:
                 entry["metadata"] = {
-                    k: v for k, v in device.metadata.items()
+                    k: v
+                    for k, v in device.metadata.items()
                     if isinstance(v, (str, int, float, bool, list))
                 }
             results.append(entry)
@@ -89,11 +94,13 @@ class BLEScanner:
                     "characteristics": [],
                 }
                 for char in service.characteristics:
-                    svc["characteristics"].append({
-                        "uuid": str(char.uuid),
-                        "description": char.description or "",
-                        "properties": list(char.properties),
-                    })
+                    svc["characteristics"].append(
+                        {
+                            "uuid": str(char.uuid),
+                            "description": char.description or "",
+                            "properties": list(char.properties),
+                        }
+                    )
                 services.append(svc)
         return services
 
@@ -149,13 +156,15 @@ class BLEScanner:
             self.logger.info("No BLE devices found")
             return
 
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"{'Address':<20} {'Name':<25} {'RSSI':<8} {'Vendor'}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         for d in sorted(results, key=lambda x: x.get("rssi") or -100, reverse=True):
             rssi_str = f"{d['rssi']}dBm" if d.get("rssi") is not None else "?"
-            print(f"{d['address']:<20} {(d['name'] or '<unnamed>'):<25} {rssi_str:<8} {d['vendor']}")
+            print(
+                f"{d['address']:<20} {(d['name'] or '<unnamed>'):<25} {rssi_str:<8} {d['vendor']}"
+            )
 
         print(f"\nTotal: {len(results)} devices found")
 
@@ -186,18 +195,16 @@ Note: BLE scanning usually does not require root.
         """,
     )
 
-    parser.add_argument("-t", "--time", type=float, default=10.0,
-                        help="Scan duration in seconds (default: 10.0)")
-    parser.add_argument("--services", action="store_true",
-                        help="Enumerate GATT services for each device")
-    parser.add_argument("--filter-name",
-                        help="Filter by device name (case-insensitive substring)")
-    parser.add_argument("--filter-rssi", type=int,
-                        help="Minimum RSSI threshold (e.g. -70)")
-    parser.add_argument("-o", "--output",
-                        help="Output file (.json or .csv)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-t", "--time", type=float, default=10.0, help="Scan duration in seconds (default: 10.0)"
+    )
+    parser.add_argument(
+        "--services", action="store_true", help="Enumerate GATT services for each device"
+    )
+    parser.add_argument("--filter-name", help="Filter by device name (case-insensitive substring)")
+    parser.add_argument("--filter-rssi", type=int, help="Minimum RSSI threshold (e.g. -70)")
+    parser.add_argument("-o", "--output", help="Output file (.json or .csv)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 

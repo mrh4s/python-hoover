@@ -75,6 +75,7 @@ def with_fake_tool(monkeypatch):
 # 1. Status endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestStatusEndpoint:
     def test_api_status_endpoint(self, client, auth_headers):
         resp = client.get("/api/v1/status", headers=auth_headers)
@@ -89,6 +90,7 @@ class TestStatusEndpoint:
 # 2-4. Authentication
 # ---------------------------------------------------------------------------
 
+
 class TestAuthentication:
     def test_api_requires_auth(self, client):
         resp = client.get("/api/v1/status")
@@ -101,9 +103,7 @@ class TestAuthentication:
         assert resp.status_code == 200
 
     def test_api_invalid_auth(self, client):
-        resp = client.get(
-            "/api/v1/status", headers={"Authorization": "Bearer wrong-token"}
-        )
+        resp = client.get("/api/v1/status", headers={"Authorization": "Bearer wrong-token"})
         assert resp.status_code == 401
         body = resp.get_json()
         assert body["success"] is False
@@ -113,6 +113,7 @@ class TestAuthentication:
 # ---------------------------------------------------------------------------
 # 5-6. Interfaces / tools listing
 # ---------------------------------------------------------------------------
+
 
 class TestListingEndpoints:
     def test_api_list_interfaces(self, client, auth_headers):
@@ -135,6 +136,7 @@ class TestListingEndpoints:
 # 7-10. Tool start/stop/status lifecycle
 # ---------------------------------------------------------------------------
 
+
 class TestToolLifecycle:
     def test_api_start_tool(self, client, auth_headers, with_fake_tool):
         tool = with_fake_tool
@@ -150,9 +152,7 @@ class TestToolLifecycle:
 
     def test_api_start_tool_missing_params(self, client, auth_headers, with_fake_tool):
         tool = with_fake_tool
-        resp = client.post(
-            f"/api/v1/tools/{tool}/start", json={}, headers=auth_headers
-        )
+        resp = client.post(f"/api/v1/tools/{tool}/start", json={}, headers=auth_headers)
         assert resp.status_code == 400
         body = resp.get_json()
         assert body["success"] is False
@@ -186,6 +186,7 @@ class TestToolLifecycle:
 # 11. Captures listing
 # ---------------------------------------------------------------------------
 
+
 class TestCapturesEndpoint:
     def test_api_list_captures(self, client, auth_headers, monkeypatch, tmp_path):
         captures_dir = tmp_path / "captures"
@@ -205,6 +206,7 @@ class TestCapturesEndpoint:
 # 12. Error format
 # ---------------------------------------------------------------------------
 
+
 class TestErrorFormat:
     def test_api_error_format(self, client, auth_headers):
         resp = client.get("/api/v1/tools/does_not_exist/status", headers=auth_headers)
@@ -220,11 +222,10 @@ class TestErrorFormat:
 # 13. CORS headers
 # ---------------------------------------------------------------------------
 
+
 class TestCORS:
     def test_api_cors_headers(self):
-        cors_api = HooverAPI(
-            host="127.0.0.1", port=8081, auth_token=TEST_TOKEN, enable_cors=True
-        )
+        cors_api = HooverAPI(host="127.0.0.1", port=8081, auth_token=TEST_TOKEN, enable_cors=True)
         cors_client = cors_api.app.test_client()
         resp = cors_client.get(
             "/api/v1/status",
@@ -237,6 +238,7 @@ class TestCORS:
 # ---------------------------------------------------------------------------
 # 14. CLI argument parsing
 # ---------------------------------------------------------------------------
+
 
 class TestCLI:
     def test_cli_host_port(self, monkeypatch):
@@ -254,7 +256,9 @@ class TestCLI:
 
         monkeypatch.setattr(rest_api, "HooverAPI", _RecordingAPI)
         monkeypatch.setattr(
-            sys, "argv", ["rest_api.py", "--host", "0.0.0.0", "--port", "9999", "--token", TEST_TOKEN]
+            sys,
+            "argv",
+            ["rest_api.py", "--host", "0.0.0.0", "--port", "9999", "--token", TEST_TOKEN],
         )
 
         rest_api.main()

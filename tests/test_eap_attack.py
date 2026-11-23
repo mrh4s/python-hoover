@@ -33,6 +33,7 @@ from eap_attack import (  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def attack(mock_interface, tmp_path):
     return EAPAttack(
@@ -45,8 +46,9 @@ def attack(mock_interface, tmp_path):
     )
 
 
-def _make_eap_packet(eap_code, eap_type, eap_id, identity=None,
-                     src_mac="aa:bb:cc:dd:ee:ff", raw_bytes=b""):
+def _make_eap_packet(
+    eap_code, eap_type, eap_id, identity=None, src_mac="aa:bb:cc:dd:ee:ff", raw_bytes=b""
+):
     """Create a mock EAP packet with the given parameters."""
     pkt = MagicMock()
 
@@ -69,6 +71,7 @@ def _make_eap_packet(eap_code, eap_type, eap_id, identity=None,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     return pkt
@@ -121,6 +124,7 @@ def mock_non_eap_packet():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestEAPAttackInit:
     def test_defaults(self, mock_interface):
@@ -420,10 +424,24 @@ class TestCLIParsing:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
 
-        with patch("sys.argv", [
-            "eap_attack", "-i", "wlan1", "-s", "CorpWiFi",
-            "-ch", "11", "-m", "ttls", "-o", "/tmp/out", "-t", "600",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "eap_attack",
+                "-i",
+                "wlan1",
+                "-s",
+                "CorpWiFi",
+                "-ch",
+                "11",
+                "-m",
+                "ttls",
+                "-o",
+                "/tmp/out",
+                "-t",
+                "600",
+            ],
+        ):
             main()
 
         mock_cls.assert_called_once_with(
@@ -441,9 +459,17 @@ class TestCLIParsing:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
 
-        with patch("sys.argv", [
-            "eap_attack", "-i", "wlan0", "-s", "Net", "-v",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "eap_attack",
+                "-i",
+                "wlan0",
+                "-s",
+                "Net",
+                "-v",
+            ],
+        ):
             main()
 
         mock_instance.start.assert_called_once()
@@ -454,8 +480,17 @@ class TestCLIParsing:
                 main()
 
     def test_invalid_method_exits(self):
-        with patch("sys.argv", [
-            "eap_attack", "-i", "wlan0", "-s", "Net", "-m", "invalid",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "eap_attack",
+                "-i",
+                "wlan0",
+                "-s",
+                "Net",
+                "-m",
+                "invalid",
+            ],
+        ):
             with pytest.raises(SystemExit):
                 main()

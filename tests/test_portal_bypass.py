@@ -38,6 +38,7 @@ CLIENT_MAC = "AA:BB:CC:DD:EE:FF"
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def bypass(mock_interface, tmp_path):
     return PortalBypass(
@@ -61,6 +62,7 @@ def _make_dot11_data_packet(src_mac="aa:bb:cc:dd:ee:ff", frame_type=2):
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
     return pkt
 
@@ -74,6 +76,7 @@ def _make_non_dot11_packet():
 # ---------------------------------------------------------------------------
 # 1-2. __init__
 # ---------------------------------------------------------------------------
+
 
 class TestPortalBypassInit:
     def test_init_defaults(self, mock_interface):
@@ -107,6 +110,7 @@ class TestPortalBypassInit:
 # 3. _test_dns_resolution
 # ---------------------------------------------------------------------------
 
+
 class TestDnsResolution:
     @patch("portal_bypass.socket.gethostbyname")
     def test_dns_resolution_ok(self, mock_resolve, bypass):
@@ -127,6 +131,7 @@ class TestDnsResolution:
 # ---------------------------------------------------------------------------
 # 4. _test_direct_ip
 # ---------------------------------------------------------------------------
+
 
 class TestDirectIp:
     @patch("portal_bypass.socket.create_connection")
@@ -150,6 +155,7 @@ class TestDirectIp:
 # 5. _test_icmp_reachability
 # ---------------------------------------------------------------------------
 
+
 class TestIcmpReachability:
     @patch("portal_bypass.sr1")
     def test_icmp_reachable(self, mock_sr1, bypass):
@@ -170,6 +176,7 @@ class TestIcmpReachability:
 # ---------------------------------------------------------------------------
 # 6. _find_authenticated_clients
 # ---------------------------------------------------------------------------
+
 
 class TestFindAuthenticatedClients:
     @patch("portal_bypass.sniff")
@@ -204,6 +211,7 @@ class TestFindAuthenticatedClients:
 # 7. _build_dns_tunnel_query
 # ---------------------------------------------------------------------------
 
+
 class TestBuildDnsTunnelQuery:
     def test_build_dns_tunnel_query_encodes_data(self, bypass):
         data = b"hello"
@@ -217,6 +225,7 @@ class TestBuildDnsTunnelQuery:
 # ---------------------------------------------------------------------------
 # 8. _dns_tunnel_test
 # ---------------------------------------------------------------------------
+
 
 class TestDnsTunnelTest:
     @patch("portal_bypass.socket.gethostbyname")
@@ -242,6 +251,7 @@ class TestDnsTunnelTest:
 # 9. _build_icmp_tunnel_packet
 # ---------------------------------------------------------------------------
 
+
 class TestBuildIcmpTunnelPacket:
     def test_build_icmp_tunnel_packet(self, bypass):
         data = b"tunnel-payload"
@@ -252,6 +262,7 @@ class TestBuildIcmpTunnelPacket:
 # ---------------------------------------------------------------------------
 # 10. _icmp_tunnel_test
 # ---------------------------------------------------------------------------
+
 
 class TestIcmpTunnelTest:
     @patch("portal_bypass.sr1")
@@ -284,6 +295,7 @@ class TestIcmpTunnelTest:
 # ---------------------------------------------------------------------------
 # 11-12. _change_mac
 # ---------------------------------------------------------------------------
+
 
 class TestChangeMac:
     @patch("portal_bypass.subprocess.run")
@@ -320,6 +332,7 @@ class TestChangeMac:
 # 13. _mac_clone_test
 # ---------------------------------------------------------------------------
 
+
 class TestMacCloneTest:
     @patch.object(PortalBypass, "_test_direct_ip", return_value=True)
     @patch.object(PortalBypass, "_change_mac", return_value=True)
@@ -344,13 +357,15 @@ class TestMacCloneTest:
 # 14. _probe_bypasses
 # ---------------------------------------------------------------------------
 
+
 class TestProbeBypasses:
     @patch.object(PortalBypass, "_find_authenticated_clients", return_value=[CLIENT_MAC])
     @patch.object(PortalBypass, "_test_icmp_reachability", return_value=True)
     @patch.object(PortalBypass, "_test_direct_ip", return_value=True)
     @patch.object(PortalBypass, "_test_dns_resolution", return_value=False)
-    def test_probe_bypasses_all_viable(self, mock_dns, mock_direct, mock_icmp,
-                                        mock_clients, bypass):
+    def test_probe_bypasses_all_viable(
+        self, mock_dns, mock_direct, mock_icmp, mock_clients, bypass
+    ):
         result = bypass._probe_bypasses()
 
         assert result["dns_tunnel"]["viable"] is True
@@ -363,8 +378,9 @@ class TestProbeBypasses:
     @patch.object(PortalBypass, "_test_icmp_reachability", return_value=False)
     @patch.object(PortalBypass, "_test_direct_ip", return_value=False)
     @patch.object(PortalBypass, "_test_dns_resolution", return_value=True)
-    def test_probe_bypasses_none_viable(self, mock_dns, mock_direct, mock_icmp,
-                                         mock_clients, bypass):
+    def test_probe_bypasses_none_viable(
+        self, mock_dns, mock_direct, mock_icmp, mock_clients, bypass
+    ):
         result = bypass._probe_bypasses()
 
         assert result["dns_tunnel"]["viable"] is False
@@ -376,6 +392,7 @@ class TestProbeBypasses:
 # ---------------------------------------------------------------------------
 # 15. start
 # ---------------------------------------------------------------------------
+
 
 class TestStart:
     @patch.object(PortalBypass, "_probe_bypasses", return_value={"dns_tunnel": {}})
@@ -400,13 +417,18 @@ class TestStart:
     @patch.object(PortalBypass, "_dns_tunnel_test", return_value={})
     @patch.object(PortalBypass, "_probe_bypasses", return_value={})
     @patch.object(PortalBypass, "_test_direct_ip", return_value=True)
-    def test_start_all_mode_runs_everything(self, mock_direct, mock_probe, mock_dns,
-                                             mock_icmp, mock_clone, bypass):
+    def test_start_all_mode_runs_everything(
+        self, mock_direct, mock_probe, mock_dns, mock_icmp, mock_clone, bypass
+    ):
         bypass.bypass_mode = "all"
         result = bypass.start()
 
         assert set(result["data"].keys()) == {
-            "probe", "dns_tunnel", "icmp_tunnel", "mac_clone", "direct_ip",
+            "probe",
+            "dns_tunnel",
+            "icmp_tunnel",
+            "mac_clone",
+            "direct_ip",
         }
 
     def test_start_unknown_mode_logs_error(self, bypass):
@@ -418,6 +440,7 @@ class TestStart:
 # ---------------------------------------------------------------------------
 # 16. save_results
 # ---------------------------------------------------------------------------
+
 
 class TestSaveResults:
     def test_save_results_creates_json(self, bypass):
@@ -445,6 +468,7 @@ class TestSaveResults:
 # 17. get_status
 # ---------------------------------------------------------------------------
 
+
 class TestGetStatus:
     def test_get_status_initial(self, bypass):
         status = bypass.get_status()
@@ -460,6 +484,7 @@ class TestGetStatus:
 # ---------------------------------------------------------------------------
 # 18-20. CLI
 # ---------------------------------------------------------------------------
+
 
 class TestCLI:
     def test_cli_required_args(self):
@@ -496,7 +521,12 @@ class TestCLI:
     def test_cli_valid_mode_accepted(self):
         """Sanity check: every documented mode is a valid CLI choice."""
         assert set(BYPASS_MODES) == {
-            "probe", "dns-tunnel", "icmp-tunnel", "mac-clone", "direct-ip", "all",
+            "probe",
+            "dns-tunnel",
+            "icmp-tunnel",
+            "mac-clone",
+            "direct-ip",
+            "all",
         }
 
         args = ["portal_bypass", "-i", "wlan0", "-m", "probe"]

@@ -76,6 +76,7 @@ class TestCheckTools:
     def test_partial_tools(self, mock_which, attacker):
         def which_side_effect(tool):
             return "/usr/bin/reaver" if tool == "reaver" else None
+
         mock_which.side_effect = which_side_effect
         result = attacker.check_tools()
         assert result["reaver"] is True
@@ -88,8 +89,8 @@ class TestScanWPSTargets:
     def test_scan_parses_output(self, mock_run, mock_which, attacker):
         mock_run.return_value = MagicMock(
             stdout="BSSID              Ch  dBm  WPS  Lck  ESSID\n"
-                   "---\n"
-                   "AA:BB:CC:DD:EE:FF  6   -50  2.0  No   TestNetwork\n",
+            "---\n"
+            "AA:BB:CC:DD:EE:FF  6   -50  2.0  No   TestNetwork\n",
             returncode=0,
         )
         targets = attacker.scan_wps_targets()

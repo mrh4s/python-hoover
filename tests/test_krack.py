@@ -33,8 +33,9 @@ BSSID = "AA:BB:CC:DD:EE:FF"
 CLIENT = "11:22:33:44:55:66"
 
 
-def _eapol_body(key_info: int, replay_counter: int = 1, nonce: bytes = b"\x00" * 32,
-                 mic: bytes = b"\x00" * 16) -> bytes:
+def _eapol_body(
+    key_info: int, replay_counter: int = 1, nonce: bytes = b"\x00" * 32, mic: bytes = b"\x00" * 16
+) -> bytes:
     """Build a realistic EAPOL Key frame body for the given key_info bits."""
     body = bytearray(95)
     body[0] = 0x02  # descriptor type (RSN)
@@ -60,10 +61,15 @@ class _FakeEAPOLLayer:
         return self._raw
 
 
-def _make_eapol_packet(key_info: int, replay_counter: int = 1,
-                        nonce: bytes = b"\x00" * 32, bssid: str = BSSID,
-                        client: str = CLIENT, has_eapol: bool = True,
-                        has_dot11: bool = True):
+def _make_eapol_packet(
+    key_info: int,
+    replay_counter: int = 1,
+    nonce: bytes = b"\x00" * 32,
+    bssid: str = BSSID,
+    client: str = CLIENT,
+    has_eapol: bool = True,
+    has_dot11: bool = True,
+):
     """Create a mock packet carrying an EAPOL Key frame between bssid/client."""
     pkt = MagicMock()
 
@@ -91,6 +97,7 @@ def _make_eapol_packet(key_info: int, replay_counter: int = 1,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     return pkt
@@ -104,10 +111,9 @@ def _msg2_packet(**kwargs):
     return _make_eapol_packet(key_info=KEY_INFO_MIC, **kwargs)
 
 
-def _msg3_packet(nonce=b"\xAA" * 32, **kwargs):
+def _msg3_packet(nonce=b"\xaa" * 32, **kwargs):
     return _make_eapol_packet(
-        key_info=(KEY_INFO_ACK | KEY_INFO_MIC | KEY_INFO_INSTALL),
-        nonce=nonce, **kwargs
+        key_info=(KEY_INFO_ACK | KEY_INFO_MIC | KEY_INFO_INSTALL), nonce=nonce, **kwargs
     )
 
 
@@ -188,7 +194,7 @@ class TestTrackEapolSequence:
 # ---------------------------------------------------------------------------
 class TestDetectKeyReinstallation:
     def test_detect_key_reinstallation_with_replayed_msg3(self, detector):
-        nonce = b"\xAA" * 32
+        nonce = b"\xaa" * 32
         for pkt in (
             _msg1_packet(),
             _msg2_packet(),
@@ -216,10 +222,13 @@ class TestDetectKeyReinstallation:
 # ---------------------------------------------------------------------------
 class TestMonitorNonceReuse:
     def test_monitor_nonce_reuse_flags_duplicate(self, detector):
-        nonce = b"\xBB" * 32
+        nonce = b"\xbb" * 32
         for pkt in (
-            _msg1_packet(), _msg2_packet(), _msg3_packet(nonce=nonce),
-            _msg4_packet(), _msg3_packet(nonce=nonce),
+            _msg1_packet(),
+            _msg2_packet(),
+            _msg3_packet(nonce=nonce),
+            _msg4_packet(),
+            _msg3_packet(nonce=nonce),
         ):
             detector._track_eapol_sequence(pkt)
 
@@ -297,25 +306,42 @@ class TestGetStatus:
 class TestCLI:
     def test_cli_detect_only_flag(self, tmp_path):
         test_args = [
-            "krack.py", "-i", "wlan0mon", "-b", BSSID,
-            "--detect-only", "-t", "1",
+            "krack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            BSSID,
+            "--detect-only",
+            "-t",
+            "1",
         ]
         fake_results = {
-            "vulnerable": False, "findings": [], "nonce_report": {},
-            "frames_captured": 0, "mode": "4way",
+            "vulnerable": False,
+            "findings": [],
+            "nonce_report": {},
+            "frames_captured": 0,
+            "mode": "4way",
         }
-        with patch.object(sys, "argv", test_args), \
-             patch("krack.require_root"), \
-             patch("krack.KRACKDetector.start", return_value=fake_results) as mock_start, \
-             patch("krack.KRACKDetector.save_results", return_value=None), \
-             patch("krack.sys.exit"):
+        with (
+            patch.object(sys, "argv", test_args),
+            patch("krack.require_root"),
+            patch("krack.KRACKDetector.start", return_value=fake_results) as mock_start,
+            patch("krack.KRACKDetector.save_results", return_value=None),
+            patch("krack.sys.exit"),
+        ):
             main()
 
         mock_start.assert_called_once()
 
     def test_cli_mode_choices(self):
         test_args = [
-            "krack.py", "-i", "wlan0mon", "-b", BSSID, "-m", "invalid_mode",
+            "krack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            BSSID,
+            "-m",
+            "invalid_mode",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit):

