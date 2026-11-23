@@ -1069,38 +1069,31 @@ async function stopMitMAttack() {
     if (!result.success) { alert(`Failed to stop MitM attack: ${result.error}`); }
 }
 
+
 // --- BLE Attack ---
 
 async function startBLEAttack() {
     const target = document.getElementById('ble-attack-target').value.trim() || null;
     const mode = document.getElementById('ble-attack-mode').value;
     const scan_time = parseInt(document.getElementById('ble-attack-scan-time').value);
+    const timeout = parseInt(document.getElementById('ble-attack-timeout').value);
     const uuid = document.getElementById('ble-attack-uuid').value.trim() || null;
     const write_data = document.getElementById('ble-attack-write-data').value.trim() || null;
     const replay_count = parseInt(document.getElementById('ble-attack-replay-count').value);
     const replay_interval = parseFloat(document.getElementById('ble-attack-replay-interval').value);
     const spoof_name = document.getElementById('ble-attack-spoof-name').value.trim() || null;
-    const timeout = parseInt(document.getElementById('ble-attack-timeout').value);
 
-    if (target) {
-        const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
-        if (!macRegex.test(target)) { alert('Invalid target MAC format'); return; }
-    }
-    if ((mode === 'enumerate' || mode === 'replay' || mode === 'fuzz') && !target) {
-        alert(`Target MAC is required for ${mode} mode`); return;
-    }
-    if ((mode === 'replay' || mode === 'fuzz') && !uuid) {
-        alert(`UUID is required for ${mode} mode`); return;
-    }
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    if (target && !macRegex.test(target)) { alert('Invalid target MAC format'); return; }
 
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs BLE attacks on Bluetooth devices.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs Bluetooth Low Energy attacks.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
         return;
     }
 
     const result = await apiCall('/api/ble-attack/start', 'POST', {
-        target: target, mode: mode, scan_time: scan_time, uuid: uuid,
-        write_data: write_data, replay_count: replay_count,
-        replay_interval: replay_interval, spoof_name: spoof_name, timeout: timeout
+        target: target, mode: mode, scan_time: scan_time, timeout: timeout,
+        uuid: uuid, write_data: write_data, replay_count: replay_count,
+        replay_interval: replay_interval, spoof_name: spoof_name
     });
 
     if (result.success) { addLog('ble_attack', `BLE attack started (mode: ${mode})`); }
@@ -1112,7 +1105,7 @@ async function stopBLEAttack() {
     if (!result.success) { alert(`Failed to stop BLE attack: ${result.error}`); }
 }
 
-// --- Dragonblood WPA3 ---
+// --- Dragonblood ---
 
 async function startDragonblood() {
     const interface_name = document.getElementById('dragonblood-interface').value;
@@ -1124,7 +1117,7 @@ async function startDragonblood() {
     const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
     if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
 
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests WPA3 SAE/Dragonfly vulnerabilities.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests WPA3 for Dragonblood SAE vulnerabilities.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
         return;
     }
 
@@ -1132,7 +1125,7 @@ async function startDragonblood() {
         interface: interface_name, bssid: bssid
     });
 
-    if (result.success) { addLog('dragonblood', `Dragonblood started on ${interface_name} targeting ${bssid}`); }
+    if (result.success) { addLog('dragonblood', `Dragonblood started targeting ${bssid}`); }
     else { alert(`Failed to start Dragonblood: ${result.error}`); }
 }
 
@@ -1141,12 +1134,16 @@ async function stopDragonblood() {
     if (!result.success) { alert(`Failed to stop Dragonblood: ${result.error}`); }
 }
 
-// --- KRACK Detection ---
+// --- KRACK Detect ---
 
 async function startKRACK() {
     const interface_name = document.getElementById('krack-interface').value;
 
     if (!interface_name) { alert('Please select an interface'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests for KRACK key reinstallation vulnerabilities.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
 
     const result = await apiCall('/api/krack/start', 'POST', {
         interface: interface_name
@@ -1173,11 +1170,15 @@ async function startFragAttacks() {
     const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
     if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
 
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests for FragAttacks vulnerabilities.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
     const result = await apiCall('/api/fragattacks/start', 'POST', {
         interface: interface_name, bssid: bssid
     });
 
-    if (result.success) { addLog('fragattacks', `FragAttacks started on ${interface_name} targeting ${bssid}`); }
+    if (result.success) { addLog('fragattacks', `FragAttacks started targeting ${bssid}`); }
     else { alert(`Failed to start FragAttacks: ${result.error}`); }
 }
 
@@ -1209,7 +1210,7 @@ async function stopWardriving() {
 // --- Cloud C2 ---
 
 async function startCloudC2() {
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis starts a Cloud C2 server for remote agent management.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis starts a C2 server on port 8443.\n\nOnly use on authorized infrastructure.\n\nDo you confirm?')) {
         return;
     }
 
@@ -1236,7 +1237,7 @@ async function startWEPAttack() {
     const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
     if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
 
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs WEP key cracking attacks.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs WEP key cracking.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
         return;
     }
 
@@ -1244,7 +1245,7 @@ async function startWEPAttack() {
         interface: interface_name, bssid: bssid
     });
 
-    if (result.success) { addLog('wep_attack', `WEP attack started on ${interface_name} targeting ${bssid}`); }
+    if (result.success) { addLog('wep_attack', `WEP attack started targeting ${bssid}`); }
     else { alert(`Failed to start WEP attack: ${result.error}`); }
 }
 
@@ -1253,13 +1254,13 @@ async function stopWEPAttack() {
     if (!result.success) { alert(`Failed to stop WEP attack: ${result.error}`); }
 }
 
-// --- FT Attack (802.11r) ---
+// --- FT Attack ---
 
 async function startFTAttack() {
     const interface_name = document.getElementById('ft-attack-interface').value;
     const bssid = document.getElementById('ft-attack-bssid').value.trim();
-    const client = document.getElementById('ft-attack-client').value.trim() || null;
     const mode = document.getElementById('ft-attack-mode').value;
+    const client = document.getElementById('ft-attack-client').value.trim() || null;
     const timeout = parseInt(document.getElementById('ft-attack-timeout').value);
 
     if (!interface_name) { alert('Please select an interface'); return; }
@@ -1269,16 +1270,16 @@ async function startFTAttack() {
     if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
     if (client && !macRegex.test(client)) { alert('Invalid client MAC format'); return; }
 
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests 802.11r FT key reinstallation vulnerabilities.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests 802.11r Fast Transition for key reinstallation.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
         return;
     }
 
     const result = await apiCall('/api/ft-attack/start', 'POST', {
-        interface: interface_name, bssid: bssid, client: client,
-        mode: mode, timeout: timeout
+        interface: interface_name, bssid: bssid, mode: mode,
+        client: client, timeout: timeout
     });
 
-    if (result.success) { addLog('ft_attack', `FT attack started on ${interface_name} targeting ${bssid} (${mode})`); }
+    if (result.success) { addLog('ft_attack', `FT attack started targeting ${bssid}`); }
     else { alert(`Failed to start FT attack: ${result.error}`); }
 }
 
@@ -1290,63 +1291,66 @@ async function stopFTAttack() {
 // --- Password Crack ---
 
 async function startPasswordCrack() {
-    const capture_file = document.getElementById('password-crack-file').value.trim();
-    const wordlist = document.getElementById('password-crack-wordlist').value.trim();
+    const capture_file = document.getElementById('password-crack-capture').value.trim();
+    const wordlist = document.getElementById('password-crack-wordlist').value.trim() || null;
     const tool = document.getElementById('password-crack-tool').value;
     const timeout = parseInt(document.getElementById('password-crack-timeout').value);
 
     if (!capture_file) { alert('Please enter a capture file path'); return; }
 
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs offline password cracking.\n\nOnly use with legally obtained capture files.\n\nDo you confirm?')) {
+        return;
+    }
+
     const result = await apiCall('/api/password-crack/start', 'POST', {
-        capture_file: capture_file, wordlist: wordlist,
-        tool: tool, timeout: timeout
+        capture_file: capture_file, wordlist: wordlist, tool: tool, timeout: timeout
     });
 
-    if (result.success) { addLog('password_crack', `Password cracking started on ${capture_file}`); }
-    else { alert(`Failed to start password cracking: ${result.error}`); }
+    if (result.success) { addLog('password_crack', `Password crack started (${capture_file})`); }
+    else { alert(`Failed to start password crack: ${result.error}`); }
 }
 
 async function stopPasswordCrack() {
     const result = await apiCall('/api/password-crack/stop', 'POST');
-    if (!result.success) { alert(`Failed to stop password cracking: ${result.error}`); }
+    if (!result.success) { alert(`Failed to stop password crack: ${result.error}`); }
 }
 
 // --- Channel MitM ---
 
 async function startChannelMitM() {
-    const monitor_iface = document.getElementById('channel-mitm-monitor-interface').value;
-    const rogue_iface = document.getElementById('channel-mitm-inject-interface').value;
+    const rogue_interface = document.getElementById('channel-mitm-rogue-interface').value;
+    const monitor_interface = document.getElementById('channel-mitm-monitor-interface').value;
     const bssid = document.getElementById('channel-mitm-bssid').value.trim();
     const channel = parseInt(document.getElementById('channel-mitm-channel').value);
-    const rogue_channel = document.getElementById('channel-mitm-rogue-channel').value.trim() || null;
+    const rogue_channel_val = document.getElementById('channel-mitm-rogue-channel').value;
+    const rogue_channel = rogue_channel_val ? parseInt(rogue_channel_val) : null;
     const ssid = document.getElementById('channel-mitm-ssid').value.trim() || null;
     const timeout = parseInt(document.getElementById('channel-mitm-timeout').value);
 
-    if (!monitor_iface) { alert('Please select a monitor interface'); return; }
-    if (!rogue_iface) { alert('Please select a rogue/inject interface'); return; }
+    if (!rogue_interface || !monitor_interface) { alert('Please select both interfaces'); return; }
     if (!bssid) { alert('Please enter target BSSID'); return; }
+    if (!channel) { alert('Please enter target channel'); return; }
 
     const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
     if (!macRegex.test(bssid)) { alert('Invalid BSSID format'); return; }
 
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs channel-based MitM attacks using two interfaces.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs a channel-based MitM attack.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
         return;
     }
 
     const result = await apiCall('/api/channel-mitm/start', 'POST', {
-        monitor_interface: monitor_iface, rogue_interface: rogue_iface,
-        bssid: bssid, channel: channel,
-        rogue_channel: rogue_channel ? parseInt(rogue_channel) : null,
+        rogue_interface: rogue_interface, monitor_interface: monitor_interface,
+        bssid: bssid, channel: channel, rogue_channel: rogue_channel,
         ssid: ssid, timeout: timeout
     });
 
-    if (result.success) { addLog('channel_mitm', `Channel MitM started: ${rogue_iface}/${monitor_iface} targeting ${bssid}`); }
-    else { alert(`Failed to start Channel MitM: ${result.error}`); }
+    if (result.success) { addLog('channel_mitm', `Channel MitM started targeting ${bssid}`); }
+    else { alert(`Failed to start channel MitM: ${result.error}`); }
 }
 
 async function stopChannelMitM() {
     const result = await apiCall('/api/channel-mitm/stop', 'POST');
-    if (!result.success) { alert(`Failed to stop Channel MitM: ${result.error}`); }
+    if (!result.success) { alert(`Failed to stop channel MitM: ${result.error}`); }
 }
 
 // --- WiFi Direct ---
@@ -1359,25 +1363,27 @@ async function startWiFiDirect() {
 
     if (!interface_name) { alert('Please select an interface'); return; }
 
-    if (target) {
-        const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
-        if (!macRegex.test(target)) { alert('Invalid target MAC format'); return; }
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    if (target && !macRegex.test(target)) { alert('Invalid target MAC format'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool tests WiFi Direct P2P security.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
     }
 
     const result = await apiCall('/api/wifi-direct/start', 'POST', {
         interface: interface_name, mode: mode, target: target, timeout: timeout
     });
 
-    if (result.success) { addLog('wifi_direct', `WiFi Direct testing started on ${interface_name} (${mode})`); }
-    else { alert(`Failed to start WiFi Direct: ${result.error}`); }
+    if (result.success) { addLog('wifi_direct', `WiFi Direct test started on ${interface_name}`); }
+    else { alert(`Failed to start WiFi Direct test: ${result.error}`); }
 }
 
 async function stopWiFiDirect() {
     const result = await apiCall('/api/wifi-direct/stop', 'POST');
-    if (!result.success) { alert(`Failed to stop WiFi Direct: ${result.error}`); }
+    if (!result.success) { alert(`Failed to stop WiFi Direct test: ${result.error}`); }
 }
 
-// --- Jamming Detection ---
+// --- Jamming Detect ---
 
 async function startJammingDetect() {
     const interface_name = document.getElementById('jamming-detect-interface').value;
@@ -1411,16 +1417,11 @@ async function startDHCPDNSAttack() {
 
     if (!interface_name) { alert('Please select an interface'); return; }
 
-    if (target_ip) {
-        const ipRegex = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
-        if (!ipRegex.test(target_ip)) { alert('Invalid target IP format'); return; }
-    }
-    if (spoof_ip) {
-        const ipRegex = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
-        if (!ipRegex.test(spoof_ip)) { alert('Invalid spoof IP format'); return; }
-    }
+    const ipRegex = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+    if (target_ip && !ipRegex.test(target_ip)) { alert('Invalid target IP format'); return; }
+    if (spoof_ip && !ipRegex.test(spoof_ip)) { alert('Invalid spoof IP format'); return; }
 
-    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs DHCP/DNS attacks on the network.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool performs DHCP/DNS attacks.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
         return;
     }
 
@@ -1449,6 +1450,13 @@ async function startPortalBypass() {
 
     if (!interface_name) { alert('Please select an interface'); return; }
 
+    const ipRegex = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+    if (target_ip && !ipRegex.test(target_ip)) { alert('Invalid target IP format'); return; }
+
+    if (!confirm('AUTHORIZATION REQUIRED\n\nThis tool attempts to bypass captive portal restrictions.\n\nOnly proceed with written authorization.\n\nDo you confirm?')) {
+        return;
+    }
+
     const result = await apiCall('/api/portal-bypass/start', 'POST', {
         interface: interface_name, mode: mode, dns_domain: dns_domain,
         target_ip: target_ip, timeout: timeout
@@ -1463,25 +1471,27 @@ async function stopPortalBypass() {
     if (!result.success) { alert(`Failed to stop portal bypass: ${result.error}`); }
 }
 
-// --- Multi-Adapter ---
+// --- Multi-Adapter Discovery ---
 
 async function discoverMultiAdapter() {
-    const result = await apiCall('/api/status');
-    if (result && result.interfaces) {
-        const count = result.interfaces.length;
-        addLog('multi_adapter', `Discovered ${count} interface(s): ${result.interfaces.map(i => i.name).join(', ')}`);
-        alert(`Found ${count} interface(s):\n${result.interfaces.map(i => `${i.name} (${i.mode})`).join('\n')}`);
-    } else {
-        alert('Failed to discover adapters');
+    const container = document.getElementById('multi-adapter-results');
+    if (container) {
+        container.innerHTML = '<p>Discovering adapters... Use <code>multi-adapter discover</code> CLI for full results.</p>';
     }
+    addLog('multi_adapter', 'Adapter discovery requested - use CLI for full functionality');
 }
 
 // --- Report Generator ---
 
 async function generateReport() {
+    const title = document.getElementById('report-title').value.trim() || 'Security Assessment';
     const format = document.getElementById('report-format').value;
-    addLog('reporting', `Report generation requested (format: ${format})`);
-    alert('Report generation is available via CLI:\n\nhoover-report --format ' + format + ' --output report.' + format);
+    const container = document.getElementById('report-results');
+
+    if (container) {
+        container.innerHTML = `<p>Report generation requested. Run <code>hoover-report --format ${escapeHtml(format)}</code> from CLI.</p>`;
+    }
+    addLog('reporting', `Report requested: ${title} (${format})`);
 }
 
 // Logging functions
