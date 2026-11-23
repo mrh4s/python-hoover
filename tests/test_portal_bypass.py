@@ -17,20 +17,18 @@ sys.modules.setdefault("scapy.layers.l2", MagicMock())
 sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from portal_bypass import (  # noqa: E402
-    PortalBypass,
-    BYPASS_MODES,
-    DEFAULT_TARGET_IP,
-    DEFAULT_DNS_DOMAIN,
-    DNS_TEST_PAYLOAD,
-    ICMP_TEST_PAYLOAD,
-    main,
-)
-
-# Import mocked classes as production code sees them
-from scapy.layers.inet import IP, ICMP  # noqa: E402
 from scapy.layers.dot11 import Dot11  # noqa: E402
 
+# Import mocked classes as production code sees them
+from portal_bypass import (  # noqa: E402
+    BYPASS_MODES,
+    DEFAULT_DNS_DOMAIN,
+    DEFAULT_TARGET_IP,
+    DNS_TEST_PAYLOAD,
+    ICMP_TEST_PAYLOAD,
+    PortalBypass,
+    main,
+)
 
 TARGET_IP = "1.1.1.1"
 CLIENT_MAC = "AA:BB:CC:DD:EE:FF"
@@ -428,7 +426,7 @@ class TestSaveResults:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             saved = json.load(f)
         assert saved["mode"] == "probe"
 

@@ -10,8 +10,9 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
+from scapy.layers.dot11 import Dot11, Dot11Beacon, RadioTap  # noqa: E402
+
 from ap_scanner import APScanner  # noqa: E402
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, RadioTap  # noqa: E402
 
 BSSID = "AA:BB:CC:DD:EE:FF"
 

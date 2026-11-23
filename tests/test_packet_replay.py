@@ -3,7 +3,7 @@
 import os
 import sys
 import tempfile
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -14,9 +14,8 @@ sys.modules.setdefault("scapy.layers.eap", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
-from packet_replay import PacketReplay, FILTER_TYPES  # noqa: E402
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11ProbeReq  # noqa: E402
-from scapy.layers.eap import EAPOL  # noqa: E402
+
+from packet_replay import FILTER_TYPES, PacketReplay  # noqa: E402
 
 
 @pytest.fixture

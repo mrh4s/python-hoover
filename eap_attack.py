@@ -6,24 +6,23 @@ whether 802.1X supplicants properly validate server certificates.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
-import subprocess
+import os
 import signal
+import subprocess
+import sys
 import tempfile
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, RadioTap
-from scapy.layers.eap import EAP, EAPOL
+from scapy.layers.dot11 import Dot11
+from scapy.layers.eap import EAP
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface
 
 # EAP type constants
 EAP_TYPE_IDENTITY = 1

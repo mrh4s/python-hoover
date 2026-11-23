@@ -3,7 +3,7 @@
 import os
 import sys
 import time
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -15,12 +15,11 @@ sys.modules.setdefault("scapy.layers.eap", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
-from pmkid_capture import PMKIDCapture  # noqa: E402
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11, Dot11Elt  # noqa: E402
 from scapy.layers.eap import EAPOL  # noqa: E402
 
+from pmkid_capture import PMKIDCapture  # noqa: E402
 
 TARGET_BSSID = "AA:BB:CC:DD:EE:FF"
 CLIENT_MAC = "11:22:33:44:55:66"
@@ -368,7 +367,7 @@ class TestSaveCapture:
         assert filepath.endswith(".22000")
         assert os.path.isfile(filepath)
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             content = f.read().strip()
 
         assert content.startswith("WPA*02*")
@@ -381,7 +380,7 @@ class TestSaveCapture:
         # STA MAC (default CC:CC:CC:CC:CC:CC lowercase, no colons)
         assert parts[4] == "cccccccccccc"
         # ESSID hex
-        assert parts[5] == "TestNetwork".encode("utf-8").hex()
+        assert parts[5] == b"TestNetwork".hex()
 
     def test_save_with_client_mac(self, capturer_with_client, tmp_path):
         """Should use the configured client MAC in the hashcat output."""
@@ -390,7 +389,7 @@ class TestSaveCapture:
         filepath = capturer_with_client.save_capture()
         assert filepath is not None
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             content = f.read().strip()
 
         parts = content.split("*")
@@ -408,7 +407,7 @@ class TestSaveCapture:
         filepath = capturer.save_capture()
         assert filepath is not None
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             content = f.read().strip()
 
         parts = content.split("*")

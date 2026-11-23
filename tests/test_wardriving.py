@@ -1,9 +1,7 @@
 """Tests for wardriving.py -- GPS/Wardriving module."""
 
 import csv
-import io
 import json
-import socket
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -18,13 +16,15 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from wardriving import WardrivingMapper, main  # noqa: E402
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap,
+    Dot11,
+    Dot11Beacon,
+    Dot11Elt,
+    RadioTap,
 )
 
+from wardriving import WardrivingMapper, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -205,7 +205,7 @@ class TestSaveResults:
         path = mapper.save_results()
 
         assert path == mapper.output_file
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         assert "AA:BB:CC:DD:EE:FF" in data
         assert data["AA:BB:CC:DD:EE:FF"]["ssid"] == "SaveTest"
@@ -225,7 +225,7 @@ class TestExportKml:
         result = mapper.export_kml(out_path)
 
         assert result == out_path
-        with open(out_path, "r", encoding="utf-8") as f:
+        with open(out_path, encoding="utf-8") as f:
             content = f.read()
         assert "<kml" in content
         assert "<Placemark>" in content
@@ -247,7 +247,7 @@ class TestExportCsv:
         result = mapper.export_csv(out_path)
 
         assert result == out_path
-        with open(out_path, "r", encoding="utf-8") as f:
+        with open(out_path, encoding="utf-8") as f:
             lines = f.read().splitlines()
 
         assert lines[0].startswith("WigleWifi-1.4")

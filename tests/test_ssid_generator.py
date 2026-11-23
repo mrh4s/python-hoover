@@ -3,8 +3,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Mock scapy before importing ssid_generator
 # ---------------------------------------------------------------------------
@@ -14,7 +12,6 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
 from ssid_generator import SSIDGenerator  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # generate_mac

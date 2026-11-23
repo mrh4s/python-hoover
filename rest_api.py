@@ -29,7 +29,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Callable, Optional
 
-from flask import Flask, Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, Flask, jsonify, request, send_from_directory
 from werkzeug.serving import make_server
 
 from utils import setup_logging

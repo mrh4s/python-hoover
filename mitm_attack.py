@@ -6,23 +6,23 @@ Tests whether network segmentation and ARP inspection are properly configured.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 from urllib.parse import unquote_plus
 
-from scapy.layers.l2 import ARP, Ether
-from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.dns import DNS, DNSQR
-from scapy.sendrecv import sniff, send, srp
+from scapy.layers.inet import IP, TCP
+from scapy.layers.l2 import ARP, Ether
 from scapy.packet import Raw
+from scapy.sendrecv import send, sniff, srp
 
-from utils import validate_interface, validate_ip, require_root, setup_logging
+from utils import require_root, setup_logging, validate_interface, validate_ip
 
 DEFAULT_CAPTURE_PORTS: list[int] = [80, 8080, 443, 21, 25, 110, 143]
 
@@ -66,7 +66,7 @@ class MitMAttack:
     def _enable_ip_forwarding(self) -> None:
         """Enable IP forwarding by writing to /proc/sys/net/ipv4/ip_forward."""
         try:
-            with open("/proc/sys/net/ipv4/ip_forward", "r") as f:
+            with open("/proc/sys/net/ipv4/ip_forward") as f:
                 self._original_forwarding = f.read().strip()
             with open("/proc/sys/net/ipv4/ip_forward", "w") as f:
                 f.write("1")

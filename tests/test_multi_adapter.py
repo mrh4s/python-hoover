@@ -1,19 +1,15 @@
 """Tests for multi_adapter.py — Multi-Adapter Management module."""
 
 import json
-import os
-import sys
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from multi_adapter import (  # noqa: E402
     MultiAdapterManager,
-    VALID_ROLES,
     _parse_adapters_arg,
     main,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

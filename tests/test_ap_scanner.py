@@ -13,11 +13,10 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from ap_scanner import APScanner  # noqa: E402
-
 # Import the mocked scapy classes as the production code sees them
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap  # noqa: E402
+from scapy.layers.dot11 import Dot11, Dot11Beacon, RadioTap  # noqa: E402
 
+from ap_scanner import APScanner  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures

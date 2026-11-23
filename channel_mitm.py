@@ -17,11 +17,11 @@ relay introduces latency that may cause client disconnection.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -29,12 +29,12 @@ from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Deauth, Dot11Beacon, Dot11AssoReq, Dot11Auth, RadioTap,
+    Dot11,
+    RadioTap,
 )
-from scapy.sendrecv import sniff, sendp
-from scapy.utils import wrpcap
+from scapy.sendrecv import sendp, sniff
 
-from utils import validate_mac, validate_interface, require_root, setup_logging
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 try:
     from multi_adapter import MultiAdapterManager
@@ -42,7 +42,6 @@ except ImportError:
     MultiAdapterManager = None
 
 from deauth import DeauthAttacker
-
 
 # 2.4 GHz and 5 GHz channel pools used for auto-selecting a rogue channel
 # that sits far from the target's channel, preferring a different band.

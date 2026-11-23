@@ -13,9 +13,10 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
+from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11Disas, RadioTap  # noqa: E402
+
 import jamming_detect  # noqa: E402
 from jamming_detect import JammingDetector  # noqa: E402
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11Disas, RadioTap  # noqa: E402
 
 
 @pytest.fixture

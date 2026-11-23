@@ -3,8 +3,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Mock scapy before importing hoover, since scapy may not be installed.
 # ---------------------------------------------------------------------------
@@ -20,7 +18,7 @@ sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
 import hoover as _hoover_module  # noqa: E402
-from hoover import ProbeMonitor, ClientFingerprint  # noqa: E402
+from hoover import ClientFingerprint, ProbeMonitor  # noqa: E402
 
 # Grab the actual mock objects hoover.py imported, so our fake packets
 # dispatch on the same identity the production code uses.

@@ -2,9 +2,8 @@
 
 import json
 import os
-import sys
 import struct
-import time
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,23 +17,20 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from dragonblood import (  # noqa: E402
-    DragonbloodAttack,
-    ECC_GROUPS,
-    MANDATORY_GROUP,
-    ANTI_CLOGGING_TOKEN_REQUIRED,
-    UNSUPPORTED_GROUP,
-    AUTH_ALGO_SAE,
-    AUTH_ALGO_OPEN,
-    ATTACK_MODES,
-    AKM_PSK,
-    AKM_SAE,
-    main,
-)
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11, Dot11Auth, Dot11Elt  # noqa: E402
 
+from dragonblood import (  # noqa: E402
+    AKM_PSK,
+    AKM_SAE,
+    ATTACK_MODES,
+    AUTH_ALGO_OPEN,
+    AUTH_ALGO_SAE,
+    MANDATORY_GROUP,
+    UNSUPPORTED_GROUP,
+    DragonbloodAttack,
+    main,
+)
 
 TARGET_BSSID = "AA:BB:CC:DD:EE:FF"
 CLIENT_MAC = "11:22:33:44:55:66"
@@ -273,7 +269,7 @@ class TestSaveResults:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             saved = json.load(f)
         assert saved["mode"] == "downgrade"
         assert saved["target_bssid"] == TARGET_BSSID

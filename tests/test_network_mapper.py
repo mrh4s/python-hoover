@@ -13,7 +13,7 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.l2", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from network_mapper import NetworkMapper, DEFAULT_PORTS  # noqa: E402
+from network_mapper import DEFAULT_PORTS, NetworkMapper  # noqa: E402
 
 
 @pytest.fixture

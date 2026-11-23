@@ -12,10 +12,10 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from karma_attack import KarmaAttack, DEFAULT_BLACKLIST  # noqa: E402
-
 # Import mocked classes
-from scapy.layers.dot11 import Dot11, Dot11ProbeReq, Dot11Elt  # noqa: E402
+from scapy.layers.dot11 import Dot11, Dot11ProbeReq  # noqa: E402
+
+from karma_attack import DEFAULT_BLACKLIST, KarmaAttack  # noqa: E402
 
 
 @pytest.fixture

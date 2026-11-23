@@ -6,22 +6,21 @@ Clientless attack technique — no connected clients needed.
 Discovered by Jens "atom" Steube (hashcat developer).
 """
 
-import sys
-import os
 import argparse
-import threading
+import os
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, Dot11Auth, Dot11AssoReq, Dot11Elt, RadioTap
+from scapy.layers.dot11 import Dot11, Dot11AssoReq, Dot11Auth, Dot11Elt, RadioTap
 from scapy.layers.eap import EAPOL
-from scapy.sendrecv import sniff, sendp
+from scapy.sendrecv import sendp, sniff
 from scapy.utils import wrpcap
 
-from utils import validate_mac, validate_interface, check_monitor_mode, require_root, setup_logging
-
+from utils import check_monitor_mode, require_root, setup_logging, validate_interface, validate_mac
 
 # PMKID KDE constants
 PMKID_KDE_TYPE = 0xDD

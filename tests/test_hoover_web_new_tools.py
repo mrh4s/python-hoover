@@ -13,8 +13,8 @@ sys.modules.setdefault("psutil", MagicMock(
 ))
 sys.modules.setdefault("flask_socketio", MagicMock())
 
-from hoover_web import app, _generate_auth_password, tool_status  # noqa: E402
 import hoover_web  # noqa: E402
+from hoover_web import _generate_auth_password, app, tool_status  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

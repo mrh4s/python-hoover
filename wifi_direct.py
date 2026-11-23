@@ -21,25 +21,28 @@ forcing requires wpa_supplicant with P2P support.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import struct
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp,
-    Dot11Action, RadioTap,
+    Dot11,
+    Dot11Action,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
 )
 from scapy.sendrecv import sniff
 from scapy.utils import wrpcap
 
-from utils import validate_interface, validate_mac, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # WiFi Alliance P2P OUI and vendor-specific IE OUI type
 P2P_OUI = b"\x50\x6f\x9a"
@@ -909,7 +912,7 @@ def main() -> None:
             "For authorized security testing and research only."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 Examples:
   # Passive P2P device discovery (default mode)
   sudo python3 wifi_direct.py -i wlan0mon
@@ -926,8 +929,8 @@ Examples:
   # Run all tests against a specific device
   sudo python3 wifi_direct.py -i wlan0mon -m all --target AA:BB:CC:DD:EE:FF
 
-%s
-        """ % REALISTIC_LIMITATION,
+{REALISTIC_LIMITATION}
+        """,
     )
 
     parser.add_argument("-i", "--interface", required=True,

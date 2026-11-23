@@ -5,20 +5,19 @@ Creates fake access points from SSID list and captures data from connecting clie
 For authorized penetration testing and security research only
 """
 
-import sys
-import os
 import argparse
-import subprocess
+import os
+import shutil
 import signal
+import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
-import threading
-import shutil
 from typing import Optional
 
-from utils import require_root, setup_logging, validate_interface, load_ssids
-
+from utils import load_ssids, require_root, setup_logging
 
 # Module-level flag for graceful shutdown (replaces sys.exit in signal handler)
 _shutdown_requested: bool = False
@@ -347,7 +346,7 @@ bind-interfaces
         monitor_thread = threading.Thread(target=self.monitor_clients, daemon=True)
         monitor_thread.start()
 
-        self.log(f"Access point active - waiting for connections...")
+        self.log("Access point active - waiting for connections...")
         self.log(f"Channel: {self.channel}")
         self.log(f"Encryption: {self.encryption if self.encryption else 'Open (None)'}")
         self.log(f"Internet sharing: {'Enabled' if self.internet_share else 'Disabled'}")
@@ -548,7 +547,7 @@ IMPORTANT LEGAL NOTICE:
 
     finally:
         capturer.cleanup()
-        print(f"\n[+] Capture complete. Check output directory:")
+        print("\n[+] Capture complete. Check output directory:")
         print(f"    {os.path.abspath(args.output)}")
 
 

@@ -1,9 +1,7 @@
 """Tests for hoover_web.py — Flask web GUI."""
 
 import json
-import os
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,9 +15,8 @@ sys.modules.setdefault("psutil", MagicMock(
 # Mock flask_socketio — the web tests use the plain Flask test client
 sys.modules.setdefault("flask_socketio", MagicMock())
 
-from hoover_web import app, _generate_auth_password, _auth_password_hash, tool_status  # noqa: E402
 import hoover_web  # noqa: E402
-
+from hoover_web import _generate_auth_password, app  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -49,7 +46,6 @@ def client():
 @pytest.fixture
 def auth_client(client):
     """Return a Flask test client that is already authenticated."""
-    password = app.config["_test_password"]
     with client.session_transaction() as sess:
         sess["authenticated"] = True
         sess["csrf_token"] = "test-csrf-token"

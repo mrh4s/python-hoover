@@ -1,25 +1,22 @@
 """Tests for utils.py — shared utilities."""
 
 import logging
-import os
-import sys
 from unittest.mock import patch
 
 import pytest
 
 from utils import (
-    validate_mac,
-    validate_interface,
-    check_monitor_mode,
-    load_ssids,
-    require_root,
-    setup_logging,
-    get_channels,
     CHANNELS_2GHZ,
     CHANNELS_5GHZ,
     CHANNELS_6GHZ,
+    check_monitor_mode,
+    get_channels,
+    load_ssids,
+    require_root,
+    setup_logging,
+    validate_interface,
+    validate_mac,
 )
-
 
 # ---------------------------------------------------------------------------
 # validate_mac

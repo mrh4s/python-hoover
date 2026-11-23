@@ -18,12 +18,9 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
-from fragattacks import FragAttacks, TEST_MODES, main  # noqa: E402
-
 # Import mocked scapy classes as the production code sees them
-from scapy.layers.dot11 import Dot11, Dot11QoS, RadioTap  # noqa: E402
-from scapy.layers.inet import ICMP  # noqa: E402
 
+from fragattacks import TEST_MODES, FragAttacks  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -21,23 +21,21 @@ on completing full SAE key exchanges. For complete SAE testing, use
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import struct
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import (Dot11, Dot11Auth, Dot11Beacon, Dot11Elt,
-                                 Dot11ProbeResp, RadioTap)
-from scapy.sendrecv import sniff, sendp
+from scapy.layers.dot11 import Dot11, Dot11Auth, Dot11Beacon, Dot11Elt, RadioTap
 from scapy.packet import Raw
+from scapy.sendrecv import sendp, sniff
 
-from utils import validate_mac, validate_interface, setup_logging, require_root
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # 802.11 authentication algorithm number for SAE
 AUTH_ALGO_SAE = 3

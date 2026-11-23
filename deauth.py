@@ -5,22 +5,21 @@ Sends deauthentication frames to disconnect clients from WiFi networks
 Used for authorized security testing and network analysis
 """
 
-import sys
-import os
 import argparse
-import time
 import subprocess
+import sys
+import time
 from typing import Optional
 
 from scapy.layers.dot11 import Dot11, Dot11Deauth, RadioTap
 from scapy.sendrecv import sendp
 
 from utils import (
-    validate_mac,
-    validate_interface,
     check_monitor_mode,
     require_root,
     setup_logging,
+    validate_interface,
+    validate_mac,
 )
 
 

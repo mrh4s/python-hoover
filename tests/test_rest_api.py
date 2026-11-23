@@ -2,12 +2,11 @@
 
 import sys
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 import rest_api  # noqa: E402
-from rest_api import HooverAPI, TOOL_REGISTRY  # noqa: E402
+from rest_api import TOOL_REGISTRY, HooverAPI  # noqa: E402
 
 TEST_TOKEN = "test-token-0123456789abcdef"
 

@@ -4,25 +4,32 @@ AP Scanner for Hoover WiFi Security Toolkit
 Passively scans for nearby WiFi access points by sniffing beacon and probe response frames
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
-import threading
+import os
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11AssoReq, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeReq,
-    Dot11ProbeResp, Dot11ReassoReq, RadioTap,
+    Dot11,
+    Dot11AssoReq,
+    Dot11Beacon,
+    Dot11Deauth,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
+    Dot11ReassoReq,
+    RadioTap,
 )
 from scapy.sendrecv import sendp, sniff
 
-from utils import validate_interface, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
+from utils import check_monitor_mode, get_channels, require_root, setup_logging, validate_interface
 
 
 class APScanner:

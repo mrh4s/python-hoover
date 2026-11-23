@@ -5,22 +5,21 @@ Broadcasts SSIDs from a text file on a specified wireless interface
 Used for testing, research, and authorized penetration testing
 """
 
-import sys
-import os
 import argparse
-import time
 import subprocess
+import sys
+import time
 from typing import Optional
 
 from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, RadioTap
 from scapy.sendrecv import sendp
 
 from utils import (
-    validate_interface,
+    check_monitor_mode,
     load_ssids,
     require_root,
-    check_monitor_mode,
     setup_logging,
+    validate_interface,
 )
 
 

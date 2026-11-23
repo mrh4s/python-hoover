@@ -6,11 +6,10 @@ capture, fuzzing, and (where hardware allows) advertisement spoofing.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import asyncio
 import json
+import os
 import subprocess
 import threading
 import time
@@ -19,8 +18,7 @@ from typing import Optional
 
 from bleak import BleakClient, BleakScanner
 
-from utils import validate_mac, setup_logging
-
+from utils import setup_logging, validate_mac
 
 SUPPORTED_MODES = ("scan", "enumerate", "replay", "spoof", "fuzz")
 

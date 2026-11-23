@@ -2,7 +2,7 @@
 
 import os
 import sys
-import tempfile
+
 import pytest
 
 # Ensure the project root is on sys.path so that imports like

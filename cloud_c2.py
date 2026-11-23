@@ -14,27 +14,22 @@ only -- NO arbitrary shell access.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
-import json
-import logging
-import platform
 import hmac
+import platform
 import ssl
-import subprocess
+import sys
 import threading
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from flask import Flask, request
-from flask_socketio import SocketIO, emit, disconnect
 import socketio as sio_client_module
+from flask import Flask, request
+from flask_socketio import SocketIO, disconnect, emit
 
-from utils import setup_logging, validate_ip
-
+from utils import setup_logging
 
 # ---------------------------------------------------------------------------
 # Constants

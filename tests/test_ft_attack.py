@@ -14,24 +14,26 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
+# Import mocked classes as production code sees them
+from scapy.layers.dot11 import (  # noqa: E402
+    Dot11,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ReassoReq,
+    Dot11ReassoResp,
+)
+
 from ft_attack import (  # noqa: E402
-    FTAttack,
-    TEST_MODES,
-    MDIE_ID,
-    FTIE_ID,
-    FT_AUTH_ALG,
     FT_ACTION_CATEGORY,
     FT_ACTION_REQUEST,
     FT_ACTION_RESPONSE,
+    FT_AUTH_ALG,
+    FTIE_ID,
+    MDIE_ID,
+    TEST_MODES,
+    FTAttack,
     main,
 )
-
-# Import mocked classes as production code sees them
-from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ReassoReq, Dot11ReassoResp,
-    Dot11Auth,
-)
-
 
 BSSID = "AA:BB:CC:DD:EE:FF"
 CLIENT = "11:22:33:44:55:66"
@@ -508,7 +510,7 @@ class TestSaveResults:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
         assert data["target_bssid"] == BSSID
         assert data["findings"] == [{"type": "test_finding"}]

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Shared utilities for Hoover WiFi Security Toolkit"""
 
+import logging
 import os
-import sys
 import re
 import subprocess
-import logging
-
+import sys
 
 CHANNELS_2GHZ: list[int] = list(range(1, 14))
 CHANNELS_5GHZ: list[int] = [
@@ -151,7 +150,7 @@ def load_ssids(filepath: str) -> list[str]:
         FileNotFoundError: If the file does not exist.
         IOError: If the file cannot be read.
     """
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding='utf-8') as f:
         return [
             line.strip() for line in f
             if line.strip() and not line.startswith('#')

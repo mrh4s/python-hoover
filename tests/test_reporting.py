@@ -1,15 +1,14 @@
 """Tests for reporting.py — Report Generation module."""
 
+import builtins
 import json
 import os
 import sys
-import builtins
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from reporting import ReportGenerator, main, SUPPORTED_FORMATS  # noqa: E402
-
+from reporting import SUPPORTED_FORMATS, ReportGenerator, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -120,7 +119,7 @@ class TestFileGeneration:
         result_path = generator.generate_html(output_path)
         assert result_path == output_path
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         assert "Narrative" in content
 
@@ -129,7 +128,7 @@ class TestFileGeneration:
         output_path = str(tmp_path / "out.json")
         result_path = generator.generate_json(output_path)
         assert result_path == output_path
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             data = json.load(f)
         assert data["title"] == generator.title
         assert data["author"] == generator.author

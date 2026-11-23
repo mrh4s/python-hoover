@@ -15,11 +15,10 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from wep_attack import WEPAttack, ATTACK_MODES, main  # noqa: E402
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11, Dot11WEP  # noqa: E402
 
+from wep_attack import ATTACK_MODES, WEPAttack, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -124,7 +123,6 @@ class TestFakeAuth:
 
         # First call: Dot11Auth frame addressed to/from the right MACs
         first_call_args = mock_sendp.call_args_list[0]
-        sent_frame = first_call_args[0][0]
         assert first_call_args[1]["iface"] == attack.interface
 
         # The frame is built via scapy's `/` operator on MagicMocks, so we

@@ -2,14 +2,10 @@
 
 import csv
 import json
-import os
 import sqlite3
 import sys
 from collections import defaultdict
-from io import StringIO
-from unittest.mock import MagicMock, patch, PropertyMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Mock scapy before importing hoover, since scapy may not be installed.
@@ -23,7 +19,7 @@ sys.modules.setdefault("scapy.layers.dot11", _scapy_dot11_mock)
 sys.modules.setdefault("scapy.sendrecv", _scapy_sendrecv_mock)
 
 import hoover as _hoover_module  # noqa: E402
-from hoover import ProbeMonitor, OutputWriter, _color  # noqa: E402
+from hoover import OutputWriter, ProbeMonitor, _color  # noqa: E402
 
 # Grab the actual mock objects that hoover.py imported, so our packet mock
 # dispatches on the same identity the production code uses.
@@ -205,7 +201,7 @@ class TestCSVOutput:
                       "Apple", "TestSSID", -50)
         writer.close()
 
-        with open(csv_path, "r", newline="", encoding="utf-8") as f:
+        with open(csv_path, newline="", encoding="utf-8") as f:
             reader = list(csv.reader(f))
 
         # Header row
@@ -235,7 +231,7 @@ class TestJSONOutput:
                       "Intel", "OtherSSID", -65)
         writer.close()
 
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             lines = [json.loads(line) for line in f if line.strip()]
 
         assert len(lines) == 2

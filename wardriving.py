@@ -7,14 +7,14 @@ KML (Google Earth) and Wigle-compatible CSV formats.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
+import os
 import socket
-import threading
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
@@ -22,9 +22,9 @@ from typing import Optional
 from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, require_root, setup_logging, get_channels
 from ap_scanner import APScanner
 from oui_lookup import lookup_vendor
+from utils import get_channels, require_root, setup_logging, validate_interface
 
 
 class WardrivingMapper:
@@ -78,7 +78,7 @@ class WardrivingMapper:
             self._gpsd_connected = True
             self.logger.info("Connected to gpsd at %s:%d", self.gpsd_host, self.gpsd_port)
             return True
-        except (OSError, socket.error) as e:
+        except OSError as e:
             self.logger.warning("Could not connect to gpsd at %s:%d: %s",
                                  self.gpsd_host, self.gpsd_port, e)
             self._gpsd_connected = False
@@ -116,7 +116,7 @@ class WardrivingMapper:
                         "satellites": msg.get("satellites"),
                     }
             return None
-        except (OSError, socket.error, socket.timeout) as e:
+        except (OSError, socket.timeout) as e:
             self.logger.debug("Error reading gpsd fix: %s", e)
             return None
 

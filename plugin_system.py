@@ -14,12 +14,12 @@ are responsible for using it only against systems they are authorized to
 test.
 """
 
-import os
-import sys
-import json
 import argparse
 import importlib.util
 import inspect
+import json
+import os
+import sys
 import threading
 from typing import Optional
 
@@ -152,9 +152,7 @@ class PluginManager:
     @staticmethod
     def _import_module_from_path(path: str):
         """Load a Python module from a file path using importlib."""
-        module_name = "_hoover_plugin_{}".format(
-            os.path.splitext(os.path.basename(path))[0]
-        )
+        module_name = f"_hoover_plugin_{os.path.splitext(os.path.basename(path))[0]}"
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Could not load plugin spec from {path}")
@@ -175,7 +173,7 @@ class PluginManager:
         meta_path = os.path.join(plugin_dir, "plugin.json")
         if os.path.isfile(meta_path):
             try:
-                with open(meta_path, "r", encoding="utf-8") as fh:
+                with open(meta_path, encoding="utf-8") as fh:
                     file_meta = json.load(fh)
                 name = file_meta.get("name", name)
                 version = file_meta.get("version", version)

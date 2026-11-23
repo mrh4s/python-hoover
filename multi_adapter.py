@@ -7,20 +7,19 @@ scan) across several physical NICs.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import glob
 import json
+import os
 import subprocess
 import threading
 from typing import Optional
 
 from utils import (
-    validate_interface,
-    setup_logging,
-    require_root,
     check_monitor_mode,
+    require_root,
+    setup_logging,
+    validate_interface,
 )
 
 # No scapy needed -- this is infrastructure/management code
@@ -155,7 +154,7 @@ class MultiAdapterManager:
         """Read the MAC address for an interface from sysfs."""
         path = f"/sys/class/net/{interface}/address"
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 return f.read().strip()
         except OSError:
             return None

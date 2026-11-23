@@ -1,9 +1,8 @@
 """Tests for wps_attack.py — WPS PIN Brute Force."""
 
 import os
-import sys
 import tempfile
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

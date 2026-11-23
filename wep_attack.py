@@ -6,24 +6,28 @@ fragmentation techniques, and shells out to aircrack-ng for key recovery.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
-import json
+import os
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import (Dot11, Dot11Auth, Dot11AssoReq, Dot11AssoResp,
-                                 Dot11Elt, Dot11WEP, RadioTap)
-from scapy.sendrecv import sniff, sendp
-from scapy.utils import wrpcap
+from scapy.layers.dot11 import (
+    Dot11,
+    Dot11AssoReq,
+    Dot11Auth,
+    Dot11Elt,
+    Dot11WEP,
+    RadioTap,
+)
 from scapy.packet import Raw
+from scapy.sendrecv import sendp, sniff
+from scapy.utils import wrpcap
 
-from utils import validate_mac, validate_interface, setup_logging, require_root
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # Dot11 FCfield "protected" flag (bit 6)
 WEP_PROTECTED_FLAG = 0x40
@@ -275,7 +279,7 @@ class WEPAttack:
             if self._stop_event.is_set():
                 break
             chopped = payload[:-1]
-            modified = chopped + bytes([candidate])
+            _modified = chopped + bytes([candidate])
             try:
                 sendp(
                     target_packet.__class__(bytes(target_packet)),

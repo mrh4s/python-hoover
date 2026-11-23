@@ -14,12 +14,11 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from handshake_capture import HandshakeCapture, main  # noqa: E402
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11  # noqa: E402
 from scapy.layers.eap import EAPOL  # noqa: E402
 
+from handshake_capture import HandshakeCapture, main  # noqa: E402
 
 TARGET_BSSID = "AA:BB:CC:DD:EE:FF"
 CLIENT_MAC = "11:22:33:44:55:66"

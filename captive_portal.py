@@ -5,21 +5,20 @@ Sets up a rogue AP with a fake login page to capture credentials
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
-import subprocess
+import os
 import signal
-import threading
-import time
+import subprocess
+import sys
 import tempfile
+import time
 from datetime import datetime
 from typing import Optional
 
-from flask import Flask, request as flask_request, redirect
+from flask import Flask, redirect
+from flask import request as flask_request
 
-from utils import validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface
 
 PORTAL_TEMPLATES: dict[str, dict] = {
     "default": {
@@ -341,7 +340,7 @@ p{color:#666;font-size:.9rem}
     def stop(self) -> None:
         self.logger.info("Shutting down captive portal...")
 
-        for proc, name in [
+        for proc, _name in [
             (self._hostapd_proc, "hostapd"),
             (self._dnsmasq_proc, "dnsmasq"),
         ]:

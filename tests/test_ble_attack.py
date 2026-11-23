@@ -3,7 +3,7 @@
 import json
 import os
 import sys
-from unittest.mock import MagicMock, patch, AsyncMock, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -11,12 +11,11 @@ import pytest
 sys.modules.setdefault("bleak", MagicMock())
 
 from ble_attack import (  # noqa: E402
-    BLEAttack,
-    SUPPORTED_MODES,
     DEFAULT_FUZZ_PATTERNS,
+    SUPPORTED_MODES,
+    BLEAttack,
     main,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -292,7 +291,7 @@ class TestSaveResults:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
         assert data["target_address"] == "AA:BB:CC:DD:EE:FF"
         assert data["devices"][0]["address"] == "AA:BB:CC:DD:EE:FF"

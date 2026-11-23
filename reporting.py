@@ -7,17 +7,15 @@ attack module output. For authorized security testing and research
 only.
 """
 
-import sys
-import os
 import argparse
 import glob
-import json
 import html
+import json
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
 from utils import setup_logging
-
 
 SEVERITY_ORDER = ["Critical", "High", "Medium", "Low", "Info"]
 
@@ -152,7 +150,7 @@ class ReportGenerator:
     def _render_executive_summary(self) -> str:
         """Generate executive summary from findings."""
         findings = self._all_findings()
-        counts = {sev: 0 for sev in SEVERITY_ORDER}
+        counts = dict.fromkeys(SEVERITY_ORDER, 0)
         affected_targets: set = set()
         for finding in findings:
             severity = finding.get("severity", "Info")
@@ -256,7 +254,7 @@ class ReportGenerator:
         elif section_type == "attack_results":
             results = data.get("results", {})
             out.append(
-                "<pre>{}</pre>".format(html.escape(json.dumps(results, indent=2, default=str)))
+                f"<pre>{html.escape(json.dumps(results, indent=2, default=str))}</pre>"
             )
 
         return "\n".join(out)
@@ -278,7 +276,7 @@ class ReportGenerator:
         """
 
         body_parts = [
-            f'<div class="container">',
+            '<div class="container">',
             f"<h1>{html.escape(self.title)}</h1>",
             '<div class="meta">',
             f"Author: {html.escape(self.author)} &middot; ",
@@ -393,7 +391,7 @@ class ReportGenerator:
                 self.logger.warning("Skipping non-JSON result file: %s", filepath)
                 continue
             try:
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = json.load(f)
             except (OSError, json.JSONDecodeError) as exc:
                 self.logger.error("Failed to load %s: %s", filepath, exc)
@@ -419,7 +417,7 @@ class ReportGenerator:
     def get_summary(self) -> dict:
         """Return summary statistics."""
         findings = self._all_findings()
-        counts = {sev: 0 for sev in SEVERITY_ORDER}
+        counts = dict.fromkeys(SEVERITY_ORDER, 0)
         for finding in findings:
             severity = finding.get("severity", "Info")
             counts[severity] = counts.get(severity, 0) + 1
@@ -479,16 +477,16 @@ def main() -> None:
         generator.load_results(load_files)
 
     if args.scan_results:
-        with open(args.scan_results, "r", encoding="utf-8") as f:
+        with open(args.scan_results, encoding="utf-8") as f:
             generator.add_scan_results(json.load(f))
     if args.handshake_data:
-        with open(args.handshake_data, "r", encoding="utf-8") as f:
+        with open(args.handshake_data, encoding="utf-8") as f:
             generator.add_handshake_results(json.load(f))
     if args.client_data:
-        with open(args.client_data, "r", encoding="utf-8") as f:
+        with open(args.client_data, encoding="utf-8") as f:
             generator.add_client_data(json.load(f))
     if args.findings:
-        with open(args.findings, "r", encoding="utf-8") as f:
+        with open(args.findings, encoding="utf-8") as f:
             findings_data = json.load(f)
         findings_list = (
             findings_data.get("findings", [])

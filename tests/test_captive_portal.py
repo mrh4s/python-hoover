@@ -1,13 +1,11 @@
 """Tests for captive_portal.py — Captive Portal."""
 
 import os
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from captive_portal import CaptivePortal, PORTAL_TEMPLATES  # noqa: E402
-
+from captive_portal import PORTAL_TEMPLATES, CaptivePortal  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures

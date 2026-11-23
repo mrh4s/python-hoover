@@ -5,25 +5,29 @@ Passively monitors WiFi traffic for suspicious activity including
 deauth floods, evil twins, rogue APs, karma attacks, and EAPOL anomalies
 """
 
-import sys
-import os
 import argparse
 import dataclasses
 import json
-import threading
+import os
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeResp, RadioTap,
+    Dot11,
+    Dot11Beacon,
+    Dot11Deauth,
+    Dot11Elt,
+    Dot11ProbeResp,
 )
 from scapy.layers.eap import EAPOL
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
+from utils import check_monitor_mode, get_channels, require_root, setup_logging, validate_interface
 
 
 @dataclasses.dataclass
@@ -78,7 +82,7 @@ class WIDSMonitor:
 
     def load_known_aps(self, filepath: str) -> None:
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
             for bssid, info in data.items():
                 self.known_aps[bssid.upper()] = info
@@ -360,12 +364,12 @@ class WIDSMonitor:
         print(f"Uptime:             {stats['uptime_seconds']}s")
 
         if stats["alerts_by_type"]:
-            print(f"\nAlerts by type:")
+            print("\nAlerts by type:")
             for atype, count in sorted(stats["alerts_by_type"].items()):
                 print(f"  {atype:<20} {count}")
 
         if self.alerts:
-            print(f"\nRecent alerts:")
+            print("\nRecent alerts:")
             for alert in self.alerts[-10:]:
                 print(f"  [{alert.severity}] [{alert.alert_type}] {alert.description}")
 

@@ -1,7 +1,6 @@
 """Tests for dhcp_dns_attack.py -- DHCP/DNS Attack module."""
 
 import json
-import re
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -17,20 +16,19 @@ sys.modules.setdefault("scapy.layers.dns", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.volatile", MagicMock())
 
+from scapy.layers.dhcp import BOOTP, DHCP  # noqa: E402
+from scapy.layers.dns import DNS  # noqa: E402
+from scapy.layers.inet import IP, UDP  # noqa: E402
+from scapy.layers.l2 import Ether  # noqa: E402
+
 from dhcp_dns_attack import (  # noqa: E402
-    DHCPDNSAttack,
     ATTACK_MODES,
     DHCP_DISCOVER,
     DHCP_OFFER,
     DHCP_REQUEST,
+    DHCPDNSAttack,
     main,
 )
-
-from scapy.layers.l2 import Ether  # noqa: E402
-from scapy.layers.inet import IP, UDP  # noqa: E402
-from scapy.layers.dhcp import BOOTP, DHCP  # noqa: E402
-from scapy.layers.dns import DNS  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

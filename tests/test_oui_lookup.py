@@ -2,7 +2,7 @@
 
 import pytest
 
-from oui_lookup import lookup_vendor, OUI_DATABASE
+from oui_lookup import OUI_DATABASE, lookup_vendor
 
 
 class TestLookupVendor:

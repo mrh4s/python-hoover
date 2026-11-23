@@ -4,22 +4,22 @@ Hoover Web GUI - Web-based interface for Hoover WiFi tools
 Dark-themed local web interface for easy tool management
 """
 
-from flask import Flask, render_template, jsonify, request, send_file, session, redirect, url_for
-from flask_socketio import SocketIO, emit
-from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
-import subprocess
+import json
 import os
 import re
-import json
-import signal
+import secrets
+import subprocess
 import threading
 import time
-from datetime import datetime
-from pathlib import Path
 from collections import deque
+from datetime import datetime
+from functools import wraps
+from pathlib import Path
+
 import psutil
-import secrets
+from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask_socketio import SocketIO
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 # Generate a secure random secret key
@@ -372,8 +372,8 @@ def get_ssid_files():
     for f in SSID_FILES_DIR.glob('*.txt'):
         if f.is_file():
             try:
-                with open(f, 'r') as file:
-                    lines = [l.strip() for l in file if l.strip() and not l.startswith('#')]
+                with open(f) as file:
+                    lines = [line.strip() for line in file if line.strip() and not line.startswith('#')]
                     files.append({
                         'name': f.name,
                         'count': len(lines)
@@ -1839,7 +1839,7 @@ def api_pentest_workflow_status():
                 key=lambda p: p.stat().st_mtime,
             )
             if reports:
-                with open(reports[-1], 'r', encoding='utf-8') as f:
+                with open(reports[-1], encoding='utf-8') as f:
                     report = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         return jsonify({
@@ -2708,7 +2708,7 @@ def api_ssid_file(filename):
         if not str(filepath).startswith(str(SSID_FILES_DIR.resolve())):
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             content = f.read()
         return jsonify({'success': True, 'content': content})
     except FileNotFoundError:
@@ -3532,15 +3532,15 @@ def main():
     password = _generate_auth_password()
     print(f"\n{'='*70}")
     print(f"  LOGIN PASSWORD: {password}")
-    print(f"  (This password is generated fresh each time the server starts)")
+    print("  (This password is generated fresh each time the server starts)")
     print(f"{'='*70}")
 
     host = '127.0.0.1'
     port = 5000
 
     print(f"\n[+] Starting web server on http://{host}:{port}")
-    print(f"[+] Open this URL in your browser to access the interface")
-    print(f"[*] Press Ctrl+C to stop\n")
+    print("[+] Open this URL in your browser to access the interface")
+    print("[*] Press Ctrl+C to stop\n")
 
     try:
         socketio.run(app, host=host, port=port, debug=False)
@@ -3550,7 +3550,7 @@ def main():
         # Stop all running processes
         with _state_lock:
             procs = dict(active_processes)
-        for tool, process in procs.items():
+        for _tool, process in procs.items():
             try:
                 process.terminate()
                 process.wait(timeout=3)

@@ -5,12 +5,12 @@ Network discovery via ARP scanning and port probing
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
+import os
 import socket
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,8 +20,8 @@ from typing import Optional
 from scapy.layers.l2 import ARP, Ether
 from scapy.sendrecv import srp
 
-from utils import validate_interface, require_root, setup_logging
 from oui_lookup import lookup_vendor
+from utils import require_root, setup_logging
 
 DEFAULT_PORTS: list[int] = [
     22, 23, 53, 80, 110, 143, 443, 445,
@@ -57,7 +57,7 @@ class NetworkMapper:
             answered, _ = srp(arp_request, iface=self.interface, timeout=self.timeout, verbose=False)
 
             hosts = []
-            for sent, received in answered:
+            for _sent, received in answered:
                 mac = received.hwsrc.upper()
                 vendor = lookup_vendor(mac)
                 hosts.append({

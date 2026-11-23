@@ -4,21 +4,19 @@ Packet Replay for Hoover WiFi Security Toolkit
 Capture and replay WiFi frames for authorized security testing
 """
 
-import sys
-import os
 import argparse
+import os
+import sys
 import threading
 import time
-from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11ProbeReq, RadioTap
+from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11ProbeReq
 from scapy.layers.eap import EAPOL
-from scapy.sendrecv import sniff, sendp
+from scapy.sendrecv import sendp, sniff
 from scapy.utils import rdpcap, wrpcap
 
-from utils import validate_mac, validate_interface, check_monitor_mode, require_root, setup_logging
-
+from utils import check_monitor_mode, require_root, setup_logging, validate_mac
 
 FILTER_TYPES = {
     "beacon": lambda p: p.haslayer(Dot11Beacon),

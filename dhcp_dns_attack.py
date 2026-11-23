@@ -7,25 +7,24 @@ ARP Inspection (DAI), and DNS security measures are properly configured.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import random
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.l2 import Ether
-from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
-from scapy.layers.dns import DNS, DNSQR, DNSRR
-from scapy.sendrecv import sniff, sendp, send
+from scapy.layers.dns import DNS, DNSRR
+from scapy.layers.inet import IP, UDP
+from scapy.layers.l2 import Ether
+from scapy.sendrecv import sendp, sniff
 from scapy.volatile import RandMAC
 
-from utils import validate_interface, validate_ip, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_ip
 
 # DHCP message types
 DHCP_DISCOVER = 1

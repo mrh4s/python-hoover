@@ -3,8 +3,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # Mock scapy before importing the module
 sys.modules.setdefault("scapy", MagicMock())
 sys.modules.setdefault("scapy.layers", MagicMock())
@@ -14,14 +12,17 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from ap_scanner import APScanner, main  # noqa: E402
-
 # Import the mocked scapy classes as the production code sees them
 from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11AssoReq, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeReq,
-    Dot11ProbeResp, Dot11ReassoReq, RadioTap,
+    Dot11,
+    Dot11AssoReq,
+    Dot11Beacon,
+    Dot11ProbeResp,
+    Dot11ReassoReq,
+    RadioTap,
 )
 
+from ap_scanner import APScanner, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -236,7 +237,7 @@ class TestCliRevealHiddenFlag:
             captured["scanner"] = self
 
         with patch.object(APScanner, "__init__", capturing_init):
-            with patch.object(APScanner, "reveal_hidden_ssids") as mock_reveal:
+            with patch.object(APScanner, "reveal_hidden_ssids"):
                 main()
 
         scanner = captured["scanner"]

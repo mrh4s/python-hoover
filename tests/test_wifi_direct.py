@@ -14,25 +14,29 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
+from scapy.layers.dot11 import (  # noqa: E402
+    Dot11,
+    Dot11Action,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
+)
+
 import wifi_direct  # noqa: E402
 from wifi_direct import (  # noqa: E402
-    WiFiDirectTester,
-    P2P_OUI,
-    P2P_OUI_TYPE,
+    CATEGORY_PUBLIC_ACTION,
+    GO_NEG_REQUEST,
     P2P_ATTR_GO_INTENT,
     P2P_ATTR_P2P_DEVICE_INFO,
     P2P_ATTR_STATUS,
-    GO_NEG_REQUEST,
-    CATEGORY_PUBLIC_ACTION,
+    P2P_OUI,
+    P2P_OUI_TYPE,
     PUBLIC_ACTION_VENDOR_SPECIFIC,
     TEST_MODES,
+    WiFiDirectTester,
     main,
 )
-
-from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp, Dot11Action,
-)
-
 
 DEVICE_ADDR = "AA:BB:CC:DD:EE:FF"
 
@@ -486,7 +490,7 @@ class TestSaveResults:
         tester.results = {"mode": "discover", "data": {"devices": []}}
         path = tester.save_results()
         assert path is not None
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             saved = json.load(f)
         assert saved["mode"] == "discover"
 

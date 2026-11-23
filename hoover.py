@@ -4,23 +4,23 @@ Hoover - WiFi Probe Request Monitor
 Captures and analyzes probe requests from nearby wireless devices
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
+import os
 import sqlite3
-import threading
 import subprocess
-from datetime import datetime
+import sys
+import threading
 from collections import defaultdict
+from datetime import datetime
 from typing import Optional, TextIO
 
-from scapy.layers.dot11 import Dot11, Dot11ProbeReq, Dot11Elt, RadioTap
+from scapy.layers.dot11 import Dot11, Dot11Elt, Dot11ProbeReq
 from scapy.sendrecv import sniff
 
-from utils import validate_mac, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
+from utils import check_monitor_mode, get_channels, require_root, setup_logging
 
 # ANSI color codes
 _COLORS: dict[str, str] = {
@@ -649,7 +649,7 @@ class ProbeMonitor:
         print(_color("bold", "SUMMARY", self.use_color))
         print("=" * 70)
         print(f"Total clients detected: {len(self.probes)}")
-        print(f"\nProbe requests by client:")
+        print("\nProbe requests by client:")
 
         for client, ssids in self.probes.items():
             vendor = lookup_vendor(client)

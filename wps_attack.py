@@ -5,18 +5,18 @@ WPS PIN brute force via reaver/bully/pixie-dust wrappers
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
+import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from utils import validate_mac, validate_interface, check_monitor_mode, require_root, setup_logging
+from utils import check_monitor_mode, require_root, setup_logging, validate_mac
 
 
 class WPSAttack:
@@ -227,7 +227,7 @@ class WPSAttack:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filepath = os.path.join(self.output_dir, f"wps_{bssid_safe}_{timestamp}.txt")
             with open(filepath, "w", encoding="utf-8") as f:
-                f.write(f"WPS Attack Result\n")
+                f.write("WPS Attack Result\n")
                 f.write(f"BSSID: {self.target_bssid}\n")
                 f.write(f"Method: {self.method}\n")
                 f.write(f"PIN: {result.get('pin', 'N/A')}\n")

@@ -5,20 +5,18 @@ Bluetooth Low Energy device discovery and GATT service enumeration
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
 import asyncio
 import csv
 import json
+import os
 import time
-from datetime import datetime
 from typing import Optional
 
 from bleak import BleakClient, BleakScanner
 
-from utils import setup_logging
 from oui_lookup import lookup_vendor
+from utils import setup_logging
 
 
 class BLEScanner:

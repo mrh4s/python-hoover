@@ -15,11 +15,15 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.layers.eap", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from wids import WIDSMonitor, Alert  # noqa: E402
-
 # Import mocked classes
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeResp  # noqa: E402
+from scapy.layers.dot11 import (  # noqa: E402
+    Dot11,
+    Dot11Beacon,
+    Dot11Deauth,
+)
 from scapy.layers.eap import EAPOL  # noqa: E402
+
+from wids import Alert, WIDSMonitor  # noqa: E402
 
 
 @pytest.fixture

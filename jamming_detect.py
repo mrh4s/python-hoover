@@ -29,7 +29,7 @@ from typing import Optional
 from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Deauth, Dot11Disas, RadioTap
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, require_root, setup_logging, get_channels
+from utils import get_channels, require_root, setup_logging, validate_interface
 
 # Typical beacon interval is 100 TU (1 TU = 1024 us) ~= 102.4 ms -> ~9.77/sec.
 # 10 beacons/sec is the conventional approximation.

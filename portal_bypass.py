@@ -16,26 +16,22 @@ server-side component (iodine for DNS, hans for ICMP).
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
-import base64
 import json
+import os
 import socket
-import struct
 import subprocess
+import sys
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.inet import IP, ICMP, TCP
 from scapy.layers.dns import DNS, DNSQR
-from scapy.layers.l2 import Ether
-from scapy.layers.dot11 import Dot11, RadioTap
-from scapy.sendrecv import sr1, sniff, send
+from scapy.layers.dot11 import Dot11
+from scapy.layers.inet import ICMP, IP
+from scapy.sendrecv import sniff, sr1
 
-from utils import validate_interface, validate_ip, validate_mac, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_ip, validate_mac
 
 BYPASS_MODES = ("probe", "dns-tunnel", "icmp-tunnel", "mac-clone", "direct-ip", "all")
 

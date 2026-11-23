@@ -4,7 +4,7 @@ import json
 import os
 import sys
 import time
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -15,20 +15,19 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.layers.eap", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from eap_attack import (  # noqa: E402
-    EAPAttack,
-    EAP_TYPE_IDENTITY,
-    EAP_TYPE_MSCHAPV2,
-    EAP_TYPE_MD5,
-    EAP_CODE_RESPONSE,
-    SUPPORTED_EAP_METHODS,
-    main,
-)
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11  # noqa: E402
 from scapy.layers.eap import EAP  # noqa: E402
 
+from eap_attack import (  # noqa: E402
+    EAP_CODE_RESPONSE,
+    EAP_TYPE_IDENTITY,
+    EAP_TYPE_MD5,
+    EAP_TYPE_MSCHAPV2,
+    SUPPORTED_EAP_METHODS,
+    EAPAttack,
+    main,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -199,7 +198,7 @@ class TestEAPUserFile:
         assert "MD5" in content
         # MD5 mode should not include PEAP as primary
         lines = content.strip().split("\n")
-        method_line = [l for l in lines if not l.startswith("#") and "*" in l]
+        method_line = [line for line in lines if not line.startswith("#") and "*" in line]
         assert len(method_line) == 1
         assert method_line[0].strip() == "* MD5"
 

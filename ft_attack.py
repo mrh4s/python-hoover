@@ -22,25 +22,27 @@ CVE-2017-13082.  It does NOT inject or replay frames itself.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import struct
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ReassoReq, Dot11ReassoResp,
-    Dot11Auth, RadioTap,
+    Dot11,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ReassoReq,
+    Dot11ReassoResp,
 )
 from scapy.sendrecv import sniff
 from scapy.utils import wrpcap
 
-from utils import validate_mac, validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # 802.11r Information Element tag IDs
 MDIE_ID = 54   # Mobility Domain IE

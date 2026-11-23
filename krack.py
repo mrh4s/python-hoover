@@ -16,25 +16,26 @@ multi_adapter module).
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Deauth, Dot11AssoResp, Dot11ReassoReq, RadioTap,
+    Dot11,
+    Dot11ReassoReq,
+    RadioTap,
 )
 from scapy.layers.eap import EAPOL
-from scapy.sendrecv import sniff, sendp
-from scapy.utils import wrpcap
 from scapy.packet import Raw
+from scapy.sendrecv import sendp, sniff
+from scapy.utils import wrpcap
 
-from utils import validate_mac, validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # EAPOL Key Info field bit masks
 KEY_INFO_INSTALL = 0x0040

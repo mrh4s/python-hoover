@@ -15,15 +15,13 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
+
 from channel_mitm import (  # noqa: E402
-    ChannelMitM,
     CHANNELS_2GHZ,
     CHANNELS_5GHZ,
+    ChannelMitM,
     main,
 )
-
-from scapy.layers.dot11 import Dot11, RadioTap  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -5,7 +5,7 @@ import os
 import sys
 import tempfile
 import time
-from unittest.mock import MagicMock, mock_open, patch, call
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
@@ -17,7 +17,7 @@ sys.modules.setdefault("scapy.layers.dns", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from mitm_attack import MitMAttack, DEFAULT_CAPTURE_PORTS, CREDENTIAL_FIELDS, main  # noqa: E402
+from mitm_attack import CREDENTIAL_FIELDS, DEFAULT_CAPTURE_PORTS, MitMAttack  # noqa: E402
 
 
 @pytest.fixture
@@ -348,8 +348,6 @@ class TestPacketHandler:
     @patch.object(MitMAttack, "_extract_http_credentials")
     @patch.object(MitMAttack, "_extract_dns_query")
     def test_packet_handler_calls_extractors(self, mock_dns, mock_http, attack):
-        from mitm_attack import TCP as TCPLayer, Raw as RawLayer
-        from mitm_attack import DNS as DNSLayer, DNSQR as DNSQRLayer
 
         mock_packet = MagicMock()
 

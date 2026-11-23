@@ -9,20 +9,19 @@ configurable wordlists and rules.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from utils import validate_mac, setup_logging
-
+from utils import setup_logging, validate_mac
 
 # hashcat hash-mode numbers used by this module.
 HASHCAT_MODE_WPA_22000 = 22000   # WPA-PBKDF2-PMKID+EAPOL (.22000 / hc22000)
@@ -122,7 +121,7 @@ class PasswordCracker:
         try:
             with open(filepath, "rb") as f:
                 magic = f.read(4)
-        except (IOError, OSError) as e:
+        except OSError as e:
             self.logger.warning("Could not read %s to detect format: %s", filepath, e)
             return "unknown"
 
@@ -147,7 +146,7 @@ class PasswordCracker:
         try:
             with open(filepath, "rb") as f:
                 head = f.read(4096)
-        except (IOError, OSError):
+        except OSError:
             return False
         return b"WEP" in head
 
@@ -513,7 +512,7 @@ class PasswordCracker:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
             self.logger.info("Results saved to %s", filepath)
-        except (IOError, OSError) as e:
+        except OSError as e:
             self.logger.error("Failed to save results: %s", e)
 
 

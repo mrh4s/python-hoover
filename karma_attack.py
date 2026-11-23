@@ -6,24 +6,27 @@ making the attacker's AP appear to be any network clients are looking for
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
-import subprocess
-import threading
-import time
+import os
 import random
+import subprocess
+import sys
+import threading
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp, RadioTap,
+    Dot11,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
+    RadioTap,
 )
-from scapy.sendrecv import sniff, sendp
+from scapy.sendrecv import sendp, sniff
 
-from utils import validate_interface, check_monitor_mode, require_root, setup_logging, load_ssids
 from oui_lookup import lookup_vendor
-
+from utils import check_monitor_mode, load_ssids, require_root, setup_logging, validate_interface
 
 DEFAULT_BLACKLIST: list[str] = [
     "",
