@@ -6,11 +6,10 @@ capture, fuzzing, and (where hardware allows) advertisement spoofing.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import asyncio
 import json
+import os
 import subprocess
 import threading
 import time
@@ -19,8 +18,7 @@ from typing import Optional
 
 from bleak import BleakClient, BleakScanner
 
-from utils import validate_mac, setup_logging
-
+from utils import setup_logging, validate_mac
 
 SUPPORTED_MODES = ("scan", "enumerate", "replay", "spoof", "fuzz")
 
@@ -45,11 +43,14 @@ class BLEAttack:
     and limited advertisement spoofing via BlueZ tooling.
     """
 
-    def __init__(self, target_address: Optional[str] = None,
-                 attack_mode: str = "scan",
-                 scan_time: float = 10.0,
-                 output_dir: str = "captures",
-                 timeout: int = 120) -> None:
+    def __init__(
+        self,
+        target_address: Optional[str] = None,
+        attack_mode: str = "scan",
+        scan_time: float = 10.0,
+        output_dir: str = "captures",
+        timeout: int = 120,
+    ) -> None:
         self.target_address: Optional[str] = target_address
         self.attack_mode: str = attack_mode
         self.scan_time: float = scan_time
@@ -131,7 +132,9 @@ class BLEAttack:
             parsed_mfg = {}
             for key, value in dict(manufacturer_data).items():
                 try:
-                    parsed_mfg[str(key)] = value.hex() if isinstance(value, (bytes, bytearray)) else str(value)
+                    parsed_mfg[str(key)] = (
+                        value.hex() if isinstance(value, (bytes, bytearray)) else str(value)
+                    )
                 except Exception:
                     parsed_mfg[str(key)] = repr(value)
             entry["manufacturer_data"] = parsed_mfg
@@ -214,10 +217,12 @@ class BLEAttack:
                         self.logger.debug("Could not read %s: %s", char.uuid, e)
 
                 for descriptor in getattr(char, "descriptors", []) or []:
-                    char_entry["descriptors"].append({
-                        "uuid": str(getattr(descriptor, "uuid", "")),
-                        "handle": getattr(descriptor, "handle", None),
-                    })
+                    char_entry["descriptors"].append(
+                        {
+                            "uuid": str(getattr(descriptor, "uuid", "")),
+                            "handle": getattr(descriptor, "handle", None),
+                        }
+                    )
 
                 svc_entry["characteristics"].append(char_entry)
             result["services"].append(svc_entry)
@@ -269,12 +274,14 @@ class BLEAttack:
         try:
             asyncio.run(self._async_write_characteristic(uuid, data, response))
             with self._lock:
-                self.write_log.append({
-                    "uuid": uuid,
-                    "data": data.hex(),
-                    "response": response,
-                    "timestamp": datetime.now().isoformat(),
-                })
+                self.write_log.append(
+                    {
+                        "uuid": uuid,
+                        "data": data.hex(),
+                        "response": response,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
             self.logger.info("Wrote %d bytes to %s", len(data), uuid)
             return True
         except Exception as e:
@@ -293,9 +300,12 @@ class BLEAttack:
     # Advertisement spoofing
     # ------------------------------------------------------------------
 
-    def _spoof_advertisement(self, name: Optional[str] = None,
-                              services: Optional[list[str]] = None,
-                              manufacturer_data: Optional[bytes] = None) -> None:
+    def _spoof_advertisement(
+        self,
+        name: Optional[str] = None,
+        services: Optional[list[str]] = None,
+        manufacturer_data: Optional[bytes] = None,
+    ) -> None:
         """Spoof BLE advertisements (requires HCI raw access).
 
         REALISTIC LIMITATION: full BLE advertisement/packet manipulation is
@@ -325,15 +335,24 @@ class BLEAttack:
             adv_data += bytes([len(manufacturer_data) + 1, 0xFF]) + manufacturer_data
 
         try:
-            subprocess.run(["hciconfig", "hci0", "leadv", "3"],
-                           check=False, capture_output=True, timeout=10)
+            subprocess.run(
+                ["hciconfig", "hci0", "leadv", "3"], check=False, capture_output=True, timeout=10
+            )
 
             hex_bytes = " ".join(f"0x{b:02x}" for b in adv_data)
-            cmd = ["hcitool", "-i", "hci0", "cmd", "0x08", "0x0008",
-                   f"0x{len(adv_data):02x}"] + hex_bytes.split()
+            cmd = [
+                "hcitool",
+                "-i",
+                "hci0",
+                "cmd",
+                "0x08",
+                "0x0008",
+                f"0x{len(adv_data):02x}",
+            ] + hex_bytes.split()
             subprocess.run(cmd, check=False, capture_output=True, timeout=10)
-            self.logger.info("Advertisement spoofing enabled (name=%s, services=%s)",
-                              name, services)
+            self.logger.info(
+                "Advertisement spoofing enabled (name=%s, services=%s)", name, services
+            )
         except FileNotFoundError:
             self.logger.error("hcitool/hciconfig not found; cannot spoof advertisements")
         except Exception as e:
@@ -452,7 +471,7 @@ class BLEAttack:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="BLE Attack Toolkit - BLE GATT enumeration, read/write, "
-                     "replay, fuzzing, and advertisement spoofing",
+        "replay, fuzzing, and advertisement spoofing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -480,28 +499,40 @@ may be illegal.
         """,
     )
 
-    parser.add_argument("--target",
-                        help="Target BLE device address (XX:XX:XX:XX:XX:XX)")
-    parser.add_argument("-m", "--mode", choices=list(SUPPORTED_MODES), default="scan",
-                        help="Attack mode (default: scan)")
-    parser.add_argument("-t", "--scan-time", type=float, default=10.0,
-                        help="Scan duration in seconds (default: 10.0)")
-    parser.add_argument("--uuid",
-                        help="GATT characteristic UUID for read/write/fuzz operations")
-    parser.add_argument("--write-data",
-                        help="Hex string of data to write")
-    parser.add_argument("--replay-count", type=int, default=10,
-                        help="Number of replay iterations (default: 10)")
-    parser.add_argument("--replay-interval", type=float, default=0.5,
-                        help="Seconds between replays (default: 0.5)")
-    parser.add_argument("--spoof-name",
-                        help="Name to spoof in advertisements")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for results (default: captures)")
-    parser.add_argument("--timeout", type=int, default=120,
-                        help="Overall timeout in seconds (default: 120)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument("--target", help="Target BLE device address (XX:XX:XX:XX:XX:XX)")
+    parser.add_argument(
+        "-m",
+        "--mode",
+        choices=list(SUPPORTED_MODES),
+        default="scan",
+        help="Attack mode (default: scan)",
+    )
+    parser.add_argument(
+        "-t",
+        "--scan-time",
+        type=float,
+        default=10.0,
+        help="Scan duration in seconds (default: 10.0)",
+    )
+    parser.add_argument("--uuid", help="GATT characteristic UUID for read/write/fuzz operations")
+    parser.add_argument("--write-data", help="Hex string of data to write")
+    parser.add_argument(
+        "--replay-count", type=int, default=10, help="Number of replay iterations (default: 10)"
+    )
+    parser.add_argument(
+        "--replay-interval", type=float, default=0.5, help="Seconds between replays (default: 0.5)"
+    )
+    parser.add_argument("--spoof-name", help="Name to spoof in advertisements")
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=120, help="Overall timeout in seconds (default: 120)"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 

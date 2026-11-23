@@ -1,29 +1,30 @@
 """Tests for hoover_web.py — Flask web GUI."""
 
 import json
-import os
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Mock psutil if not available, and patch it into the hoover_web module
 # (psutil is used for system stats in the status endpoint)
-sys.modules.setdefault("psutil", MagicMock(
-    cpu_percent=MagicMock(return_value=5.0),
-    virtual_memory=MagicMock(return_value=MagicMock(percent=30.0)),
-))
+sys.modules.setdefault(
+    "psutil",
+    MagicMock(
+        cpu_percent=MagicMock(return_value=5.0),
+        virtual_memory=MagicMock(return_value=MagicMock(percent=30.0)),
+    ),
+)
 # Mock flask_socketio — the web tests use the plain Flask test client
 sys.modules.setdefault("flask_socketio", MagicMock())
 
-from hoover_web import app, _generate_auth_password, _auth_password_hash, tool_status  # noqa: E402
 import hoover_web  # noqa: E402
-
+from hoover_web import _generate_auth_password, app  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _setup_app(tmp_path, monkeypatch):
@@ -49,7 +50,6 @@ def client():
 @pytest.fixture
 def auth_client(client):
     """Return a Flask test client that is already authenticated."""
-    password = app.config["_test_password"]
     with client.session_transaction() as sess:
         sess["authenticated"] = True
         sess["csrf_token"] = "test-csrf-token"
@@ -59,6 +59,7 @@ def auth_client(client):
 # ---------------------------------------------------------------------------
 # Authentication
 # ---------------------------------------------------------------------------
+
 
 class TestAuthentication:
     """Tests for authentication flow."""
@@ -119,6 +120,7 @@ class TestAuthentication:
 # CSRF Protection
 # ---------------------------------------------------------------------------
 
+
 class TestCSRFProtection:
     """Tests for CSRF token validation."""
 
@@ -147,6 +149,7 @@ class TestCSRFProtection:
 # Input Validation
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidation:
     """Tests for input validation on API endpoints."""
 
@@ -166,12 +169,14 @@ class TestInputValidation:
         """Invalid MAC addresses should be rejected with 400."""
         resp = auth_client.post(
             "/api/deauth/start",
-            data=json.dumps({
-                "interface": "wlan0",
-                "bssid": "INVALID-MAC",
-                "count": 1,
-                "delay": 0.1,
-            }),
+            data=json.dumps(
+                {
+                    "interface": "wlan0",
+                    "bssid": "INVALID-MAC",
+                    "count": 1,
+                    "delay": 0.1,
+                }
+            ),
             content_type="application/json",
             headers={"X-CSRF-Token": "test-csrf-token"},
         )
@@ -183,12 +188,14 @@ class TestInputValidation:
         """Out-of-range channels should be rejected."""
         resp = auth_client.post(
             "/api/generator/start",
-            data=json.dumps({
-                "interface": "wlan0",
-                "ssid_file": "test.txt",
-                "channel": 99,
-                "interval": 0.1,
-            }),
+            data=json.dumps(
+                {
+                    "interface": "wlan0",
+                    "ssid_file": "test.txt",
+                    "channel": 99,
+                    "interval": 0.1,
+                }
+            ),
             content_type="application/json",
             headers={"X-CSRF-Token": "test-csrf-token"},
         )
@@ -200,6 +207,7 @@ class TestInputValidation:
 # ---------------------------------------------------------------------------
 # Path Traversal
 # ---------------------------------------------------------------------------
+
 
 class TestPathTraversal:
     """Tests for SSID file path traversal prevention."""
@@ -229,6 +237,7 @@ class TestPathTraversal:
 # Status Endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestStatusEndpoint:
     """Tests for the /api/status endpoint."""
 
@@ -256,6 +265,7 @@ class TestStatusEndpoint:
 # ---------------------------------------------------------------------------
 # hoover_web validation helpers (unit-level)
 # ---------------------------------------------------------------------------
+
 
 class TestWebValidationHelpers:
     """Direct tests for hoover_web's validation helper functions."""

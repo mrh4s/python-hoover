@@ -15,15 +15,15 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from wep_attack import WEPAttack, ATTACK_MODES, main  # noqa: E402
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11, Dot11WEP  # noqa: E402
 
+from wep_attack import ATTACK_MODES, WEPAttack, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def attack(mock_interface, tmp_path):
@@ -37,8 +37,9 @@ def attack(mock_interface, tmp_path):
     )
 
 
-def _make_wep_packet(iv=b"\x01\x02\x03", keyid=0, has_wep=True,
-                      has_dot11=True, fc_field=0x40, frame_len=68):
+def _make_wep_packet(
+    iv=b"\x01\x02\x03", keyid=0, has_wep=True, has_dot11=True, fc_field=0x40, frame_len=68
+):
     """Create a mock packet with an optional Dot11WEP layer."""
     pkt = MagicMock()
 
@@ -63,6 +64,7 @@ def _make_wep_packet(iv=b"\x01\x02\x03", keyid=0, has_wep=True,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     pkt.__len__ = lambda self: frame_len
@@ -73,6 +75,7 @@ def _make_wep_packet(iv=b"\x01\x02\x03", keyid=0, has_wep=True,
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     def test_init_defaults(self, mock_interface):
@@ -124,7 +127,6 @@ class TestFakeAuth:
 
         # First call: Dot11Auth frame addressed to/from the right MACs
         first_call_args = mock_sendp.call_args_list[0]
-        sent_frame = first_call_args[0][0]
         assert first_call_args[1]["iface"] == attack.interface
 
         # The frame is built via scapy's `/` operator on MagicMocks, so we
@@ -132,6 +134,7 @@ class TestFakeAuth:
         # instantiated with the expected addressing and that Dot11Auth
         # was used with algo=0 (Open System), seqnum=1.
         import wep_attack as wep_module
+
         dot11_calls = wep_module.Dot11.call_args_list
         assert any(
             call.kwargs.get("addr1") == attack.target_bssid
@@ -140,8 +143,7 @@ class TestFakeAuth:
         )
         auth_calls = wep_module.Dot11Auth.call_args_list
         assert any(
-            call.kwargs.get("algo") == 0 and call.kwargs.get("seqnum") == 1
-            for call in auth_calls
+            call.kwargs.get("algo") == 0 and call.kwargs.get("seqnum") == 1 for call in auth_calls
         )
 
     def test_fake_auth_invalid_mac(self, attack):
@@ -231,8 +233,13 @@ class TestCLI:
         assert set(ATTACK_MODES) == {"arp-replay", "chopchop", "fragmentation", "ptw"}
 
         test_args = [
-            "wep_attack.py", "-i", "wlan0mon", "-b", "AA:BB:CC:DD:EE:FF",
-            "-m", "bogus-mode",
+            "wep_attack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            "AA:BB:CC:DD:EE:FF",
+            "-m",
+            "bogus-mode",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit):
@@ -242,8 +249,13 @@ class TestCLI:
     @patch("wep_attack.require_root")
     def test_cli_target_ivs(self, mock_require_root, mock_start):
         test_args = [
-            "wep_attack.py", "-i", "wlan0mon", "-b", "AA:BB:CC:DD:EE:FF",
-            "--target-ivs", "12345",
+            "wep_attack.py",
+            "-i",
+            "wlan0mon",
+            "-b",
+            "AA:BB:CC:DD:EE:FF",
+            "--target-ivs",
+            "12345",
         ]
         captured = {}
 
@@ -252,6 +264,7 @@ class TestCLI:
             return {}
 
         import wep_attack as wep_module
+
         args_holder = []
         orig_init = wep_module.WEPAttack.__init__
 
@@ -259,8 +272,10 @@ class TestCLI:
             orig_init(self, *a, **kw)
             args_holder.append(self)
 
-        with patch.object(sys, "argv", test_args), \
-             patch.object(wep_module.WEPAttack, "__init__", spy_init):
+        with (
+            patch.object(sys, "argv", test_args),
+            patch.object(wep_module.WEPAttack, "__init__", spy_init),
+        ):
             main()
 
         assert args_holder[0].target_ivs == 12345

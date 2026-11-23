@@ -4,38 +4,50 @@ AP Scanner for Hoover WiFi Security Toolkit
 Passively scans for nearby WiFi access points by sniffing beacon and probe response frames
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
-import threading
+import os
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11AssoReq, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeReq,
-    Dot11ProbeResp, Dot11ReassoReq, RadioTap,
+    Dot11,
+    Dot11AssoReq,
+    Dot11Beacon,
+    Dot11Deauth,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
+    Dot11ReassoReq,
+    RadioTap,
 )
 from scapy.sendrecv import sendp, sniff
 
-from utils import validate_interface, check_monitor_mode, require_root, setup_logging, get_channels
 from oui_lookup import lookup_vendor
+from utils import check_monitor_mode, get_channels, require_root, setup_logging, validate_interface
 
 
 class APScanner:
     # Vendor IE prefix: Wi-Fi Alliance OUI 50:6F:9A + type 28 (OWE Transition Mode)
     OWE_TRANSITION_PREFIX: bytes = b"\x50\x6f\x9a\x1c"
 
-    def __init__(self, interface: str, timeout: int = 30,
-                 channel_hop: bool = True, hop_interval: float = 0.5,
-                 fixed_channel: Optional[int] = None,
-                 output_file: Optional[str] = None,
-                 bands: str = "2.4",
-                 reveal_hidden: bool = False,
-                 deauth_reveal: bool = False) -> None:
+    def __init__(
+        self,
+        interface: str,
+        timeout: int = 30,
+        channel_hop: bool = True,
+        hop_interval: float = 0.5,
+        fixed_channel: Optional[int] = None,
+        output_file: Optional[str] = None,
+        bands: str = "2.4",
+        reveal_hidden: bool = False,
+        deauth_reveal: bool = False,
+    ) -> None:
         self.interface: str = interface
         self.timeout: int = timeout
         self.channel_hop: bool = channel_hop
@@ -127,14 +139,20 @@ class APScanner:
                 }
                 self.logger.info(
                     "New AP: %s  SSID: %-32s  CH: %-3s  Enc: %-9s  Signal: %s  Vendor: %s",
-                    bssid, ssid or "<hidden>", channel or "?", encryption,
-                    f"{signal}dBm" if signal is not None else "?", vendor,
+                    bssid,
+                    ssid or "<hidden>",
+                    channel or "?",
+                    encryption,
+                    f"{signal}dBm" if signal is not None else "?",
+                    vendor,
                 )
 
             if self._is_hidden_ssid(ssid):
                 if bssid not in self.hidden_aps:
                     self.hidden_aps[bssid] = {"channel": channel, "revealed": False}
-                    self.logger.info("Hidden SSID detected at %s (channel %s)", bssid, channel or "?")
+                    self.logger.info(
+                        "Hidden SSID detected at %s (channel %s)", bssid, channel or "?"
+                    )
                 elif channel and not self.hidden_aps[bssid].get("channel"):
                     self.hidden_aps[bssid]["channel"] = channel
             elif bssid in self.hidden_aps and ssid:
@@ -255,8 +273,7 @@ class APScanner:
 
     def reveal_hidden_ssids(self, timeout: int = 10) -> dict[str, str]:
         """Actively attempt to reveal SSIDs of APs found with hidden SSIDs."""
-        targets = [bssid for bssid, info in self.hidden_aps.items()
-                   if not info.get("revealed")]
+        targets = [bssid for bssid, info in self.hidden_aps.items() if not info.get("revealed")]
         if not targets:
             self.logger.info("No hidden APs to reveal")
             return dict(self.revealed_ssids)
@@ -270,8 +287,7 @@ class APScanner:
                 self._send_deauth_for_reveal(bssid, count=5)
 
         try:
-            sniff(iface=self.interface, prn=self._probe_response_handler,
-                  timeout=timeout, store=0)
+            sniff(iface=self.interface, prn=self._probe_response_handler, timeout=timeout, store=0)
         except KeyboardInterrupt:
             self.logger.info("Reveal scan interrupted by user")
         except Exception as e:
@@ -310,9 +326,11 @@ class APScanner:
             elt = elt.payload.getlayer(Dot11Elt)
 
         if transition:
-            self._last_owe = {"mode": "owe_transition",
-                              "bssid": transition["bssid"],
-                              "ssid": transition["ssid"]}
+            self._last_owe = {
+                "mode": "owe_transition",
+                "bssid": transition["bssid"],
+                "ssid": transition["ssid"],
+            }
 
         if not has_privacy:
             return "Open"
@@ -360,9 +378,9 @@ class APScanner:
             ssid_len = data[10]
             if len(data) < 11 + ssid_len:
                 return None
-            ssid = data[11:11 + ssid_len].decode("utf-8", errors="replace")
+            ssid = data[11 : 11 + ssid_len].decode("utf-8", errors="replace")
             result = {"bssid": bssid, "ssid": ssid}
-            rest = data[11 + ssid_len:]
+            rest = data[11 + ssid_len :]
             if len(rest) >= 2:
                 result["operating_class"] = rest[0]
                 result["channel"] = rest[1]
@@ -381,7 +399,7 @@ class APScanner:
             "ptksa_replay_counters": (cap >> 2) & 0x3,
             "gtksa_replay_counters": (cap >> 4) & 0x3,
             "pmf_required": bool(cap & 0x0040),  # MFPR
-            "pmf_capable": bool(cap & 0x0080),   # MFPC
+            "pmf_capable": bool(cap & 0x0080),  # MFPC
         }
 
     @staticmethod
@@ -408,46 +426,68 @@ class APScanner:
     def _parse_rsn_ie(self, rsn_data: bytes) -> dict:
         """Parse an RSN IE body (after tag and length bytes)."""
         result = {"akm_suites": [], "pairwise_ciphers": [], "group_cipher": ""}
-        cipher_names = {1: "WEP-40", 2: "TKIP", 4: "CCMP", 5: "WEP-104",
-                        8: "GCMP", 9: "GCMP-256", 10: "CCMP-256"}
-        akm_names = {1: "802.1X", 2: "PSK", 3: "FT-802.1X", 4: "FT-PSK",
-                     5: "802.1X-SHA256", 6: "PSK-SHA256", 8: "SAE",
-                     9: "FT-SAE", 11: "802.1X-SUITE-B", 12: "SAE-EXT",
-                     13: "FT-SAE-EXT", 18: "OWE", 24: "SAE-EXT",
-                     25: "FT-SAE-EXT"}
+        cipher_names = {
+            1: "WEP-40",
+            2: "TKIP",
+            4: "CCMP",
+            5: "WEP-104",
+            8: "GCMP",
+            9: "GCMP-256",
+            10: "CCMP-256",
+        }
+        akm_names = {
+            1: "802.1X",
+            2: "PSK",
+            3: "FT-802.1X",
+            4: "FT-PSK",
+            5: "802.1X-SHA256",
+            6: "PSK-SHA256",
+            8: "SAE",
+            9: "FT-SAE",
+            11: "802.1X-SUITE-B",
+            12: "SAE-EXT",
+            13: "FT-SAE-EXT",
+            18: "OWE",
+            24: "SAE-EXT",
+            25: "FT-SAE-EXT",
+        }
         oui = b"\x00\x0f\xac"
         try:
             data = bytes(rsn_data or b"")
             pos = 2  # version
             if len(data) < pos + 4:
                 return result
-            if data[pos:pos + 3] == oui:
-                result["group_cipher"] = cipher_names.get(data[pos + 3], f"Unknown({data[pos + 3]})")
+            if data[pos : pos + 3] == oui:
+                result["group_cipher"] = cipher_names.get(
+                    data[pos + 3], f"Unknown({data[pos + 3]})"
+                )
             pos += 4
             if len(data) < pos + 2:
                 return result
-            count = int.from_bytes(data[pos:pos + 2], "little")
+            count = int.from_bytes(data[pos : pos + 2], "little")
             pos += 2
             for _ in range(count):
                 if len(data) < pos + 4:
                     return result
-                if data[pos:pos + 3] == oui:
+                if data[pos : pos + 3] == oui:
                     result["pairwise_ciphers"].append(
-                        cipher_names.get(data[pos + 3], f"Unknown({data[pos + 3]})"))
+                        cipher_names.get(data[pos + 3], f"Unknown({data[pos + 3]})")
+                    )
                 pos += 4
             if len(data) < pos + 2:
                 return result
-            count = int.from_bytes(data[pos:pos + 2], "little")
+            count = int.from_bytes(data[pos : pos + 2], "little")
             pos += 2
             for _ in range(count):
                 if len(data) < pos + 4:
                     return result
-                if data[pos:pos + 3] == oui:
+                if data[pos : pos + 3] == oui:
                     result["akm_suites"].append(
-                        akm_names.get(data[pos + 3], f"Unknown({data[pos + 3]})"))
+                        akm_names.get(data[pos + 3], f"Unknown({data[pos + 3]})")
+                    )
                 pos += 4
             if len(data) >= pos + 2:
-                result.update(self._parse_rsn_capabilities(data[pos:pos + 2]))
+                result.update(self._parse_rsn_capabilities(data[pos : pos + 2]))
         except Exception:
             pass
         return result
@@ -461,7 +501,9 @@ class APScanner:
                 if validate_interface(self.interface):
                     subprocess.run(
                         ["iwconfig", self.interface, "channel", str(ch)],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                     )
             except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                 pass
@@ -473,7 +515,9 @@ class APScanner:
             if validate_interface(self.interface):
                 subprocess.run(
                     ["iwconfig", self.interface, "channel", str(channel)],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 self.logger.info("Set channel to %d", channel)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
@@ -490,8 +534,7 @@ class APScanner:
             hop_thread.start()
 
         try:
-            sniff(iface=self.interface, prn=self.packet_handler,
-                  timeout=self.timeout, store=0)
+            sniff(iface=self.interface, prn=self.packet_handler, timeout=self.timeout, store=0)
         except KeyboardInterrupt:
             self.logger.info("Scan interrupted by user")
         finally:
@@ -509,14 +552,33 @@ class APScanner:
         if ext == ".csv":
             with open(self.output_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(["bssid", "ssid", "channel", "signal", "encryption",
-                                 "vendor", "beacon_count", "first_seen", "last_seen"])
+                writer.writerow(
+                    [
+                        "bssid",
+                        "ssid",
+                        "channel",
+                        "signal",
+                        "encryption",
+                        "vendor",
+                        "beacon_count",
+                        "first_seen",
+                        "last_seen",
+                    ]
+                )
                 for bssid, ap in self.access_points.items():
-                    writer.writerow([
-                        bssid, ap["ssid"], ap["channel"], ap["signal"],
-                        ap["encryption"], ap["vendor"], ap["beacon_count"],
-                        ap["first_seen"], ap["last_seen"],
-                    ])
+                    writer.writerow(
+                        [
+                            bssid,
+                            ap["ssid"],
+                            ap["channel"],
+                            ap["signal"],
+                            ap["encryption"],
+                            ap["vendor"],
+                            ap["beacon_count"],
+                            ap["first_seen"],
+                            ap["last_seen"],
+                        ]
+                    )
             self.logger.info("Results saved to %s", self.output_file)
 
         elif ext == ".json":
@@ -529,12 +591,15 @@ class APScanner:
             self.logger.info("No access points found")
             return
 
-        print(f"\n{'='*118}")
-        print(f"{'BSSID':<20} {'SSID':<25} {'CH':<5} {'Signal':<8} {'Enc':<10} "
-              f"{'PMF':<9} {'Vendor':<20} {'Beacons':<8}")
-        print(f"{'='*118}")
-        for bssid, ap in sorted(self.access_points.items(),
-                                 key=lambda x: x[1].get("signal") or -100, reverse=True):
+        print(f"\n{'=' * 118}")
+        print(
+            f"{'BSSID':<20} {'SSID':<25} {'CH':<5} {'Signal':<8} {'Enc':<10} "
+            f"{'PMF':<9} {'Vendor':<20} {'Beacons':<8}"
+        )
+        print(f"{'=' * 118}")
+        for bssid, ap in sorted(
+            self.access_points.items(), key=lambda x: x[1].get("signal") or -100, reverse=True
+        ):
             sig_str = f"{ap['signal']}dBm" if ap["signal"] is not None else "?"
             if ap.get("pmf_required"):
                 pmf = "Required"
@@ -545,9 +610,11 @@ class APScanner:
             enc = ap["encryption"]
             if ap.get("owe_mode") == "owe_transition":
                 enc = "OWE-T"
-            print(f"{bssid:<20} {(ap['ssid'] or '<hidden>'):<25} "
-                  f"{str(ap['channel'] or '?'):<5} {sig_str:<8} "
-                  f"{enc:<10} {pmf:<9} {ap['vendor'][:20]:<20} {ap['beacon_count']:<8}")
+            print(
+                f"{bssid:<20} {(ap['ssid'] or '<hidden>'):<25} "
+                f"{str(ap['channel'] or '?'):<5} {sig_str:<8} "
+                f"{enc:<10} {pmf:<9} {ap['vendor'][:20]:<20} {ap['beacon_count']:<8}"
+            )
         print(f"\nTotal: {len(self.access_points)} access points found")
 
 
@@ -570,29 +637,40 @@ Note: Interface must be in monitor mode
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-t", "--timeout", type=int, default=30,
-                        help="Scan duration in seconds (default: 30)")
-    parser.add_argument("--no-hop", action="store_true",
-                        help="Disable channel hopping")
-    parser.add_argument("-ch", "--channel", type=int,
-                        help="Fixed channel to scan")
-    parser.add_argument("--hop-interval", type=float, default=0.5,
-                        help="Channel hop interval in seconds (default: 0.5)")
-    parser.add_argument("--bands", default="2.4,5",
-                        choices=["2.4", "5", "2.4,5", "all"],
-                        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)")
-    parser.add_argument("-o", "--output",
-                        help="Output file path (.csv or .json)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
-    parser.add_argument("--reveal-hidden", action="store_true",
-                        help="Actively probe hidden networks to reveal their SSIDs "
-                             "(requires authorization on the target network)")
-    parser.add_argument("--deauth-reveal", action="store_true",
-                        help="Use deauth to force client reassociation when revealing "
-                             "hidden SSIDs (more aggressive; requires authorization)")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=30, help="Scan duration in seconds (default: 30)"
+    )
+    parser.add_argument("--no-hop", action="store_true", help="Disable channel hopping")
+    parser.add_argument("-ch", "--channel", type=int, help="Fixed channel to scan")
+    parser.add_argument(
+        "--hop-interval",
+        type=float,
+        default=0.5,
+        help="Channel hop interval in seconds (default: 0.5)",
+    )
+    parser.add_argument(
+        "--bands",
+        default="2.4,5",
+        choices=["2.4", "5", "2.4,5", "all"],
+        help="Frequency bands to scan: 2.4, 5, 2.4,5, all (default: 2.4,5)",
+    )
+    parser.add_argument("-o", "--output", help="Output file path (.csv or .json)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--reveal-hidden",
+        action="store_true",
+        help="Actively probe hidden networks to reveal their SSIDs "
+        "(requires authorization on the target network)",
+    )
+    parser.add_argument(
+        "--deauth-reveal",
+        action="store_true",
+        help="Use deauth to force client reassociation when revealing "
+        "hidden SSIDs (more aggressive; requires authorization)",
+    )
 
     args = parser.parse_args()
     require_root()

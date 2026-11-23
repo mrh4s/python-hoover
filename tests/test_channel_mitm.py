@@ -15,19 +15,18 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
+
 from channel_mitm import (  # noqa: E402
-    ChannelMitM,
     CHANNELS_2GHZ,
     CHANNELS_5GHZ,
+    ChannelMitM,
     main,
 )
-
-from scapy.layers.dot11 import Dot11, RadioTap  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mitm(tmp_path):
@@ -47,6 +46,7 @@ def mitm(tmp_path):
 # ---------------------------------------------------------------------------
 # Init
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     def test_init_defaults(self, tmp_path):
@@ -105,6 +105,7 @@ class TestInit:
 # Rogue channel selection
 # ---------------------------------------------------------------------------
 
+
 class TestSelectRogueChannel:
     def test_2ghz_target_selects_5ghz(self, mitm):
         channel = mitm._select_rogue_channel(6)
@@ -127,17 +128,22 @@ class TestSelectRogueChannel:
 # hostapd config generation
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateHostapdConf:
     def test_contains_matching_bssid(self, mitm):
         conf = mitm._generate_hostapd_conf(
-            ssid="TargetAP", interface="wlan1", channel=44,
+            ssid="TargetAP",
+            interface="wlan1",
+            channel=44,
             bssid="aa:bb:cc:dd:ee:ff",
         )
         assert "bssid=aa:bb:cc:dd:ee:ff" in conf
 
     def test_contains_ssid_and_interface(self, mitm):
         conf = mitm._generate_hostapd_conf(
-            ssid="TargetAP", interface="wlan1", channel=6,
+            ssid="TargetAP",
+            interface="wlan1",
+            channel=6,
             bssid="aa:bb:cc:dd:ee:ff",
         )
         assert "ssid=TargetAP" in conf
@@ -146,7 +152,9 @@ class TestGenerateHostapdConf:
 
     def test_open_auth_no_encryption(self, mitm):
         conf = mitm._generate_hostapd_conf(
-            ssid="TargetAP", interface="wlan1", channel=6,
+            ssid="TargetAP",
+            interface="wlan1",
+            channel=6,
             bssid="aa:bb:cc:dd:ee:ff",
         )
         assert "auth_algs=1" in conf
@@ -154,14 +162,18 @@ class TestGenerateHostapdConf:
 
     def test_5ghz_channel_uses_hw_mode_a(self, mitm):
         conf = mitm._generate_hostapd_conf(
-            ssid="TargetAP", interface="wlan1", channel=44,
+            ssid="TargetAP",
+            interface="wlan1",
+            channel=44,
             bssid="aa:bb:cc:dd:ee:ff",
         )
         assert "hw_mode=a" in conf
 
     def test_2ghz_channel_uses_hw_mode_g(self, mitm):
         conf = mitm._generate_hostapd_conf(
-            ssid="TargetAP", interface="wlan1", channel=6,
+            ssid="TargetAP",
+            interface="wlan1",
+            channel=6,
             bssid="aa:bb:cc:dd:ee:ff",
         )
         assert "hw_mode=g" in conf
@@ -171,6 +183,7 @@ class TestGenerateHostapdConf:
 # Rogue AP setup
 # ---------------------------------------------------------------------------
 
+
 class TestSetupRogueAp:
     @patch("channel_mitm.subprocess.Popen")
     def test_starts_hostapd_with_conf_path(self, mock_popen, mitm):
@@ -178,7 +191,9 @@ class TestSetupRogueAp:
         mock_popen.return_value = mock_proc
 
         proc = mitm._setup_rogue_ap(
-            interface="wlan1", ssid="TargetAP", channel=44,
+            interface="wlan1",
+            ssid="TargetAP",
+            channel=44,
         )
 
         assert proc is mock_proc
@@ -196,6 +211,7 @@ class TestSetupRogueAp:
 # ---------------------------------------------------------------------------
 # Deauth delegation
 # ---------------------------------------------------------------------------
+
 
 class TestDeauthClient:
     @patch("channel_mitm.sendp")
@@ -243,6 +259,7 @@ class TestDeauthClient:
 # Client connection detection
 # ---------------------------------------------------------------------------
 
+
 class TestDetectClientConnected:
     def test_no_clients_returns_false(self, mitm):
         assert mitm._detect_client_connected() is False
@@ -275,6 +292,7 @@ class TestDetectClientConnected:
 # ---------------------------------------------------------------------------
 # Frame relay handler
 # ---------------------------------------------------------------------------
+
 
 class TestRelayHandler:
     @patch("channel_mitm.sendp")
@@ -320,6 +338,7 @@ class TestRelayHandler:
 # Cleanup
 # ---------------------------------------------------------------------------
 
+
 class TestCleanup:
     def test_terminates_hostapd_process(self, mitm):
         mock_proc = MagicMock()
@@ -351,6 +370,7 @@ class TestCleanup:
 # ---------------------------------------------------------------------------
 # save_results / get_status
 # ---------------------------------------------------------------------------
+
 
 class TestSaveResults:
     def test_returns_none_without_results(self, mitm):
@@ -401,6 +421,7 @@ class TestGetStatus:
 # stop()
 # ---------------------------------------------------------------------------
 
+
 class TestStop:
     def test_sets_stop_event_and_cleans_up(self, mitm):
         mock_proc = MagicMock()
@@ -427,6 +448,7 @@ class TestStop:
 # ---------------------------------------------------------------------------
 # start() -- validation and orchestration
 # ---------------------------------------------------------------------------
+
 
 class TestStart:
     def test_start_rejects_invalid_interface(self, tmp_path):
@@ -467,8 +489,7 @@ class TestStart:
     @patch.object(ChannelMitM, "_start_frame_relay")
     @patch.object(ChannelMitM, "_deauth_client")
     @patch.object(ChannelMitM, "_setup_rogue_ap")
-    def test_start_runs_full_sequence(self, mock_setup, mock_deauth,
-                                       mock_relay, mock_sleep, mitm):
+    def test_start_runs_full_sequence(self, mock_setup, mock_deauth, mock_relay, mock_sleep, mitm):
         mock_setup.return_value = MagicMock()
         mitm._hostapd_proc = MagicMock()
 
@@ -484,7 +505,11 @@ class TestStart:
     @patch.object(ChannelMitM, "_deauth_client")
     @patch.object(ChannelMitM, "_setup_rogue_ap")
     def test_start_skips_relay_when_forward_disabled(
-        self, mock_setup, mock_deauth, mock_sleep, mitm,
+        self,
+        mock_setup,
+        mock_deauth,
+        mock_sleep,
+        mitm,
     ):
         mitm.forward_frames = False
         with patch.object(ChannelMitM, "_start_frame_relay") as mock_relay:
@@ -503,22 +528,30 @@ class TestStart:
 # CLI parsing
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     @patch("channel_mitm.time.sleep")
     @patch("channel_mitm.require_root")
     @patch.object(ChannelMitM, "save_results", return_value="/tmp/out.json")
     @patch.object(ChannelMitM, "stop")
-    @patch.object(ChannelMitM, "start", return_value={"rogue_channel": 44, "client_connected": True})
-    def test_cli_valid_args(self, mock_start, mock_stop, mock_save,
-                             mock_require_root, mock_sleep):
+    @patch.object(
+        ChannelMitM, "start", return_value={"rogue_channel": 44, "client_connected": True}
+    )
+    def test_cli_valid_args(self, mock_start, mock_stop, mock_save, mock_require_root, mock_sleep):
         test_args = [
             "channel_mitm.py",
-            "--rogue-iface", "wlan1",
-            "--monitor-iface", "wlan0mon",
-            "-b", "aa:bb:cc:dd:ee:ff",
-            "-c", "6",
-            "--client", "11:22:33:44:55:66",
-            "--ssid", "TargetAP",
+            "--rogue-iface",
+            "wlan1",
+            "--monitor-iface",
+            "wlan0mon",
+            "-b",
+            "aa:bb:cc:dd:ee:ff",
+            "-c",
+            "6",
+            "--client",
+            "11:22:33:44:55:66",
+            "--ssid",
+            "TargetAP",
         ]
         with patch.object(sys, "argv", test_args):
             main()
@@ -530,10 +563,14 @@ class TestCLI:
     def test_cli_rejects_invalid_bssid(self, mock_require_root, capsys):
         test_args = [
             "channel_mitm.py",
-            "--rogue-iface", "wlan1",
-            "--monitor-iface", "wlan0mon",
-            "-b", "not-a-mac",
-            "-c", "6",
+            "--rogue-iface",
+            "wlan1",
+            "--monitor-iface",
+            "wlan0mon",
+            "-b",
+            "not-a-mac",
+            "-c",
+            "6",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit):
@@ -543,10 +580,14 @@ class TestCLI:
     def test_cli_rejects_invalid_interface(self, mock_require_root):
         test_args = [
             "channel_mitm.py",
-            "--rogue-iface", "bad iface!",
-            "--monitor-iface", "wlan0mon",
-            "-b", "aa:bb:cc:dd:ee:ff",
-            "-c", "6",
+            "--rogue-iface",
+            "bad iface!",
+            "--monitor-iface",
+            "wlan0mon",
+            "-b",
+            "aa:bb:cc:dd:ee:ff",
+            "-c",
+            "6",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit):
@@ -556,11 +597,16 @@ class TestCLI:
     def test_cli_rejects_invalid_client(self, mock_require_root):
         test_args = [
             "channel_mitm.py",
-            "--rogue-iface", "wlan1",
-            "--monitor-iface", "wlan0mon",
-            "-b", "aa:bb:cc:dd:ee:ff",
-            "-c", "6",
-            "--client", "garbage",
+            "--rogue-iface",
+            "wlan1",
+            "--monitor-iface",
+            "wlan0mon",
+            "-b",
+            "aa:bb:cc:dd:ee:ff",
+            "-c",
+            "6",
+            "--client",
+            "garbage",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit):
@@ -570,15 +616,22 @@ class TestCLI:
     @patch("channel_mitm.require_root")
     @patch.object(ChannelMitM, "save_results", return_value=None)
     @patch.object(ChannelMitM, "stop")
-    @patch.object(ChannelMitM, "start", return_value={"rogue_channel": 149, "client_connected": False})
-    def test_cli_no_forward_flag(self, mock_start, mock_stop, mock_save,
-                                  mock_require_root, mock_sleep):
+    @patch.object(
+        ChannelMitM, "start", return_value={"rogue_channel": 149, "client_connected": False}
+    )
+    def test_cli_no_forward_flag(
+        self, mock_start, mock_stop, mock_save, mock_require_root, mock_sleep
+    ):
         test_args = [
             "channel_mitm.py",
-            "--rogue-iface", "wlan1",
-            "--monitor-iface", "wlan0mon",
-            "-b", "aa:bb:cc:dd:ee:ff",
-            "-c", "6",
+            "--rogue-iface",
+            "wlan1",
+            "--monitor-iface",
+            "wlan0mon",
+            "-b",
+            "aa:bb:cc:dd:ee:ff",
+            "-c",
+            "6",
             "--no-forward",
         ]
         with patch.object(sys, "argv", test_args):

@@ -14,27 +14,22 @@ only -- NO arbitrary shell access.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
-import json
-import logging
-import platform
 import hmac
+import platform
 import ssl
-import subprocess
+import sys
 import threading
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from flask import Flask, request
-from flask_socketio import SocketIO, emit, disconnect
 import socketio as sio_client_module
+from flask import Flask, request
+from flask_socketio import SocketIO, disconnect, emit
 
-from utils import setup_logging, validate_ip
-
+from utils import setup_logging
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -69,8 +64,7 @@ COMMAND_TYPES = {
 }
 
 
-def _build_message(msg_type: str, payload: dict,
-                   session_id: Optional[str] = None) -> dict:
+def _build_message(msg_type: str, payload: dict, session_id: Optional[str] = None) -> dict:
     """Build a standardised JSON message envelope."""
     return {
         "type": msg_type,
@@ -84,6 +78,7 @@ def _build_message(msg_type: str, payload: dict,
 # Server
 # ===================================================================
 
+
 class CloudC2Server:
     """Cloud C2 server for managing remote hoover agent sessions.
 
@@ -91,10 +86,14 @@ class CloudC2Server:
     server with token-based authentication and TLS support.
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8443,
-                 certfile: Optional[str] = None,
-                 keyfile: Optional[str] = None,
-                 auth_token: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 8443,
+        certfile: Optional[str] = None,
+        keyfile: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> None:
         self.host = host
         self.port = port
         self.certfile = certfile
@@ -111,8 +110,7 @@ class CloudC2Server:
         # Flask + SocketIO
         self._app = Flask(__name__)
         self._app.config["SECRET_KEY"] = self.auth_token
-        self._socketio = SocketIO(self._app, cors_allowed_origins="*",
-                                  async_mode="threading")
+        self._socketio = SocketIO(self._app, cors_allowed_origins="*", async_mode="threading")
         self._register_routes()
 
     # -- route / event registration ----------------------------------------
@@ -141,8 +139,7 @@ class CloudC2Server:
             with self._lock:
                 # Remove session whose sid matches
                 to_remove = [
-                    s_id for s_id, info in self._sessions.items()
-                    if info.get("sid") == sid
+                    s_id for s_id, info in self._sessions.items() if info.get("sid") == sid
                 ]
                 for s_id in to_remove:
                     del self._sessions[s_id]
@@ -162,8 +159,7 @@ class CloudC2Server:
             with self._lock:
                 self._sessions[session_id] = info
                 self._results.setdefault(session_id, [])
-            self.logger.info("Session registered: %s (%s)",
-                             session_id, info["hostname"])
+            self.logger.info("Session registered: %s (%s)", session_id, info["hostname"])
             emit("registered", {"session_id": session_id, "status": "ok"})
 
         @sio.on("heartbeat")
@@ -171,15 +167,24 @@ class CloudC2Server:
             session_id = data.get("session_id")
             with self._lock:
                 if session_id in self._sessions:
-                    self._sessions[session_id]["last_heartbeat"] = (
-                        datetime.now(timezone.utc).isoformat()
+                    self._sessions[session_id]["last_heartbeat"] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
+                    self._sessions[session_id].update(
+                        {
+                            k: v
+                            for k, v in data.items()
+                            if k
+                            in (
+                                "hostname",
+                                "ip",
+                                "uptime",
+                                "running_tools",
+                                "cpu_usage",
+                                "memory_usage",
+                            )
+                        }
                     )
-                    self._sessions[session_id].update({
-                        k: v for k, v in data.items()
-                        if k in ("hostname", "ip", "uptime",
-                                 "running_tools", "cpu_usage",
-                                 "memory_usage")
-                    })
 
         @sio.on("result")
         def _on_result(data):
@@ -244,8 +249,7 @@ class CloudC2Server:
 
         msg = _build_message("command", command, session_id=session_id)
         self._socketio.emit("command", msg, to=session["sid"])
-        return {"status": "sent", "session_id": session_id,
-                "command": command}
+        return {"status": "sent", "session_id": session_id, "command": command}
 
     def get_session_results(self, session_id: str) -> list[dict]:
         """Return all results collected from the given session."""
@@ -258,13 +262,13 @@ class CloudC2Server:
             session_ids = list(self._sessions.keys())
         for sid in session_ids:
             self.send_command(sid, command)
-        return {"status": "broadcast", "sessions": session_ids,
-                "command": command}
+        return {"status": "broadcast", "sessions": session_ids, "command": command}
 
 
 # ===================================================================
 # Client
 # ===================================================================
+
 
 class CloudC2Client:
     """Cloud C2 client agent that connects to a C2 server.
@@ -273,9 +277,13 @@ class CloudC2Client:
     send heartbeats, receive commands, and report results.
     """
 
-    def __init__(self, server_url: str, auth_token: str,
-                 reconnect_interval: float = 30.0,
-                 heartbeat_interval: float = 10.0) -> None:
+    def __init__(
+        self,
+        server_url: str,
+        auth_token: str,
+        reconnect_interval: float = 30.0,
+        heartbeat_interval: float = 10.0,
+    ) -> None:
         self.server_url = server_url
         self.auth_token = auth_token
         self.reconnect_interval = reconnect_interval
@@ -306,11 +314,14 @@ class CloudC2Client:
             with self._lock:
                 self._connected = True
             # Register with server
-            self._sio.emit("register", {
-                "session_id": self.session_id,
-                "hostname": platform.node(),
-                "ip": "127.0.0.1",
-            })
+            self._sio.emit(
+                "register",
+                {
+                    "session_id": self.session_id,
+                    "hostname": platform.node(),
+                    "ip": "127.0.0.1",
+                },
+            )
 
         @self._sio.on("disconnect")
         def _on_disconnect():
@@ -322,12 +333,15 @@ class CloudC2Client:
         def _on_command(data):
             payload = data.get("payload", {})
             result = self._command_handler(payload)
-            self._sio.emit("command_response", {
-                "session_id": self.session_id,
-                "type": "result",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "payload": result,
-            })
+            self._sio.emit(
+                "command_response",
+                {
+                    "session_id": self.session_id,
+                    "type": "result",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": result,
+                },
+            )
 
         @self._sio.on("registered")
         def _on_registered(data):
@@ -350,7 +364,8 @@ class CloudC2Client:
                 self._connected = True
             # Start heartbeat
             self._heartbeat_thread = threading.Thread(
-                target=self._heartbeat_loop, daemon=True,
+                target=self._heartbeat_loop,
+                daemon=True,
             )
             self._heartbeat_thread.start()
             return True
@@ -360,7 +375,8 @@ class CloudC2Client:
                 self._connected = False
             # Start reconnect loop
             self._reconnect_thread = threading.Thread(
-                target=self._reconnect_loop, daemon=True,
+                target=self._reconnect_loop,
+                daemon=True,
             )
             self._reconnect_thread.start()
             return False
@@ -492,7 +508,8 @@ class CloudC2Client:
                     self._heartbeat_thread.join(timeout=2)
                 self._heartbeat_stop = threading.Event()
                 self._heartbeat_thread = threading.Thread(
-                    target=self._heartbeat_loop, daemon=True,
+                    target=self._heartbeat_loop,
+                    daemon=True,
                 )
                 self._heartbeat_thread.start()
                 return
@@ -532,6 +549,7 @@ class CloudC2Client:
 # CLI entry point
 # ===================================================================
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -541,25 +559,22 @@ def main() -> None:
         ),
     )
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--server", action="store_true",
-                      help="Run as C2 server")
-    mode.add_argument("--connect", metavar="URL",
-                      help="Server URL to connect to as client")
+    mode.add_argument("--server", action="store_true", help="Run as C2 server")
+    mode.add_argument("--connect", metavar="URL", help="Server URL to connect to as client")
 
-    parser.add_argument("--host", default="0.0.0.0",
-                        help="Server listen address (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8443,
-                        help="Server listen port (default: 8443)")
-    parser.add_argument("--cert", default=None,
-                        help="TLS certificate file")
-    parser.add_argument("--key", default=None,
-                        help="TLS private key file")
-    parser.add_argument("--token", default=None,
-                        help="Authentication token")
-    parser.add_argument("--heartbeat", type=int, default=10,
-                        help="Heartbeat interval in seconds (default: 10)")
-    parser.add_argument("--reconnect", type=int, default=30,
-                        help="Reconnect interval in seconds (default: 30)")
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Server listen address (default: 0.0.0.0)"
+    )
+    parser.add_argument("--port", type=int, default=8443, help="Server listen port (default: 8443)")
+    parser.add_argument("--cert", default=None, help="TLS certificate file")
+    parser.add_argument("--key", default=None, help="TLS private key file")
+    parser.add_argument("--token", default=None, help="Authentication token")
+    parser.add_argument(
+        "--heartbeat", type=int, default=10, help="Heartbeat interval in seconds (default: 10)"
+    )
+    parser.add_argument(
+        "--reconnect", type=int, default=30, help="Reconnect interval in seconds (default: 30)"
+    )
 
     args = parser.parse_args()
 

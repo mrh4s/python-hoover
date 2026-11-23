@@ -4,7 +4,7 @@ import json
 import os
 import sys
 import time
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -15,24 +15,24 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.layers.eap", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from eap_attack import (  # noqa: E402
-    EAPAttack,
-    EAP_TYPE_IDENTITY,
-    EAP_TYPE_MSCHAPV2,
-    EAP_TYPE_MD5,
-    EAP_CODE_RESPONSE,
-    SUPPORTED_EAP_METHODS,
-    main,
-)
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11  # noqa: E402
 from scapy.layers.eap import EAP  # noqa: E402
 
+from eap_attack import (  # noqa: E402
+    EAP_CODE_RESPONSE,
+    EAP_TYPE_IDENTITY,
+    EAP_TYPE_MD5,
+    EAP_TYPE_MSCHAPV2,
+    SUPPORTED_EAP_METHODS,
+    EAPAttack,
+    main,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def attack(mock_interface, tmp_path):
@@ -46,8 +46,9 @@ def attack(mock_interface, tmp_path):
     )
 
 
-def _make_eap_packet(eap_code, eap_type, eap_id, identity=None,
-                     src_mac="aa:bb:cc:dd:ee:ff", raw_bytes=b""):
+def _make_eap_packet(
+    eap_code, eap_type, eap_id, identity=None, src_mac="aa:bb:cc:dd:ee:ff", raw_bytes=b""
+):
     """Create a mock EAP packet with the given parameters."""
     pkt = MagicMock()
 
@@ -70,6 +71,7 @@ def _make_eap_packet(eap_code, eap_type, eap_id, identity=None,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     return pkt
@@ -122,6 +124,7 @@ def mock_non_eap_packet():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestEAPAttackInit:
     def test_defaults(self, mock_interface):
@@ -199,7 +202,7 @@ class TestEAPUserFile:
         assert "MD5" in content
         # MD5 mode should not include PEAP as primary
         lines = content.strip().split("\n")
-        method_line = [l for l in lines if not l.startswith("#") and "*" in l]
+        method_line = [line for line in lines if not line.startswith("#") and "*" in line]
         assert len(method_line) == 1
         assert method_line[0].strip() == "* MD5"
 
@@ -421,10 +424,24 @@ class TestCLIParsing:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
 
-        with patch("sys.argv", [
-            "eap_attack", "-i", "wlan1", "-s", "CorpWiFi",
-            "-ch", "11", "-m", "ttls", "-o", "/tmp/out", "-t", "600",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "eap_attack",
+                "-i",
+                "wlan1",
+                "-s",
+                "CorpWiFi",
+                "-ch",
+                "11",
+                "-m",
+                "ttls",
+                "-o",
+                "/tmp/out",
+                "-t",
+                "600",
+            ],
+        ):
             main()
 
         mock_cls.assert_called_once_with(
@@ -442,9 +459,17 @@ class TestCLIParsing:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
 
-        with patch("sys.argv", [
-            "eap_attack", "-i", "wlan0", "-s", "Net", "-v",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "eap_attack",
+                "-i",
+                "wlan0",
+                "-s",
+                "Net",
+                "-v",
+            ],
+        ):
             main()
 
         mock_instance.start.assert_called_once()
@@ -455,8 +480,17 @@ class TestCLIParsing:
                 main()
 
     def test_invalid_method_exits(self):
-        with patch("sys.argv", [
-            "eap_attack", "-i", "wlan0", "-s", "Net", "-m", "invalid",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "eap_attack",
+                "-i",
+                "wlan0",
+                "-s",
+                "Net",
+                "-m",
+                "invalid",
+            ],
+        ):
             with pytest.raises(SystemExit):
                 main()

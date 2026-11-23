@@ -5,12 +5,12 @@ Network discovery via ARP scanning and port probing
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
+import os
 import socket
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,25 +20,44 @@ from typing import Optional
 from scapy.layers.l2 import ARP, Ether
 from scapy.sendrecv import srp
 
-from utils import validate_interface, require_root, setup_logging
 from oui_lookup import lookup_vendor
+from utils import require_root, setup_logging
 
 DEFAULT_PORTS: list[int] = [
-    22, 23, 53, 80, 110, 143, 443, 445,
-    993, 995, 3306, 3389, 5432, 8080, 8443,
+    22,
+    23,
+    53,
+    80,
+    110,
+    143,
+    443,
+    445,
+    993,
+    995,
+    3306,
+    3389,
+    5432,
+    8080,
+    8443,
 ]
 
 
 class NetworkMapper:
-    def __init__(self, interface: str, target_range: str = "192.168.1.0/24",
-                 port_scan: bool = True,
-                 common_ports: Optional[list[int]] = None,
-                 timeout: float = 2.0,
-                 output_file: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_range: str = "192.168.1.0/24",
+        port_scan: bool = True,
+        common_ports: Optional[list[int]] = None,
+        timeout: float = 2.0,
+        output_file: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.target_range: str = target_range
         self.port_scan: bool = port_scan
-        self.common_ports: list[int] = common_ports if common_ports is not None else list(DEFAULT_PORTS)
+        self.common_ports: list[int] = (
+            common_ports if common_ports is not None else list(DEFAULT_PORTS)
+        )
         self.timeout: float = timeout
         self.output_file: Optional[str] = output_file
         self.logger = setup_logging("network_mapper")
@@ -54,17 +73,21 @@ class NetworkMapper:
 
         try:
             arp_request = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=self.target_range)
-            answered, _ = srp(arp_request, iface=self.interface, timeout=self.timeout, verbose=False)
+            answered, _ = srp(
+                arp_request, iface=self.interface, timeout=self.timeout, verbose=False
+            )
 
             hosts = []
-            for sent, received in answered:
+            for _sent, received in answered:
                 mac = received.hwsrc.upper()
                 vendor = lookup_vendor(mac)
-                hosts.append({
-                    "ip": received.psrc,
-                    "mac": mac,
-                    "vendor": vendor,
-                })
+                hosts.append(
+                    {
+                        "ip": received.psrc,
+                        "mac": mac,
+                        "vendor": vendor,
+                    }
+                )
 
             self._stats["hosts_found"] = len(hosts)
             self.logger.info("Found %d hosts", len(hosts))
@@ -146,8 +169,12 @@ class NetworkMapper:
             "hosts": hosts,
         }
 
-        self.logger.info("Scan complete: %d hosts, %d open ports in %.1fs",
-                         len(hosts), self._stats["open_ports_found"], scan_time)
+        self.logger.info(
+            "Scan complete: %d hosts, %d open ports in %.1fs",
+            len(hosts),
+            self._stats["open_ports_found"],
+            scan_time,
+        )
         return results
 
     def save_results(self, results: dict) -> None:
@@ -167,9 +194,13 @@ class NetworkMapper:
                 for host in results.get("hosts", []):
                     ports_str = ",".join(str(p["port"]) for p in host.get("ports", []))
                     banners_str = "; ".join(
-                        f"{p['port']}:{p['banner']}" for p in host.get("ports", []) if p.get("banner")
+                        f"{p['port']}:{p['banner']}"
+                        for p in host.get("ports", [])
+                        if p.get("banner")
                     )
-                    writer.writerow([host["ip"], host["mac"], host["vendor"], ports_str, banners_str])
+                    writer.writerow(
+                        [host["ip"], host["mac"], host["vendor"], ports_str, banners_str]
+                    )
         else:
             with open(self.output_file, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2)
@@ -182,9 +213,9 @@ class NetworkMapper:
             self.logger.info("No hosts found")
             return
 
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"Network Map: {results.get('target_range', '?')}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         for host in hosts:
             print(f"\n  {host['ip']:<16} {host['mac']:<20} {host['vendor']}")
@@ -192,7 +223,7 @@ class NetworkMapper:
                 banner_str = f" ({port['banner']})" if port.get("banner") else ""
                 print(f"    Port {port['port']:<6} {port['state']}{banner_str}")
 
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"Total: {len(hosts)} hosts, {self._stats['open_ports_found']} open ports")
         print(f"Scan time: {results.get('scan_time', 0)}s")
 
@@ -225,20 +256,20 @@ Note: For authorized security testing only.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Network interface")
-    parser.add_argument("-r", "--range", default="192.168.1.0/24",
-                        help="Target IP range in CIDR (default: 192.168.1.0/24)")
-    parser.add_argument("--no-port-scan", action="store_true",
-                        help="Skip port scanning")
-    parser.add_argument("-p", "--ports",
-                        help="Comma-separated list of ports to scan")
-    parser.add_argument("-t", "--timeout", type=float, default=2.0,
-                        help="Timeout in seconds (default: 2.0)")
-    parser.add_argument("-o", "--output",
-                        help="Output file (.json or .csv)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument("-i", "--interface", required=True, help="Network interface")
+    parser.add_argument(
+        "-r",
+        "--range",
+        default="192.168.1.0/24",
+        help="Target IP range in CIDR (default: 192.168.1.0/24)",
+    )
+    parser.add_argument("--no-port-scan", action="store_true", help="Skip port scanning")
+    parser.add_argument("-p", "--ports", help="Comma-separated list of ports to scan")
+    parser.add_argument(
+        "-t", "--timeout", type=float, default=2.0, help="Timeout in seconds (default: 2.0)"
+    )
+    parser.add_argument("-o", "--output", help="Output file (.json or .csv)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

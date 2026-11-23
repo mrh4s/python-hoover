@@ -1,21 +1,65 @@
 #!/usr/bin/env python3
 """Shared utilities for Hoover WiFi Security Toolkit"""
 
+import logging
 import os
-import sys
 import re
 import subprocess
-import logging
-
+import sys
 
 CHANNELS_2GHZ: list[int] = list(range(1, 14))
 CHANNELS_5GHZ: list[int] = [
-    36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128,
-    132, 136, 140, 144, 149, 153, 157, 161, 165,
+    36,
+    40,
+    44,
+    48,
+    52,
+    56,
+    60,
+    64,
+    100,
+    104,
+    108,
+    112,
+    116,
+    120,
+    124,
+    128,
+    132,
+    136,
+    140,
+    144,
+    149,
+    153,
+    157,
+    161,
+    165,
 ]
 CHANNELS_6GHZ: list[int] = [
-    1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73,
-    77, 81, 85, 89, 93,
+    1,
+    5,
+    9,
+    13,
+    17,
+    21,
+    25,
+    29,
+    33,
+    37,
+    41,
+    45,
+    49,
+    53,
+    57,
+    61,
+    65,
+    69,
+    73,
+    77,
+    81,
+    85,
+    89,
+    93,
 ]
 
 _BAND_CHANNELS: dict[str, list[int]] = {
@@ -55,9 +99,7 @@ def get_channels(bands: str = "2.4") -> list[int]:
     seen_bands: set[str] = set()
     for band in requested:
         if band not in _BAND_CHANNELS:
-            raise ValueError(
-                f"Unknown band: {band!r} (expected one of 2.4, 5, 6, or all)"
-            )
+            raise ValueError(f"Unknown band: {band!r} (expected one of 2.4, 5, 6, or all)")
         if band in seen_bands:
             # Avoid duplicating an entire band's channel list if it was
             # requested more than once (channel numbers can legitimately
@@ -80,9 +122,7 @@ def validate_ip(ip: str) -> bool:
     """
     if not ip or not isinstance(ip, str):
         return False
-    pattern = re.compile(
-        r'^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$'
-    )
+    pattern = re.compile(r"^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$")
     return bool(pattern.match(ip))
 
 
@@ -97,7 +137,7 @@ def validate_mac(mac: str) -> bool:
     """
     if not mac or not isinstance(mac, str):
         return False
-    pattern = re.compile(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
+    pattern = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
     return bool(pattern.match(mac))
 
 
@@ -112,7 +152,7 @@ def validate_interface(interface: str) -> bool:
     """
     if not interface or not isinstance(interface, str):
         return False
-    return bool(re.match(r'^[A-Za-z0-9_-]+$', interface))
+    return bool(re.match(r"^[A-Za-z0-9_-]+$", interface))
 
 
 def check_monitor_mode(interface: str) -> bool:
@@ -127,13 +167,8 @@ def check_monitor_mode(interface: str) -> bool:
     if not validate_interface(interface):
         return False
     try:
-        result = subprocess.run(
-            ['iwconfig', interface],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return 'Mode:Monitor' in result.stdout
+        result = subprocess.run(["iwconfig", interface], capture_output=True, text=True, timeout=5)
+        return "Mode:Monitor" in result.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return False
 
@@ -151,11 +186,8 @@ def load_ssids(filepath: str) -> list[str]:
         FileNotFoundError: If the file does not exist.
         IOError: If the file cannot be read.
     """
-    with open(filepath, 'r', encoding='utf-8') as f:
-        return [
-            line.strip() for line in f
-            if line.strip() and not line.startswith('#')
-        ]
+    with open(filepath, encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 
 def require_root() -> None:
@@ -181,8 +213,7 @@ def setup_logging(name: str, verbose: bool = False) -> logging.Logger:
         level = logging.DEBUG if verbose else logging.INFO
         handler.setLevel(level)
         formatter = logging.Formatter(
-            '[%(asctime)s] %(levelname)s - %(message)s',
-            datefmt='%H:%M:%S'
+            "[%(asctime)s] %(levelname)s - %(message)s", datefmt="%H:%M:%S"
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)

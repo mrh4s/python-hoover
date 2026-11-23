@@ -1,29 +1,27 @@
 """Tests for utils.py — shared utilities."""
 
 import logging
-import os
-import sys
 from unittest.mock import patch
 
 import pytest
 
 from utils import (
-    validate_mac,
-    validate_interface,
-    check_monitor_mode,
-    load_ssids,
-    require_root,
-    setup_logging,
-    get_channels,
     CHANNELS_2GHZ,
     CHANNELS_5GHZ,
     CHANNELS_6GHZ,
+    check_monitor_mode,
+    get_channels,
+    load_ssids,
+    require_root,
+    setup_logging,
+    validate_interface,
+    validate_mac,
 )
-
 
 # ---------------------------------------------------------------------------
 # validate_mac
 # ---------------------------------------------------------------------------
+
 
 class TestValidateMac:
     """Tests for validate_mac()."""
@@ -31,11 +29,11 @@ class TestValidateMac:
     @pytest.mark.parametrize(
         "mac",
         [
-            "00:1B:63:AA:BB:CC",   # uppercase
-            "00:1b:63:aa:bb:cc",   # lowercase
+            "00:1B:63:AA:BB:CC",  # uppercase
+            "00:1b:63:aa:bb:cc",  # lowercase
             "aA:bB:cC:dD:eE:fF",  # mixed case
-            "FF:FF:FF:FF:FF:FF",   # broadcast
-            "00:00:00:00:00:00",   # all zeros
+            "FF:FF:FF:FF:FF:FF",  # broadcast
+            "00:00:00:00:00:00",  # all zeros
         ],
     )
     def test_validate_mac_valid(self, mac):
@@ -44,15 +42,15 @@ class TestValidateMac:
     @pytest.mark.parametrize(
         "mac",
         [
-            "00:1B:63",                # too short
-            "00:1B:63:AA:BB",          # five octets
-            "00-1B-63-AA-BB-CC",       # dash separators
-            "001B63AABBCC",            # no separators
-            "ZZ:ZZ:ZZ:ZZ:ZZ:ZZ",      # non-hex
-            "GG:HH:II:JJ:KK:LL",      # non-hex letters
-            "",                        # empty string
-            "   ",                     # whitespace only
-            "00:1B:63:AA:BB:CC:DD",    # too many octets
+            "00:1B:63",  # too short
+            "00:1B:63:AA:BB",  # five octets
+            "00-1B-63-AA-BB-CC",  # dash separators
+            "001B63AABBCC",  # no separators
+            "ZZ:ZZ:ZZ:ZZ:ZZ:ZZ",  # non-hex
+            "GG:HH:II:JJ:KK:LL",  # non-hex letters
+            "",  # empty string
+            "   ",  # whitespace only
+            "00:1B:63:AA:BB:CC:DD",  # too many octets
         ],
     )
     def test_validate_mac_invalid(self, mac):
@@ -68,6 +66,7 @@ class TestValidateMac:
 # ---------------------------------------------------------------------------
 # validate_interface
 # ---------------------------------------------------------------------------
+
 
 class TestValidateInterface:
     """Tests for validate_interface()."""
@@ -95,10 +94,10 @@ class TestValidateInterface:
             "../etc",
             "",
             "   ",
-            "wlan 0",             # contains space
-            "wlan0\nls",          # newline injection
-            "/dev/null",          # path separator
-            "wlan$0",             # special char
+            "wlan 0",  # contains space
+            "wlan0\nls",  # newline injection
+            "/dev/null",  # path separator
+            "wlan$0",  # special char
         ],
     )
     def test_validate_interface_invalid(self, iface):
@@ -114,6 +113,7 @@ class TestValidateInterface:
 # ---------------------------------------------------------------------------
 # check_monitor_mode
 # ---------------------------------------------------------------------------
+
 
 class TestCheckMonitorMode:
     """Tests for check_monitor_mode()."""
@@ -136,6 +136,7 @@ class TestCheckMonitorMode:
 # ---------------------------------------------------------------------------
 # load_ssids
 # ---------------------------------------------------------------------------
+
 
 class TestLoadSsids:
     """Tests for load_ssids()."""
@@ -161,6 +162,7 @@ class TestLoadSsids:
 # require_root
 # ---------------------------------------------------------------------------
 
+
 class TestRequireRoot:
     """Tests for require_root()."""
 
@@ -179,6 +181,7 @@ class TestRequireRoot:
 # ---------------------------------------------------------------------------
 # get_channels
 # ---------------------------------------------------------------------------
+
 
 class TestGetChannels:
     """Tests for get_channels()."""
@@ -233,6 +236,7 @@ class TestGetChannels:
 # ---------------------------------------------------------------------------
 # setup_logging
 # ---------------------------------------------------------------------------
+
 
 class TestSetupLogging:
     """Tests for setup_logging()."""

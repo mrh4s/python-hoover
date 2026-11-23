@@ -9,25 +9,24 @@ configurable wordlists and rules.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from utils import validate_mac, setup_logging
-
+from utils import setup_logging, validate_mac
 
 # hashcat hash-mode numbers used by this module.
-HASHCAT_MODE_WPA_22000 = 22000   # WPA-PBKDF2-PMKID+EAPOL (.22000 / hc22000)
-HASHCAT_MODE_WPA_LEGACY = 2500   # Legacy WPA/WPA2 (.hccapx)
-HASHCAT_MODE_WEP = 13100         # WEP (per module convention)
+HASHCAT_MODE_WPA_22000 = 22000  # WPA-PBKDF2-PMKID+EAPOL (.22000 / hc22000)
+HASHCAT_MODE_WPA_LEGACY = 2500  # Legacy WPA/WPA2 (.hccapx)
+HASHCAT_MODE_WEP = 13100  # WEP (per module convention)
 
 _HASHCAT_MODE_BY_FORMAT = {
     "hc22000": HASHCAT_MODE_WPA_22000,
@@ -42,15 +41,18 @@ _AIRCRACK_NATIVE_FORMATS = {"pcap", "pcapng", "cap"}
 class PasswordCracker:
     """Automate hashcat / aircrack-ng password cracking of WiFi captures."""
 
-    def __init__(self, capture_file: str,
-                 target_bssid: Optional[str] = None,
-                 wordlist: str = "/usr/share/wordlists/rockyou.txt",
-                 tool: str = "auto",
-                 hashcat_mode: Optional[int] = None,
-                 rules_file: Optional[str] = None,
-                 output_dir: str = "crack_results",
-                 timeout: int = 3600,
-                 gpu: bool = True) -> None:
+    def __init__(
+        self,
+        capture_file: str,
+        target_bssid: Optional[str] = None,
+        wordlist: str = "/usr/share/wordlists/rockyou.txt",
+        tool: str = "auto",
+        hashcat_mode: Optional[int] = None,
+        rules_file: Optional[str] = None,
+        output_dir: str = "crack_results",
+        timeout: int = 3600,
+        gpu: bool = True,
+    ) -> None:
         self.capture_file: str = capture_file
         self.target_bssid: Optional[str] = None
         if target_bssid:
@@ -122,14 +124,18 @@ class PasswordCracker:
         try:
             with open(filepath, "rb") as f:
                 magic = f.read(4)
-        except (IOError, OSError) as e:
+        except OSError as e:
             self.logger.warning("Could not read %s to detect format: %s", filepath, e)
             return "unknown"
 
         if magic == b"\x0a\x0d\x0d\x0a":
             return "pcapng"
-        if magic in (b"\xa1\xb2\xc3\xd4", b"\xd4\xc3\xb2\xa1",
-                     b"\xa1\xb2\x3c\x4d", b"\x4d\x3c\xb2\xa1"):
+        if magic in (
+            b"\xa1\xb2\xc3\xd4",
+            b"\xd4\xc3\xb2\xa1",
+            b"\xa1\xb2\x3c\x4d",
+            b"\x4d\x3c\xb2\xa1",
+        ):
             return "pcap"
 
         return "unknown"
@@ -147,7 +153,7 @@ class PasswordCracker:
         try:
             with open(filepath, "rb") as f:
                 head = f.read(4096)
-        except (IOError, OSError):
+        except OSError:
             return False
         return b"WEP" in head
 
@@ -290,8 +296,17 @@ class PasswordCracker:
         potfile = os.path.join(self.output_dir, "hashcat.potfile")
         os.makedirs(self.output_dir, exist_ok=True)
 
-        cmd = ["hashcat", "-m", str(mode), "-a", "0", hash_file, self.wordlist,
-               "--potfile-path", potfile]
+        cmd = [
+            "hashcat",
+            "-m",
+            str(mode),
+            "-a",
+            "0",
+            hash_file,
+            self.wordlist,
+            "--potfile-path",
+            potfile,
+        ]
         if self.rules_file:
             cmd.extend(["-r", self.rules_file])
         cmd.extend(["-D", "2" if self.gpu else "1"])
@@ -322,12 +337,13 @@ class PasswordCracker:
         """Run a cracking subprocess, monitor its output and timeout."""
         self.logger.info("Running %s: %s", tool_name, " ".join(cmd))
         self._stop_event.clear()
-        result = {"status": "not_cracked", "cracked": False, "password": None,
-                  "output": ""}
+        result = {"status": "not_cracked", "cracked": False, "password": None, "output": ""}
 
         try:
             self._process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
             )
         except FileNotFoundError:
@@ -353,8 +369,11 @@ class PasswordCracker:
 
                 line = self._process.stdout.readline()
                 if line:
-                    decoded = line.decode("utf-8", errors="replace").strip() \
-                        if isinstance(line, bytes) else str(line).strip()
+                    decoded = (
+                        line.decode("utf-8", errors="replace").strip()
+                        if isinstance(line, bytes)
+                        else str(line).strip()
+                    )
                     if decoded:
                         output_lines.append(decoded)
                         with self._lock:
@@ -362,8 +381,11 @@ class PasswordCracker:
 
             remaining = self._process.stdout.read()
             if remaining:
-                decoded = remaining.decode("utf-8", errors="replace") \
-                    if isinstance(remaining, bytes) else str(remaining)
+                decoded = (
+                    remaining.decode("utf-8", errors="replace")
+                    if isinstance(remaining, bytes)
+                    else str(remaining)
+                )
                 for line in decoded.split("\n"):
                     line = line.strip()
                     if line:
@@ -461,9 +483,7 @@ class PasswordCracker:
         if not output:
             return result
 
-        progress_match = re.search(
-            r"(\d+)\s*/\s*(\d+)\s+keys tested\s*\(([\d.]+)\s*k/s\)", output
-        )
+        progress_match = re.search(r"(\d+)\s*/\s*(\d+)\s+keys tested\s*\(([\d.]+)\s*k/s\)", output)
         if progress_match:
             result["tested_keys"] = int(progress_match.group(1))
             result["total_keys"] = int(progress_match.group(2))
@@ -513,7 +533,7 @@ class PasswordCracker:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
             self.logger.info("Results saved to %s", filepath)
-        except (IOError, OSError) as e:
+        except OSError as e:
             self.logger.error("Failed to save results: %s", e)
 
 
@@ -539,17 +559,35 @@ Note: Requires hashcat and/or aircrack-ng (plus hcxpcapngtool for conversion).
 
     parser.add_argument("capture_file", help="Capture file (.pcap/.cap/.22000/...)")
     parser.add_argument("-b", "--bssid", help="Target AP BSSID")
-    parser.add_argument("-w", "--wordlist", default="/usr/share/wordlists/rockyou.txt",
-                        help="Wordlist path (default: rockyou.txt)")
-    parser.add_argument("--tool", default="auto", choices=["auto", "hashcat", "aircrack"],
-                        help="Cracking tool to use (default: auto)")
+    parser.add_argument(
+        "-w",
+        "--wordlist",
+        default="/usr/share/wordlists/rockyou.txt",
+        help="Wordlist path (default: rockyou.txt)",
+    )
+    parser.add_argument(
+        "--tool",
+        default="auto",
+        choices=["auto", "hashcat", "aircrack"],
+        help="Cracking tool to use (default: auto)",
+    )
     parser.add_argument("--rules", dest="rules_file", help="hashcat rules file")
-    parser.add_argument("--no-gpu", dest="gpu", action="store_false",
-                        help="Disable GPU acceleration (CPU only)")
-    parser.add_argument("-t", "--timeout", type=int, default=3600,
-                        help="Cracking timeout in seconds (default: 3600)")
-    parser.add_argument("-o", "--output-dir", default="crack_results",
-                        help="Output directory (default: crack_results)")
+    parser.add_argument(
+        "--no-gpu", dest="gpu", action="store_false", help="Disable GPU acceleration (CPU only)"
+    )
+    parser.add_argument(
+        "-t",
+        "--timeout",
+        type=int,
+        default=3600,
+        help="Cracking timeout in seconds (default: 3600)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="crack_results",
+        help="Output directory (default: crack_results)",
+    )
     parser.set_defaults(gpu=True)
 
     args = parser.parse_args()
@@ -577,9 +615,9 @@ Note: Requires hashcat and/or aircrack-ng (plus hcxpcapngtool for conversion).
 
     result = cracker.start()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Password Crack Result")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Status:   {result.get('status')}")
     print(f"Tool:     {result.get('tool')}")
     if result.get("cracked"):

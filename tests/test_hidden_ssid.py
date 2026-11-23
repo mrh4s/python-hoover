@@ -3,8 +3,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # Mock scapy before importing the module
 sys.modules.setdefault("scapy", MagicMock())
 sys.modules.setdefault("scapy.layers", MagicMock())
@@ -14,21 +12,26 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from ap_scanner import APScanner, main  # noqa: E402
-
 # Import the mocked scapy classes as the production code sees them
 from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11AssoReq, Dot11Beacon, Dot11Deauth, Dot11Elt, Dot11ProbeReq,
-    Dot11ProbeResp, Dot11ReassoReq, RadioTap,
+    Dot11,
+    Dot11AssoReq,
+    Dot11Beacon,
+    Dot11ProbeResp,
+    Dot11ReassoReq,
+    RadioTap,
 )
 
+from ap_scanner import APScanner, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
-                         signal=-50, has_privacy=False):
+
+def _make_beacon_packet(
+    bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6, signal=-50, has_privacy=False
+):
     """Create a mock beacon packet (mirrors tests/test_ap_scanner.py helper)."""
     pkt = MagicMock()
 
@@ -52,6 +55,7 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
         if cls is RadioTap:
             return radiotap_layer
         return dot11_layer
+
     pkt.__getitem__ = getitem
 
     ssid_elt = MagicMock()
@@ -86,6 +90,7 @@ def _make_probe_resp_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="RevealedNet"):
         if cls is Dot11:
             return dot11_layer
         return dot11_layer
+
     pkt.__getitem__ = getitem
 
     ssid_elt = MagicMock()
@@ -114,6 +119,7 @@ def _make_assoc_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="ClientRevealedNet", reas
         if cls is Dot11:
             return dot11_layer
         return dot11_layer
+
     pkt.__getitem__ = getitem
 
     ssid_elt = MagicMock()
@@ -130,6 +136,7 @@ def _make_assoc_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="ClientRevealedNet", reas
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestIsHiddenSsid:
     def test_is_hidden_ssid_empty_string(self):
@@ -226,8 +233,9 @@ class TestCliRevealHiddenFlag:
     @patch("ap_scanner.require_root")
     @patch("ap_scanner.check_monitor_mode", return_value=True)
     @patch("sys.argv", ["ap_scanner.py", "-i", "wlan0mon", "--reveal-hidden"])
-    def test_cli_reveal_hidden_flag(self, mock_check_mon, mock_require_root,
-                                     mock_start, mock_print, mock_save):
+    def test_cli_reveal_hidden_flag(
+        self, mock_check_mon, mock_require_root, mock_start, mock_print, mock_save
+    ):
         captured = {}
         original_init = APScanner.__init__
 
@@ -236,7 +244,7 @@ class TestCliRevealHiddenFlag:
             captured["scanner"] = self
 
         with patch.object(APScanner, "__init__", capturing_init):
-            with patch.object(APScanner, "reveal_hidden_ssids") as mock_reveal:
+            with patch.object(APScanner, "reveal_hidden_ssids"):
                 main()
 
         scanner = captured["scanner"]
@@ -252,7 +260,8 @@ class TestNoActiveProbingWithoutFlag:
     @patch("ap_scanner.require_root")
     @patch("ap_scanner.check_monitor_mode", return_value=True)
     @patch("sys.argv", ["ap_scanner.py", "-i", "wlan0mon"])
-    def test_no_active_probing_without_flag(self, mock_check_mon, mock_require_root,
-                                             mock_start, mock_reveal, mock_print, mock_save):
+    def test_no_active_probing_without_flag(
+        self, mock_check_mon, mock_require_root, mock_start, mock_reveal, mock_print, mock_save
+    ):
         main()
         mock_reveal.assert_not_called()

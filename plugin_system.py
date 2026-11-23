@@ -14,12 +14,12 @@ are responsible for using it only against systems they are authorized to
 test.
 """
 
-import os
-import sys
-import json
 import argparse
 import importlib.util
 import inspect
+import json
+import os
+import sys
 import threading
 from typing import Optional
 
@@ -64,8 +64,7 @@ class PluginManager:
     one or more plugin directories for ``*.py`` files.
     """
 
-    def __init__(self, plugin_dirs: Optional[list] = None,
-                 auto_discover: bool = True) -> None:
+    def __init__(self, plugin_dirs: Optional[list] = None, auto_discover: bool = True) -> None:
         """Initialize the plugin manager.
 
         Args:
@@ -121,10 +120,7 @@ class PluginManager:
                     try:
                         plugin_classes = self._find_plugin_classes(full_path)
                     except Exception as exc:
-                        self.logger.warning(
-                            "Failed to inspect plugin file %s: %s",
-                            full_path, exc
-                        )
+                        self.logger.warning("Failed to inspect plugin file %s: %s", full_path, exc)
                         continue
 
                     for plugin_cls in plugin_classes:
@@ -152,9 +148,7 @@ class PluginManager:
     @staticmethod
     def _import_module_from_path(path: str):
         """Load a Python module from a file path using importlib."""
-        module_name = "_hoover_plugin_{}".format(
-            os.path.splitext(os.path.basename(path))[0]
-        )
+        module_name = f"_hoover_plugin_{os.path.splitext(os.path.basename(path))[0]}"
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Could not load plugin spec from {path}")
@@ -175,7 +169,7 @@ class PluginManager:
         meta_path = os.path.join(plugin_dir, "plugin.json")
         if os.path.isfile(meta_path):
             try:
-                with open(meta_path, "r", encoding="utf-8") as fh:
+                with open(meta_path, encoding="utf-8") as fh:
                     file_meta = json.load(fh)
                 name = file_meta.get("name", name)
                 version = file_meta.get("version", version)
@@ -242,9 +236,7 @@ class PluginManager:
         if context:
             plugin_context.update(context)
 
-        self.logger.warning(
-            "Loading plugin %r from %s (executes arbitrary code)", name, path
-        )
+        self.logger.warning("Loading plugin %r from %s (executes arbitrary code)", name, path)
         instance.setup(plugin_context)
 
         with self._lock:
@@ -309,14 +301,17 @@ class PluginManager:
             except Exception as exc:
                 self.logger.warning(
                     "Plugin %r raised while getting web routes: %s",
-                    getattr(plugin, "name", plugin), exc
+                    getattr(plugin, "name", plugin),
+                    exc,
                 )
                 continue
 
             for method, path, handler in routes or []:
                 endpoint = f"plugin_{getattr(plugin, 'name', id(plugin))}_{path}"
                 app.add_url_rule(
-                    path, endpoint=endpoint, view_func=handler,
+                    path,
+                    endpoint=endpoint,
+                    view_func=handler,
                     methods=[method],
                 )
 

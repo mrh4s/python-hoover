@@ -2,9 +2,8 @@
 
 import json
 import os
-import sys
 import struct
-import time
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,23 +17,20 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from dragonblood import (  # noqa: E402
-    DragonbloodAttack,
-    ECC_GROUPS,
-    MANDATORY_GROUP,
-    ANTI_CLOGGING_TOKEN_REQUIRED,
-    UNSUPPORTED_GROUP,
-    AUTH_ALGO_SAE,
-    AUTH_ALGO_OPEN,
-    ATTACK_MODES,
-    AKM_PSK,
-    AKM_SAE,
-    main,
-)
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import Dot11, Dot11Auth, Dot11Elt  # noqa: E402
 
+from dragonblood import (  # noqa: E402
+    AKM_PSK,
+    AKM_SAE,
+    ATTACK_MODES,
+    AUTH_ALGO_OPEN,
+    AUTH_ALGO_SAE,
+    MANDATORY_GROUP,
+    UNSUPPORTED_GROUP,
+    DragonbloodAttack,
+    main,
+)
 
 TARGET_BSSID = "AA:BB:CC:DD:EE:FF"
 CLIENT_MAC = "11:22:33:44:55:66"
@@ -43,6 +39,7 @@ CLIENT_MAC = "11:22:33:44:55:66"
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def attack(mock_interface, tmp_path):
@@ -54,8 +51,7 @@ def attack(mock_interface, tmp_path):
     )
 
 
-def _make_sae_auth_packet(status=0, seqnum=1, algo=AUTH_ALGO_SAE,
-                           src_mac="aa:bb:cc:dd:ee:ff"):
+def _make_sae_auth_packet(status=0, seqnum=1, algo=AUTH_ALGO_SAE, src_mac="aa:bb:cc:dd:ee:ff"):
     """Create a mock packet carrying a Dot11Auth layer."""
     pkt = MagicMock()
 
@@ -76,6 +72,7 @@ def _make_sae_auth_packet(status=0, seqnum=1, algo=AUTH_ALGO_SAE,
         if cls is Dot11:
             return dot11_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     return pkt
@@ -91,6 +88,7 @@ def _make_non_auth_packet():
 # ---------------------------------------------------------------------------
 # 1-2. __init__
 # ---------------------------------------------------------------------------
+
 
 class TestDragonbloodAttackInit:
     def test_init_defaults(self, mock_interface):
@@ -128,6 +126,7 @@ class TestDragonbloodAttackInit:
 # 3. _build_sae_commit
 # ---------------------------------------------------------------------------
 
+
 class TestBuildSaeCommit:
     def test_build_sae_commit_frame_structure(self, attack):
         scalar = b"\x11" * 32
@@ -147,6 +146,7 @@ class TestBuildSaeCommit:
 # 4. _build_sae_confirm
 # ---------------------------------------------------------------------------
 
+
 class TestBuildSaeConfirm:
     def test_build_sae_confirm_frame_structure(self, attack):
         confirm = b"\x55" * 32
@@ -163,6 +163,7 @@ class TestBuildSaeConfirm:
 # ---------------------------------------------------------------------------
 # 5-6. _build_downgrade_beacon
 # ---------------------------------------------------------------------------
+
 
 class TestBuildDowngradeBeacon:
     def _rsn_info_from_calls(self):
@@ -191,10 +192,12 @@ class TestBuildDowngradeBeacon:
 # 7-8. packet_handler
 # ---------------------------------------------------------------------------
 
+
 class TestPacketHandler:
     def test_packet_handler_captures_sae_auth(self, attack):
-        pkt = _make_sae_auth_packet(status=0, seqnum=1, algo=AUTH_ALGO_SAE,
-                                     src_mac="aa:bb:cc:dd:ee:ff")
+        pkt = _make_sae_auth_packet(
+            status=0, seqnum=1, algo=AUTH_ALGO_SAE, src_mac="aa:bb:cc:dd:ee:ff"
+        )
         attack.packet_handler(pkt)
 
         assert len(attack.captured_sae_frames) == 1
@@ -219,6 +222,7 @@ class TestPacketHandler:
 # 9. _measure_commit_timing
 # ---------------------------------------------------------------------------
 
+
 class TestMeasureCommitTiming:
     @patch("dragonblood.sniff")
     @patch("dragonblood.sendp")
@@ -241,6 +245,7 @@ class TestMeasureCommitTiming:
 # 10. _test_group_negotiation
 # ---------------------------------------------------------------------------
 
+
 class TestGroupNegotiation:
     @patch("dragonblood.sniff")
     @patch("dragonblood.sendp")
@@ -249,8 +254,8 @@ class TestGroupNegotiation:
         rejected_pkt = _make_sae_auth_packet(status=UNSUPPORTED_GROUP)
 
         mock_sniff.side_effect = [
-            [accepted_pkt],   # group 19 -> accepted
-            [rejected_pkt],   # group 20 -> rejected (unsupported group)
+            [accepted_pkt],  # group 19 -> accepted
+            [rejected_pkt],  # group 20 -> rejected (unsupported group)
         ]
 
         results = attack._test_group_negotiation([19, 20])
@@ -266,6 +271,7 @@ class TestGroupNegotiation:
 # 11. save_results
 # ---------------------------------------------------------------------------
 
+
 class TestSaveResults:
     def test_save_results_creates_json(self, attack):
         attack.results = {"mode": "downgrade", "target_bssid": TARGET_BSSID, "data": {}}
@@ -273,7 +279,7 @@ class TestSaveResults:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             saved = json.load(f)
         assert saved["mode"] == "downgrade"
         assert saved["target_bssid"] == TARGET_BSSID
@@ -286,6 +292,7 @@ class TestSaveResults:
 # ---------------------------------------------------------------------------
 # 12. get_status
 # ---------------------------------------------------------------------------
+
 
 class TestGetStatus:
     def test_get_status_initial(self, attack):
@@ -304,6 +311,7 @@ class TestGetStatus:
 # 13-14. CLI
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     def test_cli_required_args(self):
         """CLI should require -i and -b arguments."""
@@ -316,9 +324,12 @@ class TestCLI:
         """CLI should reject an invalid attack mode."""
         args = [
             "dragonblood",
-            "-i", "wlan0mon",
-            "-b", TARGET_BSSID,
-            "-m", "not-a-real-mode",
+            "-i",
+            "wlan0mon",
+            "-b",
+            TARGET_BSSID,
+            "-m",
+            "not-a-real-mode",
         ]
         with patch("sys.argv", args):
             with pytest.raises(SystemExit) as exc_info:
@@ -331,9 +342,12 @@ class TestCLI:
 
         args = [
             "dragonblood",
-            "-i", "wlan0mon",
-            "-b", TARGET_BSSID,
-            "-m", "group-test",
+            "-i",
+            "wlan0mon",
+            "-b",
+            TARGET_BSSID,
+            "-m",
+            "group-test",
         ]
         with patch("sys.argv", args):
             with patch("dragonblood.require_root"):

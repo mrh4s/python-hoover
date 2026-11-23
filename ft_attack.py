@@ -22,29 +22,31 @@ CVE-2017-13082.  It does NOT inject or replay frames itself.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import struct
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ReassoReq, Dot11ReassoResp,
-    Dot11Auth, RadioTap,
+    Dot11,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ReassoReq,
+    Dot11ReassoResp,
 )
 from scapy.sendrecv import sniff
 from scapy.utils import wrpcap
 
-from utils import validate_mac, validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # 802.11r Information Element tag IDs
-MDIE_ID = 54   # Mobility Domain IE
-FTIE_ID = 55   # Fast Transition IE
+MDIE_ID = 54  # Mobility Domain IE
+FTIE_ID = 55  # Fast Transition IE
 
 # FT Authentication Algorithm number (802.11r)
 FT_AUTH_ALG = 2
@@ -72,18 +74,20 @@ class FTAttack:
     vulnerability.
     """
 
-    def __init__(self, interface: str, target_bssid: str,
-                 channel: Optional[int] = None,
-                 target_client: Optional[str] = None,
-                 timeout: int = 180,
-                 output_dir: str = "captures",
-                 test_mode: str = "reassoc",
-                 detect_only: bool = False) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        channel: Optional[int] = None,
+        target_client: Optional[str] = None,
+        timeout: int = 180,
+        output_dir: str = "captures",
+        test_mode: str = "reassoc",
+        detect_only: bool = False,
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid.upper() if target_bssid else target_bssid
-        self.target_client: Optional[str] = (
-            target_client.upper() if target_client else None
-        )
+        self.target_client: Optional[str] = target_client.upper() if target_client else None
         self.channel: Optional[int] = channel
         self.timeout: int = timeout
         self.output_dir: str = output_dir
@@ -165,11 +169,11 @@ class FTAttack:
 
         try:
             offset = 2  # skip MIC Control (2 bytes)
-            result["mic"] = bytes(data[offset:offset + FTIE_MIC_LEN])
+            result["mic"] = bytes(data[offset : offset + FTIE_MIC_LEN])
             offset += FTIE_MIC_LEN
-            result["anonce"] = bytes(data[offset:offset + FTIE_ANONCE_LEN])
+            result["anonce"] = bytes(data[offset : offset + FTIE_ANONCE_LEN])
             offset += FTIE_ANONCE_LEN
-            result["snonce"] = bytes(data[offset:offset + FTIE_SNONCE_LEN])
+            result["snonce"] = bytes(data[offset : offset + FTIE_SNONCE_LEN])
             offset += FTIE_SNONCE_LEN
 
             # Parse optional sub-elements: each has 1-byte ID, 1-byte len, data
@@ -179,8 +183,8 @@ class FTAttack:
                 offset += 2
                 if offset + sub_len > len(data):
                     break
-                sub_data = bytes(data[offset:offset + sub_len])
-                if sub_id == 3:    # R0KH-ID
+                sub_data = bytes(data[offset : offset + sub_len])
+                if sub_id == 3:  # R0KH-ID
                     result["r0kh_id"] = sub_data
                 elif sub_id == 1:  # R1KH-ID
                     result["r1kh_id"] = sub_data
@@ -242,9 +246,7 @@ class FTAttack:
                     "first_seen",
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 )
-            self.logger.debug(
-                "FT-capable AP detected: %s (MDID=0x%04x)", bssid, mdie["mdid"]
-            )
+            self.logger.debug("FT-capable AP detected: %s (MDID=0x%04x)", bssid, mdie["mdid"])
 
     # -----------------------------------------------------------------
     # FT reassociation tracking
@@ -302,9 +304,7 @@ class FTAttack:
             with self._lock:
                 anonces = self._reassoc_anonces.setdefault(key, [])
                 anonces.append(ftie["anonce"])
-            self.logger.debug(
-                "FT reassoc response ANonce tracked for %s -> %s", bssid, client
-            )
+            self.logger.debug("FT reassoc response ANonce tracked for %s -> %s", bssid, client)
 
     # -----------------------------------------------------------------
     # FT Action frame monitoring (over-DS)
@@ -365,7 +365,9 @@ class FTAttack:
 
         self.logger.debug(
             "FT Action frame (%s) for %s -> %s",
-            action_info["action_type"], bssid, client,
+            action_info["action_type"],
+            bssid,
+            client,
         )
 
     # -----------------------------------------------------------------
@@ -399,9 +401,7 @@ class FTAttack:
                                 "Duplicate ANonce in FT reassociation "
                                 "response — potential key reinstallation"
                             ),
-                            "timestamp": datetime.now().strftime(
-                                "%Y-%m-%d %H:%M:%S"
-                            ),
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         }
                         if finding not in self.findings:
                             self.findings.append(finding)
@@ -430,10 +430,7 @@ class FTAttack:
             dot11 = packet[Dot11]
 
             # Filter by target BSSID when available
-            addrs = {
-                str(getattr(dot11, f"addr{i}", "") or "").upper()
-                for i in range(1, 4)
-            }
+            addrs = {str(getattr(dot11, f"addr{i}", "") or "").upper() for i in range(1, 4)}
             if self.target_bssid and self.target_bssid not in addrs:
                 return
 
@@ -500,7 +497,8 @@ class FTAttack:
 
         self.logger.info(
             "FT detection complete. Vulnerable: %s. %d frame(s) captured.",
-            self.vulnerable, len(self.captured_frames),
+            self.vulnerable,
+            len(self.captured_frames),
         )
 
         return {
@@ -536,10 +534,7 @@ class FTAttack:
                 "vulnerable": self.vulnerable,
                 "findings": self.findings,
                 "ft_capable_aps": {
-                    k: {
-                        sk: (sv.hex() if isinstance(sv, bytes) else sv)
-                        for sk, sv in v.items()
-                    }
+                    k: {sk: (sv.hex() if isinstance(sv, bytes) else sv) for sk, sv in v.items()}
                     for k, v in self.ft_capable_aps.items()
                 },
                 "frames_captured": len(self.captured_frames),
@@ -596,7 +591,7 @@ class FTAttack:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="802.11r FT Vulnerability Detection - "
-                    "Fast BSS Transition key reinstallation testing",
+        "Fast BSS Transition key reinstallation testing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -617,26 +612,32 @@ Note: Interface must be in monitor mode.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-b", "--bssid", required=True,
-                        help="Target AP BSSID (MAC address)")
-    parser.add_argument("-c", "--client",
-                        help="Target client MAC (default: any)")
-    parser.add_argument("-ch", "--channel", type=int,
-                        help="Channel to listen on")
-    parser.add_argument("-t", "--timeout", type=int, default=180,
-                        help="Detection timeout in seconds (default: 180)")
-    parser.add_argument("-m", "--mode", default="reassoc",
-                        choices=list(TEST_MODES),
-                        help="Test mode: reassoc (CVE-2017-13082), "
-                             "pmk-r1, over-ds, all")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for results (default: captures)")
-    parser.add_argument("--detect-only", action="store_true",
-                        help="Passive detection only (no injection)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("-b", "--bssid", required=True, help="Target AP BSSID (MAC address)")
+    parser.add_argument("-c", "--client", help="Target client MAC (default: any)")
+    parser.add_argument("-ch", "--channel", type=int, help="Channel to listen on")
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=180, help="Detection timeout in seconds (default: 180)"
+    )
+    parser.add_argument(
+        "-m",
+        "--mode",
+        default="reassoc",
+        choices=list(TEST_MODES),
+        help="Test mode: reassoc (CVE-2017-13082), pmk-r1, over-ds, all",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument(
+        "--detect-only", action="store_true", help="Passive detection only (no injection)"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()
@@ -673,8 +674,7 @@ Note: Interface must be in monitor mode.
     attacker.save_results()
 
     if results["vulnerable"]:
-        print(f"\nTarget appears VULNERABLE to FT key reinstallation "
-              f"({args.mode} mode)")
+        print(f"\nTarget appears VULNERABLE to FT key reinstallation ({args.mode} mode)")
     else:
         print(f"\nNo FT vulnerability detected ({args.mode} mode)")
 

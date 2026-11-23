@@ -7,14 +7,14 @@ KML (Google Earth) and Wigle-compatible CSV formats.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import csv
 import json
+import os
 import socket
-import threading
 import subprocess
+import sys
+import threading
 import time
 from datetime import datetime
 from typing import Optional
@@ -22,9 +22,9 @@ from typing import Optional
 from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, require_root, setup_logging, get_channels
 from ap_scanner import APScanner
 from oui_lookup import lookup_vendor
+from utils import get_channels, require_root, setup_logging, validate_interface
 
 
 class WardrivingMapper:
@@ -35,11 +35,16 @@ class WardrivingMapper:
     the results can be exported to JSON, KML or Wigle-compatible CSV.
     """
 
-    def __init__(self, interface: str, gpsd_host: str = "127.0.0.1",
-                 gpsd_port: int = 2947, output_file: str = "wardriving.json",
-                 scan_interval: float = 1.0,
-                 timeout: int = 0,  # 0 = unlimited
-                 bands: str = "2.4,5") -> None:
+    def __init__(
+        self,
+        interface: str,
+        gpsd_host: str = "127.0.0.1",
+        gpsd_port: int = 2947,
+        output_file: str = "wardriving.json",
+        scan_interval: float = 1.0,
+        timeout: int = 0,  # 0 = unlimited
+        bands: str = "2.4,5",
+    ) -> None:
         self.interface: str = interface
         self.gpsd_host: str = gpsd_host
         self.gpsd_port: int = gpsd_port
@@ -78,9 +83,10 @@ class WardrivingMapper:
             self._gpsd_connected = True
             self.logger.info("Connected to gpsd at %s:%d", self.gpsd_host, self.gpsd_port)
             return True
-        except (OSError, socket.error) as e:
-            self.logger.warning("Could not connect to gpsd at %s:%d: %s",
-                                 self.gpsd_host, self.gpsd_port, e)
+        except OSError as e:
+            self.logger.warning(
+                "Could not connect to gpsd at %s:%d: %s", self.gpsd_host, self.gpsd_port, e
+            )
             self._gpsd_connected = False
             return False
 
@@ -116,7 +122,7 @@ class WardrivingMapper:
                         "satellites": msg.get("satellites"),
                     }
             return None
-        except (OSError, socket.error, socket.timeout) as e:
+        except (OSError, socket.timeout) as e:
             self.logger.debug("Error reading gpsd fix: %s", e)
             return None
 
@@ -204,9 +210,9 @@ class WardrivingMapper:
                     ap["locations"].append(location)
 
                     best = ap.get("best_signal_location")
-                    if signal is not None and (best is None or
-                                                best.get("signal") is None or
-                                                signal > best["signal"]):
+                    if signal is not None and (
+                        best is None or best.get("signal") is None or signal > best["signal"]
+                    ):
                         ap["best_signal_location"] = dict(location)
 
         except Exception as e:
@@ -224,7 +230,9 @@ class WardrivingMapper:
                 if validate_interface(self.interface):
                     subprocess.run(
                         ["iwconfig", self.interface, "channel", str(ch)],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                     )
             except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                 pass
@@ -249,8 +257,9 @@ class WardrivingMapper:
         self._hop_thread.start()
 
         try:
-            sniff(iface=self.interface, prn=self.packet_handler,
-                  timeout=self.timeout or None, store=0)
+            sniff(
+                iface=self.interface, prn=self.packet_handler, timeout=self.timeout or None, store=0
+            )
         except KeyboardInterrupt:
             self.logger.info("Wardriving interrupted by user")
         finally:
@@ -336,26 +345,38 @@ class WardrivingMapper:
                 "device=hoover,display=hoover,board=hoover,brand=hoover\n"
             )
             writer = csv.writer(f)
-            writer.writerow([
-                "MAC", "SSID", "AuthMode", "FirstSeen", "Channel", "RSSI",
-                "CurrentLatitude", "CurrentLongitude", "AltitudeMeters",
-                "AccuracyMeters", "Type",
-            ])
+            writer.writerow(
+                [
+                    "MAC",
+                    "SSID",
+                    "AuthMode",
+                    "FirstSeen",
+                    "Channel",
+                    "RSSI",
+                    "CurrentLatitude",
+                    "CurrentLongitude",
+                    "AltitudeMeters",
+                    "AccuracyMeters",
+                    "Type",
+                ]
+            )
             for ap in aps:
                 best = ap.get("best_signal_location") or {}
-                writer.writerow([
-                    ap.get("bssid", ""),
-                    ap.get("ssid", ""),
-                    ap.get("encryption", ""),
-                    ap.get("first_seen", ""),
-                    ap.get("channel", ""),
-                    best.get("signal", ap.get("signal", "")),
-                    best.get("lat", ""),
-                    best.get("lon", ""),
-                    best.get("alt", ""),
-                    0,
-                    "WIFI",
-                ])
+                writer.writerow(
+                    [
+                        ap.get("bssid", ""),
+                        ap.get("ssid", ""),
+                        ap.get("encryption", ""),
+                        ap.get("first_seen", ""),
+                        ap.get("channel", ""),
+                        best.get("signal", ap.get("signal", "")),
+                        best.get("lat", ""),
+                        best.get("lon", ""),
+                        best.get("alt", ""),
+                        0,
+                        "WIFI",
+                    ]
+                )
         self.logger.info("Wigle CSV exported to %s", output_path)
         return output_path
 
@@ -392,7 +413,7 @@ class WardrivingMapper:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Wardriving - Build a georeferenced map of nearby WiFi access points "
-                     "using GPS (via gpsd). For authorized security testing only.",
+        "using GPS (via gpsd). For authorized security testing only.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -407,24 +428,39 @@ reachable (default 127.0.0.1:2947) for GPS-tagged results.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("--gpsd-host", default="127.0.0.1",
-                        help="gpsd host (default: 127.0.0.1)")
-    parser.add_argument("--gpsd-port", type=int, default=2947,
-                        help="gpsd port (default: 2947)")
-    parser.add_argument("-o", "--output", default="wardriving.json",
-                        help="Output file path (default: wardriving.json)")
-    parser.add_argument("-f", "--format", choices=["json", "csv", "kml", "all"],
-                        default="json", help="Output format (default: json)")
-    parser.add_argument("--scan-interval", type=float, default=1.0,
-                        help="Seconds between GPS samples (default: 1.0)")
-    parser.add_argument("--bands", default="2.4,5",
-                        help="Frequency bands to scan (default: 2.4,5)")
-    parser.add_argument("-t", "--timeout", type=int, default=0,
-                        help="Scan duration in seconds, 0=unlimited (default: 0)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument("--gpsd-host", default="127.0.0.1", help="gpsd host (default: 127.0.0.1)")
+    parser.add_argument("--gpsd-port", type=int, default=2947, help="gpsd port (default: 2947)")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="wardriving.json",
+        help="Output file path (default: wardriving.json)",
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["json", "csv", "kml", "all"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    parser.add_argument(
+        "--scan-interval",
+        type=float,
+        default=1.0,
+        help="Seconds between GPS samples (default: 1.0)",
+    )
+    parser.add_argument("--bands", default="2.4,5", help="Frequency bands to scan (default: 2.4,5)")
+    parser.add_argument(
+        "-t",
+        "--timeout",
+        type=int,
+        default=0,
+        help="Scan duration in seconds, 0=unlimited (default: 0)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

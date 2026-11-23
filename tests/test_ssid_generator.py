@@ -3,8 +3,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Mock scapy before importing ssid_generator
 # ---------------------------------------------------------------------------
@@ -15,10 +13,10 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
 from ssid_generator import SSIDGenerator  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # generate_mac
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateMAC:
     """Tests for SSIDGenerator.generate_mac."""
@@ -44,9 +42,7 @@ class TestGenerateMAC:
         for idx in range(20):
             mac = gen.generate_mac(idx)
             first_octet = int(mac.split(":")[0], 16)
-            assert first_octet & 0x02, (
-                f"MAC {mac} does not have locally administered bit set"
-            )
+            assert first_octet & 0x02, f"MAC {mac} does not have locally administered bit set"
 
     def test_generate_mac_deterministic(self):
         gen = SSIDGenerator(interface=None, ssid_file="dummy.txt")
@@ -56,6 +52,7 @@ class TestGenerateMAC:
 # ---------------------------------------------------------------------------
 # create_beacon
 # ---------------------------------------------------------------------------
+
 
 class TestCreateBeacon:
     """Tests for SSIDGenerator.create_beacon (scapy mocked)."""
@@ -76,14 +73,17 @@ class TestCreateBeacon:
             # First positional call to Dot11Elt should have ID='SSID' and info='MyNetwork'
             calls = mock_elt.call_args_list
             ssid_call = calls[0]
-            assert ssid_call.kwargs.get("info") == "MyNetwork" or \
-                   (len(ssid_call.args) > 0 and ssid_call.args[0] == "MyNetwork") or \
-                   ssid_call[1].get("info") == "MyNetwork"
+            assert (
+                ssid_call.kwargs.get("info") == "MyNetwork"
+                or (len(ssid_call.args) > 0 and ssid_call.args[0] == "MyNetwork")
+                or ssid_call[1].get("info") == "MyNetwork"
+            )
 
 
 # ---------------------------------------------------------------------------
 # load_ssids integration
 # ---------------------------------------------------------------------------
+
 
 class TestLoadSSIDsIntegration:
     """Test that SSIDGenerator correctly loads SSIDs via the shared utility."""

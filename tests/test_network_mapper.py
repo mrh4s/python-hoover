@@ -13,7 +13,7 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.l2", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from network_mapper import NetworkMapper, DEFAULT_PORTS  # noqa: E402
+from network_mapper import DEFAULT_PORTS, NetworkMapper  # noqa: E402
 
 
 @pytest.fixture
@@ -114,6 +114,7 @@ class TestPortScan:
     @patch("socket.socket")
     def test_scan_port_timeout(self, mock_socket_cls, mapper):
         import socket
+
         mock_sock = MagicMock()
         mock_sock.connect_ex.side_effect = socket.timeout
         mock_socket_cls.return_value = mock_sock
@@ -149,6 +150,7 @@ class TestBannerGrab:
 
     def test_grab_banner_timeout(self, mapper):
         import socket
+
         mock_sock = MagicMock()
         mock_sock.recv.side_effect = socket.timeout
         result = mapper._grab_banner(mock_sock)
@@ -159,7 +161,9 @@ class TestScanNetwork:
     @patch.object(NetworkMapper, "arp_scan")
     @patch.object(NetworkMapper, "port_scan_host")
     def test_scan_network_full(self, mock_port_scan, mock_arp, mapper):
-        mock_arp.return_value = [{"ip": "192.168.1.1", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Test"}]
+        mock_arp.return_value = [
+            {"ip": "192.168.1.1", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Test"}
+        ]
         mock_port_scan.return_value = [{"port": 80, "state": "open", "banner": ""}]
 
         results = mapper.scan_network()
@@ -170,7 +174,9 @@ class TestScanNetwork:
     @patch.object(NetworkMapper, "arp_scan")
     def test_scan_network_no_port_scan(self, mock_arp, mock_interface):
         m = NetworkMapper(interface=mock_interface, port_scan=False)
-        mock_arp.return_value = [{"ip": "192.168.1.1", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Test"}]
+        mock_arp.return_value = [
+            {"ip": "192.168.1.1", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Test"}
+        ]
 
         results = m.scan_network()
         assert results["hosts"][0]["ports"] == []
@@ -193,7 +199,9 @@ class TestSaveResults:
             filepath = os.path.join(tmpdir, "scan.csv")
             m = NetworkMapper(interface=mock_interface, output_file=filepath)
             results = {
-                "hosts": [{"ip": "1.2.3.4", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Test", "ports": []}],
+                "hosts": [
+                    {"ip": "1.2.3.4", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Test", "ports": []}
+                ],
             }
             m.save_results(results)
             assert os.path.exists(filepath)
@@ -208,8 +216,12 @@ class TestPrintResults:
             "target_range": "192.168.1.0/24",
             "scan_time": 5.0,
             "hosts": [
-                {"ip": "192.168.1.1", "mac": "AA:BB:CC:DD:EE:FF", "vendor": "Router",
-                 "ports": [{"port": 80, "state": "open", "banner": "nginx"}]},
+                {
+                    "ip": "192.168.1.1",
+                    "mac": "AA:BB:CC:DD:EE:FF",
+                    "vendor": "Router",
+                    "ports": [{"port": 80, "state": "open", "banner": "nginx"}],
+                },
             ],
         }
         mapper.print_results(results)

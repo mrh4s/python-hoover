@@ -1,13 +1,10 @@
 """Tests for cloud_c2.py -- Cloud C2 Remote Session Management module."""
 
-import json
-import os
 import sys
 import threading
-import time
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -20,18 +17,16 @@ sys.modules.setdefault("scapy.layers.eap", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
 from cloud_c2 import (  # noqa: E402
-    CloudC2Server,
-    CloudC2Client,
     ALLOWED_TOOL_COMMANDS,
-    COMMAND_TYPES,
+    CloudC2Client,
+    CloudC2Server,
     _build_message,
-    main,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def server():

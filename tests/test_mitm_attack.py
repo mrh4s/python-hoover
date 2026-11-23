@@ -5,7 +5,7 @@ import os
 import sys
 import tempfile
 import time
-from unittest.mock import MagicMock, mock_open, patch, call
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
@@ -17,7 +17,7 @@ sys.modules.setdefault("scapy.layers.dns", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from mitm_attack import MitMAttack, DEFAULT_CAPTURE_PORTS, CREDENTIAL_FIELDS, main  # noqa: E402
+from mitm_attack import CREDENTIAL_FIELDS, DEFAULT_CAPTURE_PORTS, MitMAttack  # noqa: E402
 
 
 @pytest.fixture
@@ -177,8 +177,10 @@ class TestARPRestore:
         mock_arp_cls.return_value = mock_pkt
 
         attack._restore_arp(
-            "192.168.1.100", "192.168.1.1",
-            "aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66",
+            "192.168.1.100",
+            "192.168.1.1",
+            "aa:bb:cc:dd:ee:ff",
+            "11:22:33:44:55:66",
         )
 
         mock_arp_cls.assert_called_once_with(
@@ -215,6 +217,7 @@ class TestHTTPCredentialExtraction:
             if key is mod.TCP:
                 return tcp_mock
             return MagicMock()
+
         mock_packet.__getitem__ = MagicMock(side_effect=getitem)
 
         attack._extract_http_credentials(mock_packet)
@@ -241,6 +244,7 @@ class TestHTTPCredentialExtraction:
             if key is mod.Raw:
                 return raw_layer
             return MagicMock()
+
         mock_packet.__getitem__ = MagicMock(side_effect=getitem)
 
         attack._extract_http_credentials(mock_packet)
@@ -269,6 +273,7 @@ class TestHTTPCredentialExtraction:
             if key is mod.TCP:
                 return tcp_mock
             return MagicMock()
+
         mock_packet.__getitem__ = MagicMock(side_effect=getitem)
 
         attack._extract_http_credentials(mock_packet)
@@ -297,6 +302,7 @@ class TestDNSQueryExtraction:
             if key is mod.IP:
                 return ip_mock
             return MagicMock()
+
         mock_packet.__getitem__ = MagicMock(side_effect=getitem)
 
         attack._extract_dns_query(mock_packet)
@@ -322,6 +328,7 @@ class TestDNSQueryExtraction:
             if key is mod.IP:
                 return ip_mock
             return MagicMock()
+
         mock_packet.__getitem__ = MagicMock(side_effect=getitem)
 
         attack._extract_dns_query(mock_packet)
@@ -348,13 +355,12 @@ class TestPacketHandler:
     @patch.object(MitMAttack, "_extract_http_credentials")
     @patch.object(MitMAttack, "_extract_dns_query")
     def test_packet_handler_calls_extractors(self, mock_dns, mock_http, attack):
-        from mitm_attack import TCP as TCPLayer, Raw as RawLayer
-        from mitm_attack import DNS as DNSLayer, DNSQR as DNSQRLayer
 
         mock_packet = MagicMock()
 
         def haslayer(layer):
             return True
+
         mock_packet.haslayer = haslayer
 
         attack.packet_handler(mock_packet)
@@ -475,18 +481,22 @@ class TestGetCapturedData:
         assert "timestamp" in data
 
     def test_captured_data_with_entries(self, attack):
-        attack._captured_credentials.append({
-            "timestamp": "2024-01-01 12:00:00",
-            "src_ip": "192.168.1.100",
-            "dst_ip": "10.0.0.1",
-            "dst_port": 80,
-            "fields": {"username": "admin", "password": "secret"},
-        })
-        attack._captured_dns.append({
-            "timestamp": "2024-01-01 12:00:01",
-            "src_ip": "192.168.1.100",
-            "query": "example.com",
-        })
+        attack._captured_credentials.append(
+            {
+                "timestamp": "2024-01-01 12:00:00",
+                "src_ip": "192.168.1.100",
+                "dst_ip": "10.0.0.1",
+                "dst_port": 80,
+                "fields": {"username": "admin", "password": "secret"},
+            }
+        )
+        attack._captured_dns.append(
+            {
+                "timestamp": "2024-01-01 12:00:01",
+                "src_ip": "192.168.1.100",
+                "query": "example.com",
+            }
+        )
 
         data = attack.get_captured_data()
         assert len(data["credentials"]) == 1
@@ -528,13 +538,15 @@ class TestSaveCapturedData:
     def test_save_data_to_json(self, attack):
         with tempfile.TemporaryDirectory() as tmpdir:
             attack.output_dir = tmpdir
-            attack._captured_credentials.append({
-                "timestamp": "2024-01-01 12:00:00",
-                "src_ip": "192.168.1.100",
-                "dst_ip": "10.0.0.1",
-                "dst_port": 80,
-                "fields": {"username": "admin"},
-            })
+            attack._captured_credentials.append(
+                {
+                    "timestamp": "2024-01-01 12:00:00",
+                    "src_ip": "192.168.1.100",
+                    "dst_ip": "10.0.0.1",
+                    "dst_port": 80,
+                    "fields": {"username": "admin"},
+                }
+            )
             attack._save_captured_data()
 
             files = os.listdir(tmpdir)
@@ -558,9 +570,18 @@ class TestSaveCapturedData:
 class TestCLIArguments:
     def test_cli_basic_args(self):
         """Test that CLI parses required arguments."""
-        with patch("sys.argv", ["mitm_attack.py", "-i", "eth0",
-                                "--target", "192.168.1.100",
-                                "--gateway", "192.168.1.1"]):
+        with patch(
+            "sys.argv",
+            [
+                "mitm_attack.py",
+                "-i",
+                "eth0",
+                "--target",
+                "192.168.1.100",
+                "--gateway",
+                "192.168.1.1",
+            ],
+        ):
             parser = _build_parser()
             args = parser.parse_args()
             assert args.interface == "eth0"
@@ -574,14 +595,26 @@ class TestCLIArguments:
 
     def test_cli_custom_args(self):
         """Test CLI with custom arguments."""
-        with patch("sys.argv", ["mitm_attack.py", "-i", "wlan0",
-                                "--target", "10.0.0.50",
-                                "--gateway", "10.0.0.1",
-                                "-o", "/tmp/output",
-                                "-t", "600",
-                                "--no-forward",
-                                "-p", "80,443,8080",
-                                "-v"]):
+        with patch(
+            "sys.argv",
+            [
+                "mitm_attack.py",
+                "-i",
+                "wlan0",
+                "--target",
+                "10.0.0.50",
+                "--gateway",
+                "10.0.0.1",
+                "-o",
+                "/tmp/output",
+                "-t",
+                "600",
+                "--no-forward",
+                "-p",
+                "80,443,8080",
+                "-v",
+            ],
+        ):
             parser = _build_parser()
             args = parser.parse_args()
             assert args.interface == "wlan0"
@@ -628,8 +661,17 @@ class TestFullLifecycle:
     @patch.object(MitMAttack, "_spoof_loop")
     @patch.object(MitMAttack, "_get_mac")
     @patch.object(MitMAttack, "_enable_ip_forwarding")
-    def test_start_and_stop(self, mock_enable, mock_mac, mock_spoof,
-                            mock_sniff, mock_disable, mock_restore, mock_save, attack):
+    def test_start_and_stop(
+        self,
+        mock_enable,
+        mock_mac,
+        mock_spoof,
+        mock_sniff,
+        mock_disable,
+        mock_restore,
+        mock_save,
+        attack,
+    ):
         """Test full start-stop lifecycle."""
         mock_mac.side_effect = ["aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66"]
 
@@ -646,6 +688,7 @@ class TestFullLifecycle:
 def _build_parser():
     """Build the CLI argument parser (duplicated from main for testing)."""
     import argparse
+
     parser = argparse.ArgumentParser(description="MitM Attack")
     parser.add_argument("-i", "--interface", required=True)
     parser.add_argument("--target", required=True)

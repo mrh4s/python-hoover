@@ -13,15 +13,15 @@ sys.modules.setdefault("scapy.layers", MagicMock())
 sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 
-from ap_scanner import APScanner  # noqa: E402
-
 # Import the mocked scapy classes as the production code sees them
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap  # noqa: E402
+from scapy.layers.dot11 import Dot11, Dot11Beacon, RadioTap  # noqa: E402
 
+from ap_scanner import APScanner  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def scanner(mock_interface):
@@ -31,13 +31,21 @@ def scanner(mock_interface):
 @pytest.fixture
 def scanner_with_output(mock_interface, tmp_path):
     return APScanner(
-        interface=mock_interface, timeout=10,
+        interface=mock_interface,
+        timeout=10,
         output_file=str(tmp_path / "results.csv"),
     )
 
 
-def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
-                         signal=-50, has_privacy=True, has_rsn=True, rsn_info=b"\x01\x00"):
+def _make_beacon_packet(
+    bssid="AA:BB:CC:DD:EE:FF",
+    ssid="TestNet",
+    channel=6,
+    signal=-50,
+    has_privacy=True,
+    has_rsn=True,
+    rsn_info=b"\x01\x00",
+):
     """Create a mock beacon packet."""
     pkt = MagicMock()
 
@@ -65,6 +73,7 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
         if cls is RadioTap:
             return radiotap_layer
         return dot11_layer
+
     pkt.__getitem__ = getitem
 
     # Build Dot11Elt chain
@@ -102,6 +111,7 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNet", channel=6,
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestAPScannerInit:
     def test_defaults(self, mock_interface):
         s = APScanner(interface=mock_interface)
@@ -113,8 +123,10 @@ class TestAPScannerInit:
 
     def test_custom_params(self, mock_interface):
         s = APScanner(
-            interface=mock_interface, timeout=60,
-            channel_hop=False, fixed_channel=11,
+            interface=mock_interface,
+            timeout=60,
+            channel_hop=False,
+            fixed_channel=11,
             output_file="out.csv",
         )
         assert s.timeout == 60
@@ -233,9 +245,13 @@ class TestSaveResults:
         s = APScanner(interface=mock_interface, output_file=output)
         s.access_points = {
             "AA:BB:CC:DD:EE:FF": {
-                "ssid": "TestNet", "channel": 6, "signal": -50,
-                "encryption": "WPA2", "vendor": "TestVendor",
-                "beacon_count": 10, "first_seen": "2024-01-01 00:00:00",
+                "ssid": "TestNet",
+                "channel": 6,
+                "signal": -50,
+                "encryption": "WPA2",
+                "vendor": "TestVendor",
+                "beacon_count": 10,
+                "first_seen": "2024-01-01 00:00:00",
                 "last_seen": "2024-01-01 00:01:00",
             },
         }
@@ -251,9 +267,13 @@ class TestSaveResults:
         s = APScanner(interface=mock_interface, output_file=output)
         s.access_points = {
             "AA:BB:CC:DD:EE:FF": {
-                "ssid": "TestNet", "channel": 6, "signal": -50,
-                "encryption": "WPA2", "vendor": "TestVendor",
-                "beacon_count": 10, "first_seen": "2024-01-01 00:00:00",
+                "ssid": "TestNet",
+                "channel": 6,
+                "signal": -50,
+                "encryption": "WPA2",
+                "vendor": "TestVendor",
+                "beacon_count": 10,
+                "first_seen": "2024-01-01 00:00:00",
                 "last_seen": "2024-01-01 00:01:00",
             },
         }
@@ -321,9 +341,13 @@ class TestPrintResults:
     def test_print_with_results(self, scanner, capsys):
         scanner.access_points = {
             "AA:BB:CC:DD:EE:FF": {
-                "ssid": "TestNet", "channel": 6, "signal": -50,
-                "encryption": "WPA2", "vendor": "TestVendor",
-                "beacon_count": 10, "first_seen": "2024-01-01",
+                "ssid": "TestNet",
+                "channel": 6,
+                "signal": -50,
+                "encryption": "WPA2",
+                "vendor": "TestVendor",
+                "beacon_count": 10,
+                "first_seen": "2024-01-01",
                 "last_seen": "2024-01-01",
             },
         }

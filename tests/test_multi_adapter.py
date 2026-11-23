@@ -1,23 +1,20 @@
 """Tests for multi_adapter.py — Multi-Adapter Management module."""
 
 import json
-import os
-import sys
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from multi_adapter import (  # noqa: E402
     MultiAdapterManager,
-    VALID_ROLES,
     _parse_adapters_arg,
     main,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def manager():
@@ -27,6 +24,7 @@ def manager():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestMultiAdapterManager:
     def test_init_defaults(self, manager):
@@ -54,6 +52,7 @@ class TestMultiAdapterManager:
 
     def test_discover_adapters_mocked(self, manager, tmp_path):
         """discover_adapters finds interfaces from mocked /sys/class/net globs."""
+
         def fake_glob(pattern):
             if pattern == "/sys/class/net/*/wireless":
                 return ["/sys/class/net/wlan0/wireless"]
@@ -61,11 +60,13 @@ class TestMultiAdapterManager:
                 return ["/sys/class/net/wlan0/phy80211"]
             return []
 
-        with patch("multi_adapter.glob.glob", side_effect=fake_glob), \
-                patch.object(manager, "_get_phy_name", return_value="phy0"), \
-                patch.object(manager, "_get_driver", return_value="ath9k"), \
-                patch.object(manager, "_get_mac", return_value="AA:BB:CC:DD:EE:FF"), \
-                patch.object(manager, "_get_phy_modes", return_value=["managed", "monitor"]):
+        with (
+            patch("multi_adapter.glob.glob", side_effect=fake_glob),
+            patch.object(manager, "_get_phy_name", return_value="phy0"),
+            patch.object(manager, "_get_driver", return_value="ath9k"),
+            patch.object(manager, "_get_mac", return_value="AA:BB:CC:DD:EE:FF"),
+            patch.object(manager, "_get_phy_modes", return_value=["managed", "monitor"]),
+        ):
             discovered = manager.discover_adapters()
 
         assert len(discovered) == 1
@@ -84,12 +85,27 @@ class TestMultiAdapterManager:
 
         assert result is True
         expected_calls = [
-            call(["ip", "link", "set", mock_interface, "down"],
-                 capture_output=True, text=True, timeout=5, check=True),
-            call(["iw", "dev", mock_interface, "set", "type", "monitor"],
-                 capture_output=True, text=True, timeout=5, check=True),
-            call(["ip", "link", "set", mock_interface, "up"],
-                 capture_output=True, text=True, timeout=5, check=True),
+            call(
+                ["ip", "link", "set", mock_interface, "down"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            ),
+            call(
+                ["iw", "dev", mock_interface, "set", "type", "monitor"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            ),
+            call(
+                ["ip", "link", "set", mock_interface, "up"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            ),
         ]
         assert mock_run.call_args_list == expected_calls
         assert manager.adapters[mock_interface]["current_mode"] == "monitor"
@@ -103,12 +119,27 @@ class TestMultiAdapterManager:
 
         assert result is True
         expected_calls = [
-            call(["ip", "link", "set", mock_interface, "down"],
-                 capture_output=True, text=True, timeout=5, check=True),
-            call(["iw", "dev", mock_interface, "set", "type", "managed"],
-                 capture_output=True, text=True, timeout=5, check=True),
-            call(["ip", "link", "set", mock_interface, "up"],
-                 capture_output=True, text=True, timeout=5, check=True),
+            call(
+                ["ip", "link", "set", mock_interface, "down"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            ),
+            call(
+                ["iw", "dev", mock_interface, "set", "type", "managed"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            ),
+            call(
+                ["ip", "link", "set", mock_interface, "up"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            ),
         ]
         assert mock_run.call_args_list == expected_calls
         assert manager.adapters[mock_interface]["current_mode"] == "managed"
@@ -164,9 +195,7 @@ class TestMultiAdapterManager:
         with patch.object(manager, "set_managed_mode") as mock_set_managed:
             manager.cleanup()
 
-        mock_set_managed.assert_has_calls(
-            [call("wlan0"), call("wlan1")], any_order=True
-        )
+        mock_set_managed.assert_has_calls([call("wlan0"), call("wlan1")], any_order=True)
         assert mock_set_managed.call_count == 2
 
 
@@ -174,9 +203,10 @@ class TestMultiAdapterCLI:
     def test_cli_discover_flag(self, capsys):
         """--discover lists discovered interfaces and prints them as JSON."""
         fake_discovered = [{"interface": "wlan0", "role": None}]
-        with patch("multi_adapter.sys.argv", ["multi_adapter.py", "--discover"]), \
-                patch.object(MultiAdapterManager, "discover_adapters",
-                              return_value=fake_discovered):
+        with (
+            patch("multi_adapter.sys.argv", ["multi_adapter.py", "--discover"]),
+            patch.object(MultiAdapterManager, "discover_adapters", return_value=fake_discovered),
+        ):
             main()
 
         captured = capsys.readouterr()

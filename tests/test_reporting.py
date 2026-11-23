@@ -1,19 +1,19 @@
 """Tests for reporting.py — Report Generation module."""
 
+import builtins
 import json
 import os
 import sys
-import builtins
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from reporting import ReportGenerator, main, SUPPORTED_FORMATS  # noqa: E402
-
+from reporting import SUPPORTED_FORMATS, ReportGenerator, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def generator(tmp_path):
@@ -71,8 +71,13 @@ class TestSectionBuilders:
     def test_add_scan_results(self, generator):
         ap_data = {
             "access_points": [
-                {"ssid": "TestNet", "bssid": "aa:bb:cc:dd:ee:ff",
-                 "channel": 6, "signal": -40, "encryption": "WPA2"}
+                {
+                    "ssid": "TestNet",
+                    "bssid": "aa:bb:cc:dd:ee:ff",
+                    "channel": 6,
+                    "signal": -40,
+                    "encryption": "WPA2",
+                }
             ]
         }
         generator.add_scan_results(ap_data)
@@ -120,7 +125,7 @@ class TestFileGeneration:
         result_path = generator.generate_html(output_path)
         assert result_path == output_path
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         assert "Narrative" in content
 
@@ -129,7 +134,7 @@ class TestFileGeneration:
         output_path = str(tmp_path / "out.json")
         result_path = generator.generate_json(output_path)
         assert result_path == output_path
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             data = json.load(f)
         assert data["title"] == generator.title
         assert data["author"] == generator.author
@@ -158,20 +163,38 @@ class TestFileGeneration:
 class TestLoadResults:
     def test_load_results_from_json(self, generator, tmp_path):
         scan_file = tmp_path / "scan.json"
-        scan_file.write_text(json.dumps({
-            "access_points": [
-                {"ssid": "Net1", "bssid": "aa:bb:cc:dd:ee:ff",
-                 "channel": 1, "signal": -50, "encryption": "WPA2"}
-            ]
-        }))
+        scan_file.write_text(
+            json.dumps(
+                {
+                    "access_points": [
+                        {
+                            "ssid": "Net1",
+                            "bssid": "aa:bb:cc:dd:ee:ff",
+                            "channel": 1,
+                            "signal": -50,
+                            "encryption": "WPA2",
+                        }
+                    ]
+                }
+            )
+        )
 
         findings_file = tmp_path / "findings.json"
-        findings_file.write_text(json.dumps({
-            "findings": [
-                {"id": "X-1", "name": "Issue", "severity": "Medium",
-                 "affected_target": "aa:bb:cc:dd:ee:ff", "description": "desc"}
-            ]
-        }))
+        findings_file.write_text(
+            json.dumps(
+                {
+                    "findings": [
+                        {
+                            "id": "X-1",
+                            "name": "Issue",
+                            "severity": "Medium",
+                            "affected_target": "aa:bb:cc:dd:ee:ff",
+                            "description": "desc",
+                        }
+                    ]
+                }
+            )
+        )
 
         generator.load_results([str(scan_file), str(findings_file)])
 
@@ -217,13 +240,18 @@ class TestCLI:
 
         test_args = [
             "reporting.py",
-            "-o", str(reports_dir),
-            "-f", "json",
-            "--load", "scan*.json",
+            "-o",
+            str(reports_dir),
+            "-f",
+            "json",
+            "--load",
+            "scan*.json",
         ]
         with patch.object(sys, "argv", test_args):
             with patch("reporting.ReportGenerator.load_results") as mock_load:
                 main()
         called_files = mock_load.call_args[0][0]
-        assert str(file1) in called_files or file1.name in [os.path.basename(p) for p in called_files]
+        assert str(file1) in called_files or file1.name in [
+            os.path.basename(p) for p in called_files
+        ]
         assert len(called_files) == 2

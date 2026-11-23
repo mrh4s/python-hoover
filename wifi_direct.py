@@ -21,25 +21,28 @@ forcing requires wpa_supplicant with P2P support.
 For authorized security testing and research only.
 """
 
-import sys
-import os
 import argparse
 import json
+import os
 import struct
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Optional
 
 from scapy.layers.dot11 import (
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp,
-    Dot11Action, RadioTap,
+    Dot11,
+    Dot11Action,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
 )
 from scapy.sendrecv import sniff
 from scapy.utils import wrpcap
 
-from utils import validate_interface, validate_mac, require_root, setup_logging
-
+from utils import require_root, setup_logging, validate_interface, validate_mac
 
 # WiFi Alliance P2P OUI and vendor-specific IE OUI type
 P2P_OUI = b"\x50\x6f\x9a"
@@ -111,7 +114,11 @@ WPS_CONFIG_METHODS: dict[int, str] = {
 
 # Known weak / default P2P WPS PINs worth flagging during analysis.
 WEAK_WPS_PINS: list[str] = [
-    "00000000", "12345670", "11111111", "88888888", "12345678",
+    "00000000",
+    "12345670",
+    "11111111",
+    "88888888",
+    "12345678",
 ]
 
 # GO Negotiation Public Action frame subtypes (P2P Technical Spec, Table 55)
@@ -157,16 +164,17 @@ class WiFiDirectTester:
     strength, and unauthorized/rogue P2P groups.
     """
 
-    def __init__(self, interface: str,
-                 test_mode: str = "discover",
-                 target_device: Optional[str] = None,
-                 timeout: int = 120,
-                 output_dir: str = "captures") -> None:
+    def __init__(
+        self,
+        interface: str,
+        test_mode: str = "discover",
+        target_device: Optional[str] = None,
+        timeout: int = 120,
+        output_dir: str = "captures",
+    ) -> None:
         self.interface: str = interface
         self.test_mode: str = test_mode
-        self.target_device: Optional[str] = (
-            target_device.upper() if target_device else None
-        )
+        self.target_device: Optional[str] = target_device.upper() if target_device else None
         self.timeout: int = timeout
         self.output_dir: str = output_dir
         self.logger = setup_logging("wifi_direct")
@@ -289,7 +297,7 @@ class WiFiDirectTester:
         idx = data.find(b"\x10\x11")
         if idx != -1 and idx + 4 <= len(data):
             name_len = struct.unpack_from(">H", data, idx + 2)[0]
-            name_bytes = data[idx + 4: idx + 4 + name_len]
+            name_bytes = data[idx + 4 : idx + 4 + name_len]
             try:
                 info["device_name"] = name_bytes.decode("utf-8", errors="replace")
             except Exception:
@@ -474,8 +482,11 @@ class WiFiDirectTester:
         try:
             is_p2p = False
 
-            if packet.haslayer(Dot11ProbeReq) or packet.haslayer(Dot11ProbeResp) \
-                    or packet.haslayer(Dot11Beacon):
+            if (
+                packet.haslayer(Dot11ProbeReq)
+                or packet.haslayer(Dot11ProbeResp)
+                or packet.haslayer(Dot11Beacon)
+            ):
                 ie_bytes = self._get_p2p_ie_bytes(packet)
                 if ie_bytes is not None:
                     is_p2p = True
@@ -486,9 +497,7 @@ class WiFiDirectTester:
                 is_p2p = True
                 with self._lock:
                     self.gon_frames.append(gon)
-                self.logger.info(
-                    "Captured %s from %s", gon["name"], gon["src_mac"]
-                )
+                self.logger.info("Captured %s from %s", gon["name"], gon["src_mac"])
 
             if is_p2p:
                 with self._lock:
@@ -517,13 +526,16 @@ class WiFiDirectTester:
             return
 
         with self._lock:
-            entry = self.devices.setdefault(device_addr, {
-                "device_address": device_addr,
-                "device_name": parsed.get("device_name"),
-                "config_methods": parsed.get("config_methods", []),
-                "go_intent": parsed.get("go_intent"),
-                "first_seen": time.time(),
-            })
+            entry = self.devices.setdefault(
+                device_addr,
+                {
+                    "device_address": device_addr,
+                    "device_name": parsed.get("device_name"),
+                    "config_methods": parsed.get("config_methods", []),
+                    "go_intent": parsed.get("go_intent"),
+                    "first_seen": time.time(),
+                },
+            )
             if parsed.get("device_name"):
                 entry["device_name"] = parsed["device_name"]
             if parsed.get("config_methods"):
@@ -531,8 +543,7 @@ class WiFiDirectTester:
             entry["last_seen"] = time.time()
 
         self.logger.info(
-            "Discovered P2P device %s (%s)",
-            device_addr, parsed.get("device_name") or "unknown"
+            "Discovered P2P device %s (%s)", device_addr, parsed.get("device_name") or "unknown"
         )
 
     # -----------------------------------------------------------------
@@ -546,8 +557,7 @@ class WiFiDirectTester:
             List of discovered device dicts.
         """
         self.logger.info(
-            "Discovering P2P devices on %s (timeout=%ds)...",
-            self.interface, self.timeout
+            "Discovering P2P devices on %s (timeout=%ds)...", self.interface, self.timeout
         )
         try:
             sniff(
@@ -576,8 +586,7 @@ class WiFiDirectTester:
             List of group dicts (go_address, ssid, channel, client_count).
         """
         self.logger.info(
-            "Detecting active P2P groups on %s (timeout=%ds)...",
-            self.interface, self.timeout
+            "Detecting active P2P groups on %s (timeout=%ds)...", self.interface, self.timeout
         )
 
         def handler(packet):
@@ -671,44 +680,45 @@ class WiFiDirectTester:
             src_mac = frame.get("src_mac", "unknown")
             attributes = frame.get("attributes", [])
 
-            go_intent_attr = next(
-                (a for a in attributes if a["id"] == P2P_ATTR_GO_INTENT), None
-            )
+            go_intent_attr = next((a for a in attributes if a["id"] == P2P_ATTR_GO_INTENT), None)
             if go_intent_attr is not None and isinstance(go_intent_attr.get("value"), dict):
                 intent = go_intent_attr["value"].get("go_intent")
                 if intent == 15:
-                    findings.append({
-                        "src_mac": src_mac,
-                        "issue": "Maximum GO Intent (15) advertised — device always "
-                                 "insists on becoming Group Owner",
-                        "severity": "low",
-                    })
+                    findings.append(
+                        {
+                            "src_mac": src_mac,
+                            "issue": "Maximum GO Intent (15) advertised — device always "
+                            "insists on becoming Group Owner",
+                            "severity": "low",
+                        }
+                    )
 
             for attr in attributes:
                 if attr["id"] == P2P_ATTR_P2P_DEVICE_INFO and isinstance(attr["value"], dict):
                     methods = attr["value"].get("config_methods", [])
                     if methods == ["PBC"] or (
-                        "PBC" in methods and "Display" not in methods
-                        and "Keypad" not in methods
+                        "PBC" in methods and "Display" not in methods and "Keypad" not in methods
                     ):
-                        findings.append({
-                            "src_mac": src_mac,
-                            "issue": "PBC-only WPS configuration method — no PIN "
-                                     "authentication, vulnerable to rogue pairing "
-                                     "within button-press window",
-                            "severity": "medium",
-                        })
+                        findings.append(
+                            {
+                                "src_mac": src_mac,
+                                "issue": "PBC-only WPS configuration method — no PIN "
+                                "authentication, vulnerable to rogue pairing "
+                                "within button-press window",
+                                "severity": "medium",
+                            }
+                        )
 
-            status_attr = next(
-                (a for a in attributes if a["id"] == P2P_ATTR_STATUS), None
-            )
+            status_attr = next((a for a in attributes if a["id"] == P2P_ATTR_STATUS), None)
             if status_attr is not None and status_attr.get("value") not in (None, 0):
-                findings.append({
-                    "src_mac": src_mac,
-                    "issue": f"GO negotiation failed with status code "
-                             f"{status_attr.get('value')}",
-                    "severity": "info",
-                })
+                findings.append(
+                    {
+                        "src_mac": src_mac,
+                        "issue": f"GO negotiation failed with status code "
+                        f"{status_attr.get('value')}",
+                        "severity": "info",
+                    }
+                )
 
         return findings
 
@@ -721,7 +731,8 @@ class WiFiDirectTester:
         """
         self.logger.info(
             "Analyzing P2P group negotiation security on %s (timeout=%ds)...",
-            self.interface, self.timeout
+            self.interface,
+            self.timeout,
         )
         try:
             sniff(
@@ -771,10 +782,7 @@ class WiFiDirectTester:
             gon_frames = list(self.gon_frames)
             devices = list(self.devices.values())
 
-        pbc_only_devices = [
-            d for d in devices
-            if d.get("config_methods") == ["PBC"]
-        ]
+        pbc_only_devices = [d for d in devices if d.get("config_methods") == ["PBC"]]
 
         return {
             "limitation": REALISTIC_LIMITATION.strip(),
@@ -795,8 +803,7 @@ class WiFiDirectTester:
             Dict with mode-specific results plus run metadata.
         """
         self.logger.info(
-            "Starting WiFi Direct tester (mode=%s) on %s",
-            self.test_mode, self.interface
+            "Starting WiFi Direct tester (mode=%s) on %s", self.test_mode, self.interface
         )
         self._running = True
         self._start_time = time.time()
@@ -909,7 +916,7 @@ def main() -> None:
             "For authorized security testing and research only."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 Examples:
   # Passive P2P device discovery (default mode)
   sudo python3 wifi_direct.py -i wlan0mon
@@ -926,23 +933,33 @@ Examples:
   # Run all tests against a specific device
   sudo python3 wifi_direct.py -i wlan0mon -m all --target AA:BB:CC:DD:EE:FF
 
-%s
-        """ % REALISTIC_LIMITATION,
+{REALISTIC_LIMITATION}
+        """,
     )
 
-    parser.add_argument("-i", "--interface", required=True,
-                        help="Wireless interface in monitor mode")
-    parser.add_argument("-m", "--mode", default="discover",
-                        choices=list(TEST_MODES),
-                        help="Test mode (default: discover)")
-    parser.add_argument("--target", dest="target_device", default=None,
-                        help="Target P2P device MAC address")
-    parser.add_argument("-t", "--timeout", type=int, default=120,
-                        help="Timeout in seconds (default: 120)")
-    parser.add_argument("-o", "--output-dir", default="captures",
-                        help="Output directory for results (default: captures)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "-i", "--interface", required=True, help="Wireless interface in monitor mode"
+    )
+    parser.add_argument(
+        "-m",
+        "--mode",
+        default="discover",
+        choices=list(TEST_MODES),
+        help="Test mode (default: discover)",
+    )
+    parser.add_argument(
+        "--target", dest="target_device", default=None, help="Target P2P device MAC address"
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=120, help="Timeout in seconds (default: 120)"
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="captures",
+        help="Output directory for results (default: captures)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
     require_root()

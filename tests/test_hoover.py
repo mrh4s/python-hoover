@@ -2,14 +2,10 @@
 
 import csv
 import json
-import os
 import sqlite3
 import sys
 from collections import defaultdict
-from io import StringIO
-from unittest.mock import MagicMock, patch, PropertyMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Mock scapy before importing hoover, since scapy may not be installed.
@@ -23,7 +19,7 @@ sys.modules.setdefault("scapy.layers.dot11", _scapy_dot11_mock)
 sys.modules.setdefault("scapy.sendrecv", _scapy_sendrecv_mock)
 
 import hoover as _hoover_module  # noqa: E402
-from hoover import ProbeMonitor, OutputWriter, _color  # noqa: E402
+from hoover import OutputWriter, ProbeMonitor, _color  # noqa: E402
 
 # Grab the actual mock objects that hoover.py imported, so our packet mock
 # dispatches on the same identity the production code uses.
@@ -36,8 +32,8 @@ _Dot11ProbeReq = _hoover_module.Dot11ProbeReq
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_probe_packet(client_mac="AA:BB:CC:DD:EE:FF", ssid="TestSSID",
-                       signal_dbm=-50):
+
+def _make_probe_packet(client_mac="AA:BB:CC:DD:EE:FF", ssid="TestSSID", signal_dbm=-50):
     """Build a fake scapy packet that looks like a Dot11ProbeReq."""
     pkt = MagicMock()
     pkt.haslayer.return_value = True
@@ -65,6 +61,7 @@ def _make_probe_packet(client_mac="AA:BB:CC:DD:EE:FF", ssid="TestSSID",
 # ---------------------------------------------------------------------------
 # ProbeMonitor init
 # ---------------------------------------------------------------------------
+
 
 class TestProbeMonitorInit:
     """Tests for ProbeMonitor.__init__."""
@@ -104,6 +101,7 @@ class TestProbeMonitorInit:
 # ---------------------------------------------------------------------------
 # ProbeMonitor.packet_handler
 # ---------------------------------------------------------------------------
+
 
 class TestPacketHandler:
     """Tests for ProbeMonitor.packet_handler."""
@@ -150,6 +148,7 @@ class TestPacketHandler:
 # Channel Hopper
 # ---------------------------------------------------------------------------
 
+
 class TestChannelHopper:
     """Tests for _channel_hop_loop and _set_channel."""
 
@@ -194,6 +193,7 @@ class TestChannelHopper:
 # OutputWriter — CSV
 # ---------------------------------------------------------------------------
 
+
 class TestCSVOutput:
     """Tests for CSV output."""
 
@@ -201,11 +201,10 @@ class TestCSVOutput:
         csv_path = str(tmp_path / "output.csv")
         logger = MagicMock()
         writer = OutputWriter(csv_path, logger)
-        writer.write("2024-01-01 12:00:00", "AA:BB:CC:DD:EE:FF",
-                      "Apple", "TestSSID", -50)
+        writer.write("2024-01-01 12:00:00", "AA:BB:CC:DD:EE:FF", "Apple", "TestSSID", -50)
         writer.close()
 
-        with open(csv_path, "r", newline="", encoding="utf-8") as f:
+        with open(csv_path, newline="", encoding="utf-8") as f:
             reader = list(csv.reader(f))
 
         # Header row
@@ -222,6 +221,7 @@ class TestCSVOutput:
 # OutputWriter — JSON
 # ---------------------------------------------------------------------------
 
+
 class TestJSONOutput:
     """Tests for JSON-lines output."""
 
@@ -229,13 +229,11 @@ class TestJSONOutput:
         json_path = str(tmp_path / "output.json")
         logger = MagicMock()
         writer = OutputWriter(json_path, logger)
-        writer.write("2024-01-01 12:00:00", "AA:BB:CC:DD:EE:FF",
-                      "Apple", "TestSSID", -50)
-        writer.write("2024-01-01 12:00:01", "11:22:33:44:55:66",
-                      "Intel", "OtherSSID", -65)
+        writer.write("2024-01-01 12:00:00", "AA:BB:CC:DD:EE:FF", "Apple", "TestSSID", -50)
+        writer.write("2024-01-01 12:00:01", "11:22:33:44:55:66", "Intel", "OtherSSID", -65)
         writer.close()
 
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             lines = [json.loads(line) for line in f if line.strip()]
 
         assert len(lines) == 2
@@ -248,6 +246,7 @@ class TestJSONOutput:
 # OutputWriter — SQLite
 # ---------------------------------------------------------------------------
 
+
 class TestSQLiteOutput:
     """Tests for SQLite output."""
 
@@ -255,8 +254,7 @@ class TestSQLiteOutput:
         db_path = str(tmp_path / "output.db")
         logger = MagicMock()
         writer = OutputWriter(db_path, logger)
-        writer.write("2024-01-01 12:00:00", "AA:BB:CC:DD:EE:FF",
-                      "Apple", "TestSSID", -50)
+        writer.write("2024-01-01 12:00:00", "AA:BB:CC:DD:EE:FF", "Apple", "TestSSID", -50)
         writer.close()
 
         conn = sqlite3.connect(db_path)
@@ -278,9 +276,7 @@ class TestSQLiteOutput:
         writer.close()
 
         conn = sqlite3.connect(db_path)
-        indexes = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='index'"
-        ).fetchall()
+        indexes = conn.execute("SELECT name FROM sqlite_master WHERE type='index'").fetchall()
         index_names = {row[0] for row in indexes}
         conn.close()
 
@@ -291,6 +287,7 @@ class TestSQLiteOutput:
 # ---------------------------------------------------------------------------
 # Color output
 # ---------------------------------------------------------------------------
+
 
 class TestColorOutput:
     """Tests for _color helper."""

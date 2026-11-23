@@ -1,9 +1,7 @@
 """Tests for wardriving.py -- GPS/Wardriving module."""
 
 import csv
-import io
 import json
-import socket
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -18,17 +16,20 @@ sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 sys.modules.setdefault("scapy.packet", MagicMock())
 
-from wardriving import WardrivingMapper, main  # noqa: E402
-
 # Import mocked classes as production code sees them
 from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeResp, RadioTap,
+    Dot11,
+    Dot11Beacon,
+    Dot11Elt,
+    RadioTap,
 )
 
+from wardriving import WardrivingMapper, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mapper(mock_interface, tmp_path):
@@ -43,8 +44,7 @@ def mapper(mock_interface, tmp_path):
     )
 
 
-def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNetwork",
-                         channel=6, signal=-65):
+def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNetwork", channel=6, signal=-65):
     """Create a mock beacon/probe-response packet."""
     pkt = MagicMock()
 
@@ -69,12 +69,14 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNetwork",
 
     def haslayer(cls):
         return cls in layers_present
+
     pkt.haslayer = haslayer
 
     def getlayer(cls):
         if cls is Dot11Elt:
             return ssid_elt
         return None
+
     pkt.getlayer = getlayer
 
     def getitem(self, cls):
@@ -83,6 +85,7 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNetwork",
         if cls is RadioTap:
             return radiotap_layer
         return MagicMock()
+
     pkt.__getitem__ = getitem
 
     return pkt
@@ -91,6 +94,7 @@ def _make_beacon_packet(bssid="AA:BB:CC:DD:EE:FF", ssid="TestNetwork",
 # ---------------------------------------------------------------------------
 # 1. init defaults
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     def test_init_defaults(self):
@@ -108,6 +112,7 @@ class TestInit:
 # ---------------------------------------------------------------------------
 # 2/3. gpsd connection
 # ---------------------------------------------------------------------------
+
 
 class TestGpsdConnection:
     def test_connect_gpsd_success(self, mapper):
@@ -135,11 +140,17 @@ class TestGpsdConnection:
 # 4/5. get_gps_fix
 # ---------------------------------------------------------------------------
 
+
 class TestGetGpsFix:
     def test_get_gps_fix_valid(self, mapper):
         tpv = {
-            "class": "TPV", "mode": 3, "lat": 37.7749, "lon": -122.4194,
-            "alt": 10.0, "speed": 1.2, "time": "2024-01-01T12:00:00Z",
+            "class": "TPV",
+            "mode": 3,
+            "lat": 37.7749,
+            "lon": -122.4194,
+            "alt": 10.0,
+            "speed": 1.2,
+            "time": "2024-01-01T12:00:00Z",
             "satellites": 8,
         }
         mapper._gpsd_socket = MagicMock()
@@ -165,6 +176,7 @@ class TestGetGpsFix:
 # ---------------------------------------------------------------------------
 # 6/7. packet_handler
 # ---------------------------------------------------------------------------
+
 
 class TestPacketHandler:
     def test_packet_handler_associates_gps(self, mapper):
@@ -196,6 +208,7 @@ class TestPacketHandler:
 # 8. save_results JSON
 # ---------------------------------------------------------------------------
 
+
 class TestSaveResults:
     def test_save_results_json(self, mapper, tmp_path):
         mapper._current_fix = {"lat": 1.0, "lon": 2.0, "alt": 3.0}
@@ -205,7 +218,7 @@ class TestSaveResults:
         path = mapper.save_results()
 
         assert path == mapper.output_file
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         assert "AA:BB:CC:DD:EE:FF" in data
         assert data["AA:BB:CC:DD:EE:FF"]["ssid"] == "SaveTest"
@@ -214,6 +227,7 @@ class TestSaveResults:
 # ---------------------------------------------------------------------------
 # 9. export_kml
 # ---------------------------------------------------------------------------
+
 
 class TestExportKml:
     def test_export_kml(self, mapper, tmp_path):
@@ -225,7 +239,7 @@ class TestExportKml:
         result = mapper.export_kml(out_path)
 
         assert result == out_path
-        with open(out_path, "r", encoding="utf-8") as f:
+        with open(out_path, encoding="utf-8") as f:
             content = f.read()
         assert "<kml" in content
         assert "<Placemark>" in content
@@ -237,6 +251,7 @@ class TestExportKml:
 # 10. export_csv Wigle format
 # ---------------------------------------------------------------------------
 
+
 class TestExportCsv:
     def test_export_csv_wigle_format(self, mapper, tmp_path):
         mapper._current_fix = {"lat": 37.7749, "lon": -122.4194, "alt": 10.0}
@@ -247,15 +262,23 @@ class TestExportCsv:
         result = mapper.export_csv(out_path)
 
         assert result == out_path
-        with open(out_path, "r", encoding="utf-8") as f:
+        with open(out_path, encoding="utf-8") as f:
             lines = f.read().splitlines()
 
         assert lines[0].startswith("WigleWifi-1.4")
         header = lines[1].split(",")
         assert header == [
-            "MAC", "SSID", "AuthMode", "FirstSeen", "Channel", "RSSI",
-            "CurrentLatitude", "CurrentLongitude", "AltitudeMeters",
-            "AccuracyMeters", "Type",
+            "MAC",
+            "SSID",
+            "AuthMode",
+            "FirstSeen",
+            "Channel",
+            "RSSI",
+            "CurrentLatitude",
+            "CurrentLongitude",
+            "AltitudeMeters",
+            "AccuracyMeters",
+            "Type",
         ]
         reader = csv.reader(lines[2:])
         row = next(reader)
@@ -266,6 +289,7 @@ class TestExportCsv:
 # ---------------------------------------------------------------------------
 # 11. get_status with GPS
 # ---------------------------------------------------------------------------
+
 
 class TestGetStatus:
     def test_get_status_with_gps(self, mapper):
@@ -284,6 +308,7 @@ class TestGetStatus:
 # ---------------------------------------------------------------------------
 # 12. multiple sightings
 # ---------------------------------------------------------------------------
+
 
 class TestMultipleSightings:
     def test_multiple_sightings(self, mapper):
@@ -304,6 +329,7 @@ class TestMultipleSightings:
 # ---------------------------------------------------------------------------
 # 13. best signal location
 # ---------------------------------------------------------------------------
+
 
 class TestBestSignalLocation:
     def test_best_signal_location(self, mapper):
@@ -328,11 +354,13 @@ class TestBestSignalLocation:
 # 14. CLI format choices
 # ---------------------------------------------------------------------------
 
+
 class TestCliFormatChoices:
     def test_cli_format_choices(self, mock_interface, tmp_path, monkeypatch):
         output = str(tmp_path / "out.json")
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["wardriving.py", "-i", mock_interface, "-o", output, "-f", "bogus"],
         )
         with patch("wardriving.require_root"):
@@ -342,13 +370,16 @@ class TestCliFormatChoices:
     def test_cli_format_choices_valid(self, mock_interface, tmp_path, monkeypatch):
         output = str(tmp_path / "out.json")
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["wardriving.py", "-i", mock_interface, "-o", output, "-f", "all", "-t", "1"],
         )
-        with patch("wardriving.require_root"), \
-             patch.object(WardrivingMapper, "start") as mock_start, \
-             patch.object(WardrivingMapper, "export_kml") as mock_kml, \
-             patch.object(WardrivingMapper, "export_csv") as mock_csv:
+        with (
+            patch("wardriving.require_root"),
+            patch.object(WardrivingMapper, "start") as mock_start,
+            patch.object(WardrivingMapper, "export_kml") as mock_kml,
+            patch.object(WardrivingMapper, "export_csv") as mock_csv,
+        ):
             main()
         mock_start.assert_called_once()
         mock_kml.assert_called_once()

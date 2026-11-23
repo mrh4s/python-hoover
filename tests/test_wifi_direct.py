@@ -14,25 +14,29 @@ sys.modules.setdefault("scapy.layers.dot11", MagicMock())
 sys.modules.setdefault("scapy.sendrecv", MagicMock())
 sys.modules.setdefault("scapy.utils", MagicMock())
 
+from scapy.layers.dot11 import (  # noqa: E402
+    Dot11,
+    Dot11Action,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
+)
+
 import wifi_direct  # noqa: E402
 from wifi_direct import (  # noqa: E402
-    WiFiDirectTester,
-    P2P_OUI,
-    P2P_OUI_TYPE,
+    CATEGORY_PUBLIC_ACTION,
+    GO_NEG_REQUEST,
     P2P_ATTR_GO_INTENT,
     P2P_ATTR_P2P_DEVICE_INFO,
     P2P_ATTR_STATUS,
-    GO_NEG_REQUEST,
-    CATEGORY_PUBLIC_ACTION,
+    P2P_OUI,
+    P2P_OUI_TYPE,
     PUBLIC_ACTION_VENDOR_SPECIFIC,
     TEST_MODES,
+    WiFiDirectTester,
     main,
 )
-
-from scapy.layers.dot11 import (  # noqa: E402
-    Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp, Dot11Action,
-)
-
 
 DEVICE_ADDR = "AA:BB:CC:DD:EE:FF"
 
@@ -41,34 +45,37 @@ DEVICE_ADDR = "AA:BB:CC:DD:EE:FF"
 # Byte-building helpers
 # ---------------------------------------------------------------------------
 
+
 def _p2p_attr(attr_id: int, body: bytes) -> bytes:
     return bytes([attr_id]) + struct.pack("<H", len(body)) + body
 
 
-def _device_info_body(device_addr: str = DEVICE_ADDR,
-                       config_methods_raw: int = 0x0080,
-                       device_name: str = "TestDevice") -> bytes:
+def _device_info_body(
+    device_addr: str = DEVICE_ADDR,
+    config_methods_raw: int = 0x0080,
+    device_name: str = "TestDevice",
+) -> bytes:
     addr_bytes = bytes.fromhex(device_addr.replace(":", ""))
     body = addr_bytes + struct.pack(">H", config_methods_raw)
     body += b"\x00" * 8  # primary device type
-    body += b"\x00"      # secondary device type count
+    body += b"\x00"  # secondary device type count
     name_bytes = device_name.encode("utf-8")
     body += b"\x10\x11" + struct.pack(">H", len(name_bytes)) + name_bytes
     return body
 
 
-def _make_p2p_ie_body(device_addr: str = DEVICE_ADDR,
-                       config_methods_raw: int = 0x0080,
-                       device_name: str = "TestDevice",
-                       go_intent: int = None,
-                       tie_breaker: int = 0,
-                       status: int = None,
-                       with_group_info: bool = False) -> bytes:
+def _make_p2p_ie_body(
+    device_addr: str = DEVICE_ADDR,
+    config_methods_raw: int = 0x0080,
+    device_name: str = "TestDevice",
+    go_intent: int = None,
+    tie_breaker: int = 0,
+    status: int = None,
+    with_group_info: bool = False,
+) -> bytes:
     """Build raw P2P IE bytes: OUI + OUI type + attributes."""
     attrs = b""
-    attrs += _p2p_attr(
-        13, _device_info_body(device_addr, config_methods_raw, device_name)
-    )
+    attrs += _p2p_attr(13, _device_info_body(device_addr, config_methods_raw, device_name))
     if go_intent is not None:
         raw_byte = (go_intent << 1) | (tie_breaker & 0x01)
         attrs += _p2p_attr(4, bytes([raw_byte]))
@@ -83,6 +90,7 @@ def _make_p2p_ie_body(device_addr: str = DEVICE_ADDR,
 # ---------------------------------------------------------------------------
 # Mock packet helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_elt_chain(elts):
     """Build a chain of mock Dot11Elt-like objects.
@@ -119,6 +127,7 @@ def _make_packet(layers=None, addr2=None, elt_chain=None, action_payload=None):
         if cls is Dot11Elt:
             return elt_chain
         return None
+
     pkt.getlayer = getlayer
 
     def getitem(key):
@@ -129,6 +138,7 @@ def _make_packet(layers=None, addr2=None, elt_chain=None, action_payload=None):
             action_mock.payload = action_payload if action_payload is not None else b""
             return action_mock
         return MagicMock()
+
     pkt.__getitem__ = MagicMock(side_effect=getitem)
 
     return pkt
@@ -137,7 +147,8 @@ def _make_packet(layers=None, addr2=None, elt_chain=None, action_payload=None):
 def _make_gon_action_payload(subtype=GO_NEG_REQUEST, extra_attrs: bytes = b""):
     return (
         bytes([CATEGORY_PUBLIC_ACTION, PUBLIC_ACTION_VENDOR_SPECIFIC])
-        + P2P_OUI + bytes([P2P_OUI_TYPE, subtype])
+        + P2P_OUI
+        + bytes([P2P_OUI_TYPE, subtype])
         + extra_attrs
     )
 
@@ -145,6 +156,7 @@ def _make_gon_action_payload(subtype=GO_NEG_REQUEST, extra_attrs: bytes = b""):
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tester(mock_interface, tmp_path):
@@ -158,6 +170,7 @@ def tester(mock_interface, tmp_path):
 # ---------------------------------------------------------------------------
 # __init__
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     def test_init_defaults(self, mock_interface):
@@ -198,6 +211,7 @@ class TestInit:
 # _parse_p2p_attributes
 # ---------------------------------------------------------------------------
 
+
 class TestParseP2PAttributes:
     def test_parses_status_attribute(self, tester):
         data = _p2p_attr(P2P_ATTR_STATUS, bytes([1]))
@@ -233,6 +247,7 @@ class TestParseP2PAttributes:
 # _parse_p2p_ie
 # ---------------------------------------------------------------------------
 
+
 class TestParseP2PIe:
     def test_parses_device_name_and_config_methods(self, tester):
         body = _make_p2p_ie_body(device_name="MyPhone", config_methods_raw=0x0080)
@@ -258,13 +273,12 @@ class TestParseP2PIe:
 # _discover_p2p_devices / packet_handler (device recording)
 # ---------------------------------------------------------------------------
 
+
 class TestDiscoverP2PDevices:
     def test_packet_handler_records_device_from_probe_response(self, tester):
         ie_body = _make_p2p_ie_body(device_name="Printer")
         elt_chain = _make_elt_chain([(221, ie_body)])
-        pkt = _make_packet(
-            layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain
-        )
+        pkt = _make_packet(layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain)
 
         tester.packet_handler(pkt)
 
@@ -273,9 +287,7 @@ class TestDiscoverP2PDevices:
 
     def test_packet_handler_ignores_non_p2p_probe_response(self, tester):
         elt_chain = _make_elt_chain([(0, b"SomeSSID")])
-        pkt = _make_packet(
-            layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain
-        )
+        pkt = _make_packet(layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain)
 
         tester.packet_handler(pkt)
 
@@ -289,9 +301,7 @@ class TestDiscoverP2PDevices:
         )
         ie_body = _make_p2p_ie_body(device_name="OtherDevice")
         elt_chain = _make_elt_chain([(221, ie_body)])
-        pkt = _make_packet(
-            layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain
-        )
+        pkt = _make_packet(layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain)
 
         t.packet_handler(pkt)
 
@@ -301,9 +311,7 @@ class TestDiscoverP2PDevices:
     def test_discover_p2p_devices_calls_sniff_and_returns_devices(self, mock_sniff, tester):
         ie_body = _make_p2p_ie_body(device_name="Laptop")
         elt_chain = _make_elt_chain([(221, ie_body)])
-        pkt = _make_packet(
-            layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain
-        )
+        pkt = _make_packet(layers={Dot11ProbeResp}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain)
 
         def fake_sniff(iface, prn, timeout, store, stop_filter):
             prn(pkt)
@@ -321,11 +329,11 @@ class TestDiscoverP2PDevices:
 # _detect_go_negotiation
 # ---------------------------------------------------------------------------
 
+
 class TestDetectGoNegotiation:
     def test_detects_go_negotiation_request(self, tester):
         payload = _make_gon_action_payload(subtype=GO_NEG_REQUEST)
-        pkt = _make_packet(layers={Dot11Action}, addr2=DEVICE_ADDR.lower(),
-                            action_payload=payload)
+        pkt = _make_packet(layers={Dot11Action}, addr2=DEVICE_ADDR.lower(), action_payload=payload)
 
         result = tester._detect_go_negotiation(pkt)
 
@@ -339,7 +347,9 @@ class TestDetectGoNegotiation:
         assert tester._detect_go_negotiation(pkt) is None
 
     def test_returns_none_for_non_p2p_action_frame(self, tester):
-        payload = bytes([CATEGORY_PUBLIC_ACTION, PUBLIC_ACTION_VENDOR_SPECIFIC]) + b"\x00\x11\x22\x01\x00"
+        payload = (
+            bytes([CATEGORY_PUBLIC_ACTION, PUBLIC_ACTION_VENDOR_SPECIFIC]) + b"\x00\x11\x22\x01\x00"
+        )
         pkt = _make_packet(layers={Dot11Action}, action_payload=payload)
         assert tester._detect_go_negotiation(pkt) is None
 
@@ -349,8 +359,7 @@ class TestDetectGoNegotiation:
 
     def test_packet_handler_records_gon_frame(self, tester):
         payload = _make_gon_action_payload(subtype=GO_NEG_REQUEST)
-        pkt = _make_packet(layers={Dot11Action}, addr2=DEVICE_ADDR.lower(),
-                            action_payload=payload)
+        pkt = _make_packet(layers={Dot11Action}, addr2=DEVICE_ADDR.lower(), action_payload=payload)
 
         tester.packet_handler(pkt)
 
@@ -361,6 +370,7 @@ class TestDetectGoNegotiation:
 # ---------------------------------------------------------------------------
 # _analyze_wps_method
 # ---------------------------------------------------------------------------
+
 
 class TestAnalyzeWpsMethod:
     def test_identifies_pbc_method(self, tester):
@@ -385,14 +395,13 @@ class TestAnalyzeWpsMethod:
 # _detect_p2p_groups
 # ---------------------------------------------------------------------------
 
+
 class TestDetectP2PGroups:
     @patch("wifi_direct.sniff")
     def test_detects_group_from_beacon_group_info(self, mock_sniff, tester):
         ie_body = _make_p2p_ie_body(with_group_info=True)
         elt_chain = _make_elt_chain([(0, b"DIRECT-ab-MyGroup"), (221, ie_body)])
-        pkt = _make_packet(
-            layers={Dot11Beacon}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain
-        )
+        pkt = _make_packet(layers={Dot11Beacon}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain)
 
         def fake_sniff(iface, prn, timeout, store, stop_filter):
             prn(pkt)
@@ -410,9 +419,7 @@ class TestDetectP2PGroups:
     def test_beacon_without_group_info_is_not_a_group(self, mock_sniff, tester):
         ie_body = _make_p2p_ie_body(with_group_info=False)
         elt_chain = _make_elt_chain([(221, ie_body)])
-        pkt = _make_packet(
-            layers={Dot11Beacon}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain
-        )
+        pkt = _make_packet(layers={Dot11Beacon}, addr2=DEVICE_ADDR.lower(), elt_chain=elt_chain)
 
         def fake_sniff(iface, prn, timeout, store, stop_filter):
             prn(pkt)
@@ -427,46 +434,56 @@ class TestDetectP2PGroups:
 # _check_go_negotiation_security
 # ---------------------------------------------------------------------------
 
+
 class TestCheckGoNegotiationSecurity:
     def test_flags_maximum_go_intent(self, tester):
-        frames = [{
-            "src_mac": DEVICE_ADDR,
-            "attributes": [
-                {"id": P2P_ATTR_GO_INTENT, "value": {"go_intent": 15, "tie_breaker": 0}},
-            ],
-        }]
+        frames = [
+            {
+                "src_mac": DEVICE_ADDR,
+                "attributes": [
+                    {"id": P2P_ATTR_GO_INTENT, "value": {"go_intent": 15, "tie_breaker": 0}},
+                ],
+            }
+        ]
         findings = tester._check_go_negotiation_security(frames)
         assert any("GO Intent" in f["issue"] for f in findings)
 
     def test_flags_pbc_only_wps_method(self, tester):
-        frames = [{
-            "src_mac": DEVICE_ADDR,
-            "attributes": [
-                {"id": P2P_ATTR_P2P_DEVICE_INFO,
-                 "value": {"config_methods": ["PBC"]}},
-            ],
-        }]
+        frames = [
+            {
+                "src_mac": DEVICE_ADDR,
+                "attributes": [
+                    {"id": P2P_ATTR_P2P_DEVICE_INFO, "value": {"config_methods": ["PBC"]}},
+                ],
+            }
+        ]
         findings = tester._check_go_negotiation_security(frames)
         assert any("PBC" in f["issue"] for f in findings)
 
     def test_flags_failed_negotiation_status(self, tester):
-        frames = [{
-            "src_mac": DEVICE_ADDR,
-            "attributes": [{"id": P2P_ATTR_STATUS, "value": 3}],
-        }]
+        frames = [
+            {
+                "src_mac": DEVICE_ADDR,
+                "attributes": [{"id": P2P_ATTR_STATUS, "value": 3}],
+            }
+        ]
         findings = tester._check_go_negotiation_security(frames)
         assert any("status code 3" in f["issue"] for f in findings)
 
     def test_no_findings_for_clean_negotiation(self, tester):
-        frames = [{
-            "src_mac": DEVICE_ADDR,
-            "attributes": [
-                {"id": P2P_ATTR_GO_INTENT, "value": {"go_intent": 7, "tie_breaker": 0}},
-                {"id": P2P_ATTR_STATUS, "value": 0},
-                {"id": P2P_ATTR_P2P_DEVICE_INFO,
-                 "value": {"config_methods": ["Display", "Keypad"]}},
-            ],
-        }]
+        frames = [
+            {
+                "src_mac": DEVICE_ADDR,
+                "attributes": [
+                    {"id": P2P_ATTR_GO_INTENT, "value": {"go_intent": 7, "tie_breaker": 0}},
+                    {"id": P2P_ATTR_STATUS, "value": 0},
+                    {
+                        "id": P2P_ATTR_P2P_DEVICE_INFO,
+                        "value": {"config_methods": ["Display", "Keypad"]},
+                    },
+                ],
+            }
+        ]
         findings = tester._check_go_negotiation_security(frames)
         assert findings == []
 
@@ -478,6 +495,7 @@ class TestCheckGoNegotiationSecurity:
 # save_results / get_status / stop
 # ---------------------------------------------------------------------------
 
+
 class TestSaveResults:
     def test_save_results_returns_none_when_no_results(self, tester):
         assert tester.save_results() is None
@@ -486,7 +504,7 @@ class TestSaveResults:
         tester.results = {"mode": "discover", "data": {"devices": []}}
         path = tester.save_results()
         assert path is not None
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             saved = json.load(f)
         assert saved["mode"] == "discover"
 
@@ -525,9 +543,12 @@ class TestStop:
 # start() orchestration
 # ---------------------------------------------------------------------------
 
+
 class TestStart:
     def test_start_discover_mode(self, tester):
-        with patch.object(tester, "_discover_p2p_devices", return_value=[{"device_address": DEVICE_ADDR}]):
+        with patch.object(
+            tester, "_discover_p2p_devices", return_value=[{"device_address": DEVICE_ADDR}]
+        ):
             result = tester.start()
         assert result["mode"] == "discover"
         assert result["data"]["devices"] == [{"device_address": DEVICE_ADDR}]
@@ -549,6 +570,7 @@ class TestStart:
 # CLI parsing (main)
 # ---------------------------------------------------------------------------
 
+
 class TestCli:
     def test_main_invalid_interface_exits(self, monkeypatch, capsys):
         monkeypatch.setattr(sys, "argv", ["wifi_direct.py", "-i", "bad iface!"])
@@ -560,7 +582,8 @@ class TestCli:
 
     def test_main_invalid_target_mac_exits(self, monkeypatch, capsys):
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["wifi_direct.py", "-i", "wlan0mon", "--target", "not-a-mac"],
         )
         monkeypatch.setattr(wifi_direct, "require_root", lambda: None)
@@ -571,12 +594,15 @@ class TestCli:
 
     def test_main_valid_args_runs_and_exits_zero(self, monkeypatch):
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["wifi_direct.py", "-i", "wlan0mon", "-m", "discover", "-t", "1"],
         )
         monkeypatch.setattr(wifi_direct, "require_root", lambda: None)
-        with patch.object(WiFiDirectTester, "start", return_value={}) as mock_start, \
-                patch.object(WiFiDirectTester, "save_results", return_value=None) as mock_save:
+        with (
+            patch.object(WiFiDirectTester, "start", return_value={}) as mock_start,
+            patch.object(WiFiDirectTester, "save_results", return_value=None) as mock_save,
+        ):
             with pytest.raises(SystemExit) as exc:
                 main()
         assert exc.value.code == 0
