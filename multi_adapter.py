@@ -12,6 +12,7 @@ import glob
 import json
 import os
 import subprocess
+import sys  # noqa: F401 — needed so tests can patch multi_adapter.sys.argv
 import threading
 from typing import Optional
 

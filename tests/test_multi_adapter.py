@@ -204,7 +204,7 @@ class TestMultiAdapterCLI:
         """--discover lists discovered interfaces and prints them as JSON."""
         fake_discovered = [{"interface": "wlan0", "role": None}]
         with (
-            patch("sys.argv", ["multi_adapter.py", "--discover"]),
+            patch("multi_adapter.sys.argv", ["multi_adapter.py", "--discover"]),
             patch.object(MultiAdapterManager, "discover_adapters", return_value=fake_discovered),
         ):
             main()
